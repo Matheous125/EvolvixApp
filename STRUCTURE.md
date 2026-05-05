@@ -16,7 +16,7 @@ app/src/main/java/com/example/evolvix
 │   │   └── Migration.kt    # Database schema migrations
 │   └── model/              # Database entity classes
 │       ├── HabitEntity.kt  # Habit table entity
-│       ├── HabitCompletitionEntity.kt  # Habit completion records (class: HabitCompletionEntity)
+│       ├── HabitCompletionEntity.kt  # Habit completion records
 │       └── HabitFrequency.kt  # Habit frequency enum/model
 │
 ├── domain/                 # Domain Layer - Business Logic

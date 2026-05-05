@@ -14,7 +14,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 **Goal:** Establish a stable baseline before adding new modules. Verify existing MVVM contracts.
 
 - [x] Populate root `.gitignore` with standard Android, Gradle, and VS Code exclusions to prevent committing build artifacts.
-- [ ] Create root README.md with project title, short description, thesis context, tech stack (Kotlin, Jetpack Compose, Room), and current status.
+- [x] Create root README.md with project title, short description, thesis context, tech stack (Kotlin, Jetpack Compose, Room), and current status.
 - [ ] Audit current entities in `data/model/` (`HabitEntity.kt`, `HabitCompletitionEntity.kt`, `HabitFrequency.kt`) and confirm they match `STRUCTURE.md`.
 - [ ] Confirm `data/local/HabitDao.kt` exposes suspend/Flow functions (Pattern: **DAO / Repository contract**).
 - [ ] Verify `ui/viewmodel/HabitViewModel.kt` exposes `StateFlow<HabitUiState>` (Pattern: **Observer via Flow**, **MVVM**).
@@ -49,6 +49,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 2.1 Reduced-friction Add/Edit forms
 - [ ] **Model:** New `data/model/HabitTemplate.kt` (in-memory list, no Room) seeded from `HABIT-TEMPLATES.MD`.
 - [ ] **Model:** Add `categories: List<String>` + `colorHex: String` + `iconKey: String?` columns (bump DB version).
+- [ ] **Model (layering fix):** Remove `HabitEntity`'s import of `HabitColorScheme` from `ui/theme/` — replacing it with the new `colorHex: String` primitive eliminates a data→UI layer dependency violation found during Phase 0 audit.
 - [ ] **ViewModel:** Extend `HabitUiState` with `templates`, `selectedCategories`, `selectedColor`, `frequencyN`, `frequencyUnit`, `targetCount` (Pattern: **State Holder / Unidirectional Data Flow**).
 - [ ] **View:** Refactor `AddNewHabitScreen.kt` into sections: Templates row · Name · Frequency builder · Target · Categories chips (`FilterChip`) · Color picker · Reminder switch.
 - [ ] **View:** `EditHabitScreen.kt` mirrors form but swaps Templates row for Icon picker.
