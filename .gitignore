@@ -1,0 +1,74 @@
+# ============================================================
+# Android
+# ============================================================
+*.iml
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# ============================================================
+# Gradle build outputs & caches
+# ============================================================
+.gradle/
+/build/
+app/build/
+**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+.kotlin/
+
+# ============================================================
+# IntelliJ / Android Studio IDE
+# ============================================================
+*.iml
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+.idea/deploymentTargetSelector.xml
+.idea/.gitignore
+
+# ============================================================
+# VS Code
+# ============================================================
+.vscode/
+*.code-workspace
+.history/
+
+# ============================================================
+# macOS / Windows system files
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Kotlin / Java compilation
+# ============================================================
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# ============================================================
+# Signing & secrets (never commit these)
+# ============================================================
+*.jks
+*.keystore
+keystore.properties
+
+# ============================================================
+# Miscellaneous
+# ============================================================
+WORK-INSTRUCTIONS.MD
