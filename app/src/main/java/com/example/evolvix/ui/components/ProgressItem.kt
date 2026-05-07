@@ -2,6 +2,7 @@ package com.example.evolvix.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -24,12 +25,17 @@ import com.example.evolvix.ui.theme.HabitColorScheme
 
 /**
  * A composable that displays a habit's progress as an animated bar with text.
- * 
+ *
+ * When [isOverCompleted] is true, the progress bar fills completely using the M3 tertiary
+ * color role (acting as an "achievement" accent), and the count label switches to a
+ * surplus format (+N) so the user immediately understands they exceeded the target.
+ *
  * @param title The name of the habit
  * @param maxClicks Maximum number of completions needed
  * @param modifier Optional Modifier for customizing the layout
  * @param currentClickCount Current number of completions
  * @param colorScheme Color scheme to use for the item
+ * @param isOverCompleted Whether the habit has been completed more than the target
  * @param isSystemInDarkTheme Whether dark mode is enabled
  */
 @Composable
@@ -39,9 +45,11 @@ fun ProgressItem(
     modifier: Modifier = Modifier,
     currentClickCount: Int,
     colorScheme: HabitColorScheme,
+    isOverCompleted: Boolean = false,
     isSystemInDarkTheme: Boolean = isSystemInDarkTheme()
 ) {
-    val progressFraction = if (maxClicks > 0) currentClickCount.toFloat() / maxClicks else 0f
+    // Clamp at 1f when over-completed so the bar doesn't overflow its container
+    val progressFraction = if (maxClicks > 0) (currentClickCount.toFloat() / maxClicks).coerceAtMost(1f) else 0f
 
     // Animate progress changes
     val animatedFraction by animateFloatAsState(
@@ -49,20 +57,40 @@ fun ProgressItem(
         label = "progressAnimation"
     )
 
-    // Container box with rounded corners
+    val shape = RoundedCornerShape(8.dp)
+    val progressColor = colorScheme.getProgressColor(isSystemInDarkTheme)
+    // Text color is designed to contrast against the progress fill — use it as the border
+    // so the stroke is always visible even when the bar is 100% filled.
+    val borderColor = colorScheme.getTextColor(isSystemInDarkTheme)
+
+    // +N shows the surplus completions; normal mode shows currentCount/target
+    val countLabel = if (isOverCompleted) {
+        "+${currentClickCount - maxClicks}"
+    } else {
+        "${currentClickCount}/$maxClicks"
+    }
+
+    // Container box with rounded corners.
+    // Border must be applied before clip — otherwise the clip masks the stroke out.
+    // When over-completed, a 2.dp border in the habit's own progress color acts as a
+    // "celebratory frame" that respects each habit's color identity.
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .then(
+                if (isOverCompleted) Modifier.border(2.dp, borderColor, shape)
+                else Modifier
+            )
+            .clip(shape)
             .background(colorScheme.getBackgroundColor(isSystemInDarkTheme))
     ) {
-        // Progress bar fill
+        // Progress bar fill — always uses the habit's own color scheme
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(animatedFraction)
-                .background(colorScheme.getProgressColor(isSystemInDarkTheme))
+                .background(progressColor)
         )
 
         // Content row with title and progress text
@@ -79,9 +107,11 @@ fun ProgressItem(
                 color = colorScheme.getTextColor(isSystemInDarkTheme)
             )
             Text(
-                text = "${currentClickCount}/$maxClicks",
+                text = countLabel,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                // +N uses the habit's text color so it's always readable regardless of bar color
+                color = colorScheme.getTextColor(isSystemInDarkTheme)
+                    .let { if (isOverCompleted) it else it.copy(alpha = 0.7f) }
             )
         }
     }

@@ -84,6 +84,7 @@ fun MainScreen(
                         maxClicks = habit.target,
                         currentClickCount = habit.currentCount,
                         colorScheme = habit.colorScheme,
+                        isOverCompleted = habit.isOverCompleted,
                         isSystemInDarkTheme = true,
                         modifier = Modifier.fillMaxWidth()
                     )
