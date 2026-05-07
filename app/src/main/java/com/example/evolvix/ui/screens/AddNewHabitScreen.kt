@@ -34,7 +34,7 @@ import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
 import kotlinx.coroutines.launch
 
 /** Predefined category labels available as FilterChips in the form. */
-private val ALL_CATEGORIES = listOf(
+val ALL_CATEGORIES = listOf(
     "Health", "Fitness", "Learning", "Mindfulness",
     "Productivity", "Social", "Finance"
 )
@@ -77,7 +77,7 @@ private fun TemplatesRow(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CategoriesSection(
+fun CategoriesSection(
     allCategories: List<String>,
     selectedCategories: Set<String>,
     onToggle: (String) -> Unit,
@@ -251,8 +251,8 @@ fun AddNewHabitScreen(
     var showTargetError by remember { mutableStateOf(false) }
     var targetTouched by remember { mutableStateOf(false) }
     var frequencyExpanded by remember { mutableStateOf(false) }
-    // Reminder toggle is local for now — Phase 7 wires it to WorkManager scheduling.
-    var reminderEnabled by remember { mutableStateOf(false) }
+    // Reminder toggle defaults to true — user can opt out.
+    var reminderEnabled by remember { mutableStateOf(true) }
     // Custom categories entered via the [+ Add] dialog; merged with ALL_CATEGORIES for display.
     var customCategories by remember { mutableStateOf(listOf<String>()) }
 
@@ -497,7 +497,8 @@ fun AddNewHabitScreen(
                                         target = formState.targetCount.coerceAtLeast(1),
                                         frequency = formState.frequencyUnit,
                                         colorHex = formState.selectedColor,
-                                        selectedCategories = formState.selectedCategories
+                                        selectedCategories = formState.selectedCategories,
+                                        reminderEnabled = reminderEnabled
                                     )
                                 )
                                 habitViewModel.resetFormState()

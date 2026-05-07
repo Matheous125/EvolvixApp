@@ -187,7 +187,8 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                     totalTargetReaches = habit.totalTargetReaches,
                     lastResetDate = habit.lastResetDate,
                     // selectedCategories carries the form's chosen categories on submission
-                    categories = habit.selectedCategories.toList()
+                    categories = habit.selectedCategories.toList(),
+                    reminderEnabled = habit.reminderEnabled
                 )
             )
         }
@@ -247,6 +248,9 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
         target: Int,
         frequency: HabitFrequency,
         colorHex: String,
+        categories: List<String> = emptyList(),
+        iconKey: String? = null,
+        reminderEnabled: Boolean = false,
         onSuccess: () -> Unit,
         onError: () -> Unit
     ) {
@@ -257,7 +261,10 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                     name = name,
                     target = target,
                     frequency = frequency,
-                    colorHex = colorHex
+                    colorHex = colorHex,
+                    categories = categories,
+                    iconKey = iconKey,
+                    reminderEnabled = reminderEnabled
                 )
                 habitDao.updateHabit(updatedHabit)
                 onSuccess()

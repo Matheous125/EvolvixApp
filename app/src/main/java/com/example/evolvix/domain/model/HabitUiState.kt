@@ -84,5 +84,8 @@ data class HabitUiState(
      * Target completions per frequency period, as entered in the Target field.
      * Maps to [HabitEntity.target] on save.
      */
-    val targetCount: Int = 1
+    val targetCount: Int = 1,
+
+    /** Whether smart reminders are enabled for this habit. Persisted to [HabitEntity.reminderEnabled]. */
+    val reminderEnabled: Boolean = false
 )

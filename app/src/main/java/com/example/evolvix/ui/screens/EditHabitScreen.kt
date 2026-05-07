@@ -1,36 +1,111 @@
 package com.example.evolvix.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.data.local.AppDatabase
+import com.example.evolvix.data.model.HabitFrequency
+import com.example.evolvix.domain.model.FormError
+import com.example.evolvix.ui.theme.HabitColorScheme
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
-import androidx.compose.material.icons.Icons
-import com.example.evolvix.data.model.HabitFrequency
-import com.example.evolvix.ui.theme.HabitColorScheme
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.ui.focus.onFocusChanged
-import com.example.evolvix.domain.model.FormError
 import kotlinx.coroutines.launch
+
+/** Associates a stable String key (persisted to [HabitEntity.iconKey]) with a Material icon vector. */
+private data class HabitIcon(val key: String, val vector: ImageVector, val label: String)
+
+/** Habit icon palette — covers the main habit categories from IDEAS.MD. */
+private val ALL_HABIT_ICONS = listOf(
+    HabitIcon("star",           Icons.Filled.Star,            "Star"),
+    HabitIcon("favorite",       Icons.Filled.Favorite,        "Health"),
+    HabitIcon("fitness_center", Icons.Filled.FitnessCenter,   "Fitness"),
+    HabitIcon("menu_book",      Icons.Filled.School,          "Learning"),
+    HabitIcon("self_improve",   Icons.Filled.SelfImprovement, "Mindfulness"),
+    HabitIcon("water_drop",     Icons.Filled.WaterDrop,       "Hydration"),
+    HabitIcon("run",            Icons.Filled.Sports,          "Running"),
+    HabitIcon("psychology",     Icons.Filled.Psychology,      "Mental"),
+    HabitIcon("money",          Icons.Filled.AttachMoney,     "Finance"),
+    HabitIcon("people",         Icons.Filled.People,          "Social"),
+    HabitIcon("bedtime",        Icons.Filled.Bedtime,         "Sleep")
+)
+
+/**
+ * Horizontally scrollable row of selectable habit icon chips.
+ * Replaces the Templates row from [AddNewHabitScreen] — the selected key is
+ * persisted to [HabitEntity.iconKey] on save.
+ *
+ * @param selectedKey Currently selected icon key (null = none selected yet).
+ * @param onIconSelected Callback dispatched when the user taps an icon.
+ */
+@Composable
+private fun IconPickerRow(
+    selectedKey: String?,
+    onIconSelected: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Icon",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(ALL_HABIT_ICONS) { habitIcon ->
+                val isSelected = habitIcon.key == selectedKey
+                Surface(
+                    shape = CircleShape,
+                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                    border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                             else null,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clickable { onIconSelected(habitIcon.key) }
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = habitIcon.vector,
+                            contentDescription = habitIcon.label,
+                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                   else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 /**
  * Screen for editing an existing habit.
- * Provides form fields for updating habit properties and deletion option.
+ * Mirrors [AddNewHabitScreen] — replaces the Templates row with an Icon picker.
+ * Sections: Icon picker · Name · Frequency builder · Target · Categories · Color · Reminder.
  *
- * @param habitId ID of the habit to edit
- * @param onNavigateBack Callback for navigation
- * @param modifier Optional modifier for layout customization
- * @param habitViewModel ViewModel for habit operations
+ * @param habitId ID of the habit to edit.
+ * @param onNavigateBack Callback for navigation after save or cancel.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditHabitScreen(
     habitId: Int,
@@ -42,41 +117,54 @@ fun EditHabitScreen(
         )
     )
 ) {
-    // State for form fields
+    // ── Local text-field state ────────────────────────────────────────────────
+    // Kept local for per-keystroke reactivity (same reasoning as AddNewHabitScreen).
     var habitName by remember { mutableStateOf("") }
-    var target by remember { mutableStateOf("") }
+    var targetString by remember { mutableStateOf("1") }
+    var frequencyNString by remember { mutableStateOf("1") }
+
+    // ── Local form state ──────────────────────────────────────────────────────
     var selectedFrequency by remember { mutableStateOf(HabitFrequency.Daily) }
     var selectedColor by remember { mutableStateOf(HabitColorScheme.GREEN) }
+    var selectedCategories by remember { mutableStateOf(emptySet<String>()) }
+    var selectedIconKey by remember { mutableStateOf<String?>(null) }
+    // Custom categories not in the predefined list — restored from the habit on load.
+    var customCategories by remember { mutableStateOf(listOf<String>()) }
+
+    // ── UI control state ──────────────────────────────────────────────────────
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
+    var showNameError by remember { mutableStateOf(false) }
+    var showTargetError by remember { mutableStateOf(false) }
+    var targetTouched by remember { mutableStateOf(false) }
+    var frequencyExpanded by remember { mutableStateOf(false) }
+    // Reminder toggle is local for now — Phase 7 wires it to WorkManager scheduling.
+    var reminderEnabled by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
-    // rememberCoroutineScope ties the scope to this composable's lifecycle
+
     val coroutineScope = rememberCoroutineScope()
-    // Observe form validation errors from the ViewModel (Observer pattern)
+    // Observe form validation errors from the ViewModel (Observer pattern via StateFlow)
     val formError by habitViewModel.formError.collectAsState()
 
-    // Load existing habit data when screen opens
+    // Load existing habit data when the screen opens
     LaunchedEffect(habitId) {
         habitViewModel.getHabitById(habitId)?.let { habit ->
-            // Initialize form with habit data
             habitName = habit.name
-            target = habit.target.toString()
+            targetString = habit.target.toString()
             selectedFrequency = habit.frequency
             selectedColor = HabitColorScheme.fromHex(habit.colorHex)
+            selectedCategories = habit.categories.toSet()
+            selectedIconKey = habit.iconKey
+            reminderEnabled = habit.reminderEnabled
+            // Restore any custom categories saved with this habit
+            customCategories = habit.categories.filter { it !in ALL_CATEGORIES }
             isLoading = false
         }
     }
 
-    var showNameError by remember { mutableStateOf(false) }
-    var showTargetError by remember { mutableStateOf(false) }
-    // True once the target field has been focused at least once; prevents
-    // premature validation when the screen first opens with focus on name field
-    var targetTouched by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var showOverflowMenu by remember { mutableStateOf(false) }
-
-    //Delete confirmation dialog
+    // ── Delete confirmation dialog ─────────────────────────────────────────────
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -100,14 +188,10 @@ fun EditHabitScreen(
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
-                ) {
-                    Text("Delete")
-                }
+                ) { Text("Delete") }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -115,68 +199,83 @@ fun EditHabitScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-            title = { Text("Edit Habit") },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer
-            ),
-            windowInsets = WindowInsets(0),
-            navigationIcon = {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Navigate back"
-                    )
-                }
-            },
-            actions = {
-                // Overflow menu for destructive and secondary actions
-                Box {
-                    IconButton(onClick = { showOverflowMenu = true }) {
+                title = { Text("Edit Habit") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                windowInsets = WindowInsets(0),
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.Filled.MoreVert,
-                            contentDescription = "More options"
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Navigate back"
                         )
                     }
-                    DropdownMenu(
-                        expanded = showOverflowMenu,
-                        onDismissRequest = { showOverflowMenu = false }
-                    ) {
-                        // Placeholder — reset logic will be implemented in a later phase
-                        DropdownMenuItem(
-                            text = { Text("Reset progress") },
-                            onClick = { showOverflowMenu = false }
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = "Delete",
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            },
-                            onClick = {
-                                showOverflowMenu = false
-                                showDeleteDialog = true
-                            }
-                        )
+                },
+                actions = {
+                    // Overflow menu for destructive and secondary actions
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "More options"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showOverflowMenu,
+                            onDismissRequest = { showOverflowMenu = false }
+                        ) {
+                            // Placeholder — reset logic will be implemented in a later phase
+                            DropdownMenuItem(
+                                text = { Text("Reset progress") },
+                                onClick = { showOverflowMenu = false }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showDeleteDialog = true
+                                }
+                            )
+                        }
                     }
                 }
-            }
-        )
+            )
         }
-   ) { paddingValues ->
+    ) { paddingValues ->
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize().padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator() }
+            return@Scaffold
+        }
+
         Column(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Name input
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── 1. Icon picker (replaces Templates row) ───────────────────────
+            IconPickerRow(
+                selectedKey = selectedIconKey,
+                onIconSelected = { selectedIconKey = it }
+            )
+
+            HorizontalDivider()
+
+            // ── 2. Name ───────────────────────────────────────────────────────
             OutlinedTextField(
                 value = habitName,
                 onValueChange = {
                     habitName = it
                     showNameError = it.isEmpty()
-                    habitViewModel.clearFormError() // dismiss duplicate error while typing
+                    habitViewModel.clearFormError()
                 },
                 label = { Text("Habit Name") },
                 isError = showNameError || formError is FormError.DuplicateName,
@@ -188,109 +287,163 @@ fun EditHabitScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onFocusChanged { focusState ->
-                        // Validate when focus leaves the field, not on every keystroke
                         // excludeId prevents the habit conflicting with its own current name
                         if (!focusState.isFocused && habitName.isNotBlank()) {
                             coroutineScope.launch { habitViewModel.validateName(habitName, excludeId = habitId) }
                         }
                     }
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Target input
-            OutlinedTextField(
-                value = target,
-                onValueChange = { 
-                    if (it.all { char -> char.isDigit() } || it.isEmpty()) {
-                        target = it
-                        showTargetError = it.isEmpty() || it.toIntOrNull() == 0
-                    }
-                },
-                label = { Text("Target") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError = showTargetError,
-                supportingText = if (showTargetError) {
-                    { Text("Target must be greater than 0") }
-                } else null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused) {
-                            targetTouched = true
-                        } else if (targetTouched) {
-                            // Validate when focus leaves the field
-                            showTargetError = target.isEmpty() || (target.toIntOrNull() ?: 0) == 0
-                        }
-                    }
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Frequency Dropdown — ExposedDropdownMenuBox handles anchor and width natively
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it },
-                modifier = Modifier.fillMaxWidth()
+
+            // ── 3. Frequency builder — "Repeat every [ 1 ] [ day ▼ ]" ────────
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Text("Repeat every", style = MaterialTheme.typography.bodyLarge)
                 OutlinedTextField(
-                    value = selectedFrequency.name,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Frequency") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    value = frequencyNString,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() } || input.isEmpty()) {
+                            frequencyNString = input
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.width(64.dp)
                 )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                ExposedDropdownMenuBox(
+                    expanded = frequencyExpanded,
+                    onExpandedChange = { frequencyExpanded = it }
                 ) {
-                    HabitFrequency.entries.forEach { frequency ->
-                        DropdownMenuItem(
-                            text = { Text(frequency.name) },
-                            onClick = {
-                                selectedFrequency = frequency
-                                expanded = false
-                            }
-                        )
+                    OutlinedTextField(
+                        value = selectedFrequency.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = frequencyExpanded)
+                        },
+                        singleLine = true,
+                        modifier = Modifier
+                            .width(148.dp)
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = frequencyExpanded,
+                        onDismissRequest = { frequencyExpanded = false }
+                    ) {
+                        HabitFrequency.entries.forEach { freq ->
+                            DropdownMenuItem(
+                                text = { Text(freq.displayName) },
+                                onClick = {
+                                    selectedFrequency = freq
+                                    frequencyExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Color selection grid
+
+            // ── 4. Target — "Target: [ 1 ] times" ────────────────────────────
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Target:", style = MaterialTheme.typography.bodyLarge)
+                    OutlinedTextField(
+                        value = targetString,
+                        onValueChange = { input ->
+                            if (input.all { it.isDigit() } || input.isEmpty()) {
+                                targetString = input
+                                showTargetError = input.isEmpty() || input.toIntOrNull() == 0
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = showTargetError,
+                        singleLine = true,
+                        modifier = Modifier
+                            .width(64.dp)
+                            .onFocusChanged { focusState ->
+                                if (focusState.isFocused) targetTouched = true
+                                else if (targetTouched) {
+                                    showTargetError =
+                                        targetString.isEmpty() || (targetString.toIntOrNull() ?: 0) == 0
+                                }
+                            }
+                    )
+                    Text("times", style = MaterialTheme.typography.bodyLarge)
+                }
+                if (showTargetError) {
+                    Text(
+                        text = "Target must be greater than 0",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            // ── 5. Categories ─────────────────────────────────────────────────
+            CategoriesSection(
+                allCategories = ALL_CATEGORIES + customCategories,
+                selectedCategories = selectedCategories,
+                onToggle = { cat ->
+                    selectedCategories = if (cat in selectedCategories)
+                        selectedCategories - cat else selectedCategories + cat
+                },
+                onAddCategory = { newLabel ->
+                    if (newLabel !in ALL_CATEGORIES + customCategories) {
+                        customCategories = customCategories + newLabel
+                    }
+                    selectedCategories = selectedCategories + newLabel
+                }
+            )
+
+            // ── 6. Color picker ───────────────────────────────────────────────
             ColorSelectionGrid(
                 selectedColor = selectedColor,
                 onColorSelected = { selectedColor = it }
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Save button
+
+            // ── 7. Reminder switch (placeholder — wired to WorkManager in Phase 7) ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(text = "Smart reminders", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "AI will notify you when it's the right moment",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = reminderEnabled, onCheckedChange = { reminderEnabled = it })
+            }
+
+            // ── Submit ────────────────────────────────────────────────────────
             Button(
                 onClick = {
-                    // Validate inputs
-                    showNameError = habitName.isEmpty()
-                    showTargetError = target.isEmpty() || target.toIntOrNull() == 0
-
+                    showNameError = habitName.isBlank()
+                    showTargetError =
+                        targetString.isBlank() || (targetString.toIntOrNull() ?: 0) == 0
                     if (!showNameError && !showTargetError) {
                         isSaving = true
-                        // Launch coroutine to call suspend validateName() before updating
                         coroutineScope.launch {
                             val validation = habitViewModel.validateName(habitName, excludeId = habitId)
                             if (validation.isSuccess) {
                                 habitViewModel.updateHabit(
                                     id = habitId,
                                     name = habitName,
-                                    target = target.toInt(),
+                                    target = targetString.toInt(),
                                     frequency = selectedFrequency,
                                     colorHex = selectedColor.toHex(),
-                                    onSuccess = {
-                                        onNavigateBack()
-                                    },
+                                    categories = selectedCategories.toList(),
+                                    iconKey = selectedIconKey,
+                                    reminderEnabled = reminderEnabled,
+                                    onSuccess = { onNavigateBack() },
                                     onError = {
                                         showErrorDialog = true
                                         isSaving = false
@@ -314,20 +467,21 @@ fun EditHabitScreen(
                 } else {
                     Text("Save Changes")
                 }
-            // Error dialog
-                if (showErrorDialog) {
-                    AlertDialog(
-                        onDismissRequest = { showErrorDialog = false },
-                        title = { Text("Error") },
-                        text = { Text("Failed to update habit. Please try again.") },
-                        confirmButton = {
-                            TextButton(onClick = { showErrorDialog = false }) {
-                                Text("OK")
-                            }
-                        }
-                    )
-                }
             }
+
+            if (showErrorDialog) {
+                AlertDialog(
+                    onDismissRequest = { showErrorDialog = false },
+                    title = { Text("Error") },
+                    text = { Text("Failed to update habit. Please try again.") },
+                    confirmButton = {
+                        TextButton(onClick = { showErrorDialog = false }) { Text("OK") }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
+

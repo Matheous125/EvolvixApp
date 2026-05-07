@@ -34,5 +34,6 @@ data class HabitEntity(
     val lastResetDate: LocalDateTime = LocalDateTime.now(),
     val colorHex: String = "#4CAF50",
     val categories: List<String> = emptyList(),
-    val iconKey: String? = null
+    val iconKey: String? = null,
+    val reminderEnabled: Boolean = false
 )
