@@ -43,14 +43,14 @@ val defaultHabitTemplates: List<HabitTemplate> = listOf(
         name = "Read",
         frequency = HabitFrequency.Daily,
         target = 1,
-        category = "Health",
+        category = "Mindfulness",
         colorHex = "#3F51B5"   // Indigo
     ),
     HabitTemplate(
         name = "Meditate",
         frequency = HabitFrequency.Daily,
         target = 1,
-        category = "Health",
+        category = "Mindfulness",
         colorHex = "#9C27B0"   // Purple
     ),
     HabitTemplate(
@@ -64,7 +64,7 @@ val defaultHabitTemplates: List<HabitTemplate> = listOf(
         name = "Journal",
         frequency = HabitFrequency.Daily,
         target = 1,
-        category = "Health",
+        category = "Mindfulness",
         colorHex = "#FF9800"   // Orange
     ),
     HabitTemplate(
@@ -78,7 +78,7 @@ val defaultHabitTemplates: List<HabitTemplate> = listOf(
         name = "Plan Your Day",
         frequency = HabitFrequency.Daily,
         target = 1,
-        category = "Health",
+        category = "Productivity",
         colorHex = "#2196F3"   // Blue
     )
 )

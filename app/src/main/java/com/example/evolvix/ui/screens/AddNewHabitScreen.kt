@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
 /** Predefined category labels available as FilterChips in the form. */
 private val ALL_CATEGORIES = listOf(
     "Health", "Fitness", "Learning", "Mindfulness",
-    "Productivity", "Social", "Finance", "Sleep"
+    "Productivity", "Social", "Finance"
 )
 
 /**
@@ -68,17 +68,25 @@ private fun TemplatesRow(
 
 /**
  * Wrapping row of [FilterChip] items for category multi-selection.
- * Uses [FlowRow] so chips wrap naturally to a new line without a fixed height.
+ * Includes a trailing [AssistChip] to add custom categories via [AlertDialog].
  *
+ * @param allCategories Full list of available categories (predefined + custom).
  * @param selectedCategories Currently selected category labels.
- * @param onToggle Event dispatched when the user taps a chip — ViewModel handles the toggle logic.
+ * @param onToggle Dispatched when the user taps a category chip.
+ * @param onAddCategory Dispatched with the new label when the user confirms the Add dialog.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CategoriesSection(
+    allCategories: List<String>,
     selectedCategories: Set<String>,
-    onToggle: (String) -> Unit
+    onToggle: (String) -> Unit,
+    onAddCategory: (String) -> Unit
 ) {
+    // Local dialog state — lives here because it is pure UI, not domain state.
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newCategoryInput by remember { mutableStateOf("") }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Categories",
@@ -86,14 +94,53 @@ private fun CategoriesSection(
             modifier = Modifier.padding(bottom = 8.dp)
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ALL_CATEGORIES.forEach { category ->
+            allCategories.forEach { category ->
                 FilterChip(
                     selected = category in selectedCategories,
                     onClick = { onToggle(category) },
                     label = { Text(category) }
                 )
             }
+            // [+ Add] chip opens a dialog to create a one-off custom category.
+            AssistChip(
+                onClick = { showAddDialog = true },
+                label = { Text("+ Add") }
+            )
         }
+    }
+
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showAddDialog = false
+                newCategoryInput = ""
+            },
+            title = { Text("New Category") },
+            text = {
+                OutlinedTextField(
+                    value = newCategoryInput,
+                    onValueChange = { newCategoryInput = it },
+                    label = { Text("Category name") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val trimmed = newCategoryInput.trim()
+                        if (trimmed.isNotEmpty()) onAddCategory(trimmed)
+                        showAddDialog = false
+                        newCategoryInput = ""
+                    }
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showAddDialog = false
+                    newCategoryInput = ""
+                }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -196,6 +243,8 @@ fun AddNewHabitScreen(
     // Template selection updates these directly alongside the ViewModel state.
     var habitName by remember { mutableStateOf("") }
     var targetString by remember { mutableStateOf("1") }
+    // String representation of frequencyN for the narrow numeric field in the builder.
+    var frequencyNString by remember { mutableStateOf("1") }
 
     // ── Local UI state ────────────────────────────────────────────────────────
     var showNameError by remember { mutableStateOf(false) }
@@ -204,14 +253,19 @@ fun AddNewHabitScreen(
     var frequencyExpanded by remember { mutableStateOf(false) }
     // Reminder toggle is local for now — Phase 7 wires it to WorkManager scheduling.
     var reminderEnabled by remember { mutableStateOf(false) }
+    // Custom categories entered via the [+ Add] dialog; merged with ALL_CATEGORIES for display.
+    var customCategories by remember { mutableStateOf(listOf<String>()) }
 
     val coroutineScope = rememberCoroutineScope()
 
     // Reset form to a blank state every time this screen opens (Create, not Edit).
     LaunchedEffect(Unit) {
         habitViewModel.resetFormState()
+        // Random color pre-selection per IDEAS.MD spec — reduces decision fatigue.
+        habitViewModel.selectColor(HabitColorScheme.entries.random().toHex())
         habitName = ""
         targetString = "1"
+        frequencyNString = "1"
     }
 
     Scaffold(
@@ -284,74 +338,119 @@ fun AddNewHabitScreen(
                     }
             )
 
-            // ── 3. Frequency builder ──────────────────────────────────────────
-            // ExposedDropdownMenuBox handles anchor alignment and width automatically.
-            ExposedDropdownMenuBox(
-                expanded = frequencyExpanded,
-                onExpandedChange = { frequencyExpanded = it },
-                modifier = Modifier.fillMaxWidth()
+            // ── 3. Frequency builder — natural language: "Repeat every [ 1 ] [ day ▼ ]" ──
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                Text("Repeat every", style = MaterialTheme.typography.bodyLarge)
+                // Narrow numeric field for the repetition count (e.g. "3" in "every 3 weeks")
                 OutlinedTextField(
-                    value = formState.frequencyUnit.displayName,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Frequency") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = frequencyExpanded)
+                    value = frequencyNString,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() } || input.isEmpty()) {
+                            frequencyNString = input
+                            val n = input.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                            habitViewModel.setFrequency(n, formState.frequencyUnit)
+                        }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.width(64.dp)
                 )
-                ExposedDropdownMenu(
+                // Compact dropdown for the time-unit (day / week / month / year)
+                ExposedDropdownMenuBox(
                     expanded = frequencyExpanded,
-                    onDismissRequest = { frequencyExpanded = false }
+                    onExpandedChange = { frequencyExpanded = it }
                 ) {
-                    HabitFrequency.entries.forEach { freq ->
-                        DropdownMenuItem(
-                            text = { Text(freq.displayName) },
-                            onClick = {
-                                // frequencyN stays 1; frequencyUnit drives HabitEntity.frequency
-                                habitViewModel.setFrequency(1, freq)
-                                frequencyExpanded = false
-                            }
-                        )
+                    OutlinedTextField(
+                        value = formState.frequencyUnit.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = frequencyExpanded)
+                        },
+                        singleLine = true,
+                        modifier = Modifier
+                            .width(148.dp)
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = frequencyExpanded,
+                        onDismissRequest = { frequencyExpanded = false }
+                    ) {
+                        HabitFrequency.entries.forEach { freq ->
+                            DropdownMenuItem(
+                                text = { Text(freq.displayName) },
+                                onClick = {
+                                    habitViewModel.setFrequency(
+                                        frequencyNString.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                                        freq
+                                    )
+                                    frequencyExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }
 
-            // ── 4. Target ─────────────────────────────────────────────────────
-            OutlinedTextField(
-                value = targetString,
-                onValueChange = { input ->
-                    if (input.all { it.isDigit() } || input.isEmpty()) {
-                        targetString = input
-                        showTargetError = input.isEmpty() || input.toIntOrNull() == 0
-                        // Push numeric value to ViewModel so formState.targetCount stays in sync
-                        input.toIntOrNull()?.let { habitViewModel.setTargetCount(it) }
-                    }
-                },
-                label = { Text("Target (times per period)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                isError = showTargetError,
-                supportingText = if (showTargetError) {
-                    { Text("Target must be greater than 0") }
-                } else null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focusState ->
-                        if (focusState.isFocused) targetTouched = true
-                        else if (targetTouched) {
-                            showTargetError =
-                                targetString.isEmpty() || (targetString.toIntOrNull() ?: 0) == 0
-                        }
-                    }
-            )
+            // ── 4. Target — natural language: "Target: [ 1 ] times" ──────────
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Target:", style = MaterialTheme.typography.bodyLarge)
+                    // Narrow numeric field — same validation logic as before
+                    OutlinedTextField(
+                        value = targetString,
+                        onValueChange = { input ->
+                            if (input.all { it.isDigit() } || input.isEmpty()) {
+                                targetString = input
+                                showTargetError = input.isEmpty() || input.toIntOrNull() == 0
+                                // Push numeric value to ViewModel so formState.targetCount stays in sync
+                                input.toIntOrNull()?.let { habitViewModel.setTargetCount(it) }
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        isError = showTargetError,
+                        singleLine = true,
+                        modifier = Modifier
+                            .width(64.dp)
+                            .onFocusChanged { focusState ->
+                                if (focusState.isFocused) targetTouched = true
+                                else if (targetTouched) {
+                                    showTargetError =
+                                        targetString.isEmpty() || (targetString.toIntOrNull() ?: 0) == 0
+                                }
+                            }
+                    )
+                    Text("times", style = MaterialTheme.typography.bodyLarge)
+                }
+                if (showTargetError) {
+                    Text(
+                        text = "Target must be greater than 0",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
 
             // ── 5. Categories ─────────────────────────────────────────────────
             CategoriesSection(
+                allCategories = ALL_CATEGORIES + customCategories,
                 selectedCategories = formState.selectedCategories,
-                onToggle = { habitViewModel.toggleCategory(it) }
+                onToggle = { habitViewModel.toggleCategory(it) },
+                onAddCategory = { newLabel ->
+                    // Only add if not already in the list (case-insensitive guard)
+                    if (newLabel !in ALL_CATEGORIES + customCategories) {
+                        customCategories = customCategories + newLabel
+                    }
+                    // Auto-select the newly created category
+                    habitViewModel.toggleCategory(newLabel)
+                }
             )
 
             // ── 6. Color picker ───────────────────────────────────────────────
@@ -370,9 +469,9 @@ fun AddNewHabitScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = "Daily reminder", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = "Smart reminders", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text = "Get notified at a set time",
+                        text = "AI will notify you when it's the right moment",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

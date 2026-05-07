@@ -119,7 +119,9 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                 name = template.name,
                 frequencyUnit = template.frequency,
                 targetCount = template.target,
-                selectedColor = template.colorHex
+                selectedColor = template.colorHex,
+                // Replace (not merge) categories so the selection always matches the template
+                selectedCategories = setOf(template.category)
             )
         }
     }

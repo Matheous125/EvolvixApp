@@ -8,8 +8,8 @@ package com.example.evolvix.data.model
  * @property displayName User-friendly name for UI display
  */
 enum class HabitFrequency(val days: Int, val displayName: String) {
-    Daily(1, "Daily"),
-    Weekly(7, "Weekly"),
-    Monthly(30, "Monthly"),
-    Yearly(365, "Yearly");
+    Daily(1, "day"),
+    Weekly(7, "week"),
+    Monthly(30, "month"),
+    Yearly(365, "year");
 }
