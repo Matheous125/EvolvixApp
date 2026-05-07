@@ -54,11 +54,7 @@ fun HabitNavGraph(
 
         // Statistics screen
         composable(route = Screen.Statistics.route) {
-            StatisticsScreen(
-                onNavigateBack = {
-                    navController.navigateUp()
-                }
-            )
+            StatisticsScreen()
         }
 
         // Edit habit screen with habitId parameter

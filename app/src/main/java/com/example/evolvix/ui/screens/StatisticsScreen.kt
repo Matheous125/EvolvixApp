@@ -3,7 +3,6 @@ package com.example.evolvix.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -13,20 +12,14 @@ import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowDropUp
 import com.example.evolvix.domain.model.HabitUiState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import androidx.compose.material.icons.filled.DateRange
@@ -63,7 +56,6 @@ import android.widget.Toast
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatisticsScreen(
-    onNavigateBack: () -> Unit = {},
     modifier: Modifier = Modifier,
     habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
@@ -75,8 +67,6 @@ fun StatisticsScreen(
     val habits by habitViewModel.allHabits.collectAsState(initial = emptyList())
     var selectedHabit by remember { mutableStateOf<HabitUiState?>(null) }
     var expanded by remember { mutableStateOf(false) }
-    var textFieldSize by remember { mutableStateOf(DpSize.Zero) }
-    val density = LocalDensity.current
 
     // Date range state
     var startDate by remember { mutableStateOf(LocalDateTime.now().minusDays(6)) }
@@ -117,14 +107,6 @@ fun StatisticsScreen(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 ),
                 windowInsets = WindowInsets(0),
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Navigate back"
-                        )
-                    }
-                },
                 actions = {
                     selectedHabit?.let { habit ->
                         val context = LocalContext.current
@@ -155,53 +137,25 @@ fun StatisticsScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // Habit Selector Dropdown
-            Box(
+            // Habit Selector Dropdown — ExposedDropdownMenuBox handles anchor and width natively
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
+                OutlinedTextField(
+                    value = selectedHabit?.name ?: "Select a habit",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Habit") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .onGloballyPositioned { coordinates ->
-                            textFieldSize = with(density) {
-                                DpSize(
-                                    coordinates.size.width.toDp(),
-                                    coordinates.size.height.toDp()
-                                )
-                            }
-                        }
-                        .clickable { expanded = !expanded }
-                ) {
-                    OutlinedTextField(
-                        value = selectedHabit?.name ?: "Select a habit",
-                        onValueChange = {},
-                        readOnly = true,
-                        enabled = false,
-                        label = { Text("Habit") },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = if (expanded)
-                                    Icons.Filled.ArrowDropUp
-                                else
-                                    Icons.Filled.ArrowDropDown,
-                                contentDescription = if (expanded) "Show less" else "Show more"
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = LocalContentColor.current,
-                            disabledBorderColor = MaterialTheme.colorScheme.outline,
-                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
-
-                DropdownMenu(
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.width(textFieldSize.width)
+                    onDismissRequest = { expanded = false }
                 ) {
                     habits.forEach { habit ->
                         DropdownMenuItem(
@@ -209,8 +163,7 @@ fun StatisticsScreen(
                             onClick = {
                                 selectedHabit = habit
                                 expanded = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                            }
                         )
                     }
                 }
@@ -278,7 +231,6 @@ fun StatisticsScreen(
                 selectedHabit?.let { selected ->
                     ProgressUpdateChart(
                         selectedHabit = selected,
-                        habitViewModel = habitViewModel,
                         startDate = startDate,
                         endDate = endDate,
                         dailyCounts = dailyCounts,
@@ -295,7 +247,6 @@ fun StatisticsScreen(
 @Composable
 private fun ProgressUpdateChart(
     selectedHabit: HabitUiState?,
-    habitViewModel: HabitViewModel,
     startDate: LocalDateTime,
     endDate: LocalDateTime,
     dailyCounts: List<Float>,
@@ -338,8 +289,7 @@ private fun BarChart(
     color: Color,
     startDate: LocalDateTime,
     endDate: LocalDateTime,
-    modifier: Modifier = Modifier,
-    maxHeight: Dp = 200.dp
+    modifier: Modifier = Modifier
 ) {
     val borderColor = color
     val density = LocalDensity.current
@@ -347,7 +297,6 @@ private fun BarChart(
     val maxValue = (values.maxOrNull() ?: 1f).let { max ->
         if (max <= 4) 4f else (max + (4 - max % 4))
     }
-    val endDate = LocalDateTime.now()
     val dateFormatter = ofPattern("dd.MM")
     val thresholds = (0..4).map { i -> 
         (maxValue * (4 - i) / 4f)
@@ -421,8 +370,7 @@ private fun BarChart(
                     Bar(
                         value = value,
                         color = color,
-                        maxValue = maxValue,
-                        maxHeight = maxHeight
+                        maxValue = maxValue
                     )
                 }
             }
@@ -451,8 +399,7 @@ private fun BarChart(
 private fun RowScope.Bar(
     value: Float,
     color: Color,
-    maxValue: Float,
-    maxHeight: Dp
+    maxValue: Float
 ) {
     val fraction = if (maxValue > 0) value / maxValue else 0f
 

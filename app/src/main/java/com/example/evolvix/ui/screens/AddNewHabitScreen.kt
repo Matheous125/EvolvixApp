@@ -17,11 +17,6 @@ import com.example.evolvix.data.model.HabitFrequency
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropUp
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.foundation.clickable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -231,56 +226,25 @@ fun AddNewHabitScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Frequency Dropdown
-            Box(
+            // Frequency Dropdown — ExposedDropdownMenuBox handles anchor and width natively
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                var textFieldSize by remember { mutableStateOf(DpSize.Zero) }
-                val density = LocalDensity.current
-
-                Box(
+                OutlinedTextField(
+                    value = selectedFrequency.name,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Frequency") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .onGloballyPositioned { coordinates ->
-                            textFieldSize = with(density) {
-                                DpSize(
-                                    coordinates.size.width.toDp(),
-                                    coordinates.size.height.toDp()
-                                )
-                            }
-                        }
-                        .clickable { expanded = !expanded }
-                ) {
-                    OutlinedTextField(
-                        value = selectedFrequency.name,
-                        onValueChange = {},
-                        readOnly = true,
-                        enabled = false,
-                        label = { Text("Frequency") },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = if (expanded)
-                                    Icons.Filled.ArrowDropUp
-                                else
-                                    Icons.Filled.ArrowDropDown,
-                                contentDescription = if (expanded) "Show less" else "Show more"
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = LocalContentColor.current,
-                            disabledBorderColor = MaterialTheme.colorScheme.outline,
-                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
-
-                DropdownMenu(
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                )
+                ExposedDropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    modifier = Modifier.width(textFieldSize.width)
+                    onDismissRequest = { expanded = false }
                 ) {
                     HabitFrequency.entries.forEach { frequency ->
                         DropdownMenuItem(
@@ -288,8 +252,7 @@ fun AddNewHabitScreen(
                             onClick = {
                                 selectedFrequency = frequency
                                 expanded = false
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                            }
                         )
                     }
                 }

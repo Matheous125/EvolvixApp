@@ -15,14 +15,8 @@ import com.example.evolvix.data.model.HabitFrequency
 import com.example.evolvix.ui.theme.HabitColorScheme
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowDropUp
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.ui.focus.onFocusChanged
 import com.example.evolvix.domain.model.FormError
 import kotlinx.coroutines.launch
@@ -80,6 +74,7 @@ fun EditHabitScreen(
     var targetTouched by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
 
     //Delete confirmation dialog
     if (showDeleteDialog) {
@@ -134,16 +129,36 @@ fun EditHabitScreen(
                 }
             },
             actions = {
-                IconButton(
-                    onClick = {
-                        showDeleteDialog = true
+                // Overflow menu for destructive and secondary actions
+                Box {
+                    IconButton(onClick = { showOverflowMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = "More options"
+                        )
                     }
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "Delete habit",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                    DropdownMenu(
+                        expanded = showOverflowMenu,
+                        onDismissRequest = { showOverflowMenu = false }
+                    ) {
+                        // Placeholder — reset logic will be implemented in a later phase
+                        DropdownMenuItem(
+                            text = { Text("Reset progress") },
+                            onClick = { showOverflowMenu = false }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Delete",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            onClick = {
+                                showOverflowMenu = false
+                                showDeleteDialog = true
+                            }
+                        )
+                    }
                 }
             }
         )
@@ -212,69 +227,37 @@ fun EditHabitScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Frequency Dropdown
-        Box(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            var textFieldSize by remember { mutableStateOf(DpSize.Zero) }
-            val density = LocalDensity.current
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        textFieldSize = with(density) {
-                            DpSize(
-                                coordinates.size.width.toDp(),
-                                coordinates.size.height.toDp()
-                            )
-                        }
-                    }
-                    .clickable { expanded = !expanded }
+            // Frequency Dropdown — ExposedDropdownMenuBox handles anchor and width natively
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it },
+                modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedTextField(
                     value = selectedFrequency.name,
                     onValueChange = {},
                     readOnly = true,
-                    enabled = false,
                     label = { Text("Frequency") },
-                    trailingIcon = {
-                        Icon(
-                            imageVector = if (expanded)
-                                Icons.Filled.ArrowDropUp
-                            else
-                                Icons.Filled.ArrowDropDown,
-                            contentDescription = if (expanded) "Show less" else "Show more"
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledTextColor = LocalContentColor.current,
-                        disabledBorderColor = MaterialTheme.colorScheme.outline,
-                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                 )
-            }
-
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.width(textFieldSize.width)
-            ) {
-                HabitFrequency.entries.forEach { frequency ->
-                    DropdownMenuItem(
-                        text = { Text(frequency.name) },
-                        onClick = {
-                            selectedFrequency = frequency
-                            expanded = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    HabitFrequency.entries.forEach { frequency ->
+                        DropdownMenuItem(
+                            text = { Text(frequency.name) },
+                            onClick = {
+                                selectedFrequency = frequency
+                                expanded = false
+                            }
+                        )
+                    }
                 }
             }
-        }
             
             Spacer(modifier = Modifier.height(16.dp))
             
