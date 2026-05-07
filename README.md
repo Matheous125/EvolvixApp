@@ -38,7 +38,7 @@ Design patterns used throughout: **Repository**, **Observer** (via Flow), **Use 
 
 ## Current Status
 
-> Phase 0 — Foundation Audit & Cleanup (in progress)
+> PHASE 1 — Data Integrity Hardening (Completed)
 
 The core MVVM skeleton is in place: Room schema, DAOs, a `HabitViewModel` exposing `StateFlow<HabitUiState>`, and a sealed-class navigation graph. Active development is following a dependency-driven roadmap from data integrity hardening through gamification, AI analytics, notifications, and finally cloud sync.
 

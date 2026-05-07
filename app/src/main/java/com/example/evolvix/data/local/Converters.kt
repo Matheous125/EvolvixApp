@@ -4,7 +4,6 @@ import androidx.room.TypeConverter
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import com.example.evolvix.data.model.HabitFrequency
-import com.example.evolvix.ui.theme.HabitColorScheme
 
 /**
  * Room database type converters for custom data types.
@@ -54,22 +53,20 @@ class Converters {
     }
 
     /**
-     * Converts string to HabitColorScheme enum
-     * @param value String representation of color scheme
-     * @return HabitColorScheme enum value
+     * Converts a List<String> to a single pipe-delimited string for Room storage.
+     * Pipe (|) is used as a delimiter because category names will never contain it.
      */
     @TypeConverter
-    fun toHabitColorScheme(value: String): HabitColorScheme {
-        return HabitColorScheme.valueOf(value)
+    fun fromStringList(list: List<String>): String {
+        return list.joinToString(separator = "|")
     }
 
-     /**
-     * Converts HabitColorScheme enum to string
-     * @param colorScheme HabitColorScheme enum value
-     * @return String representation of color scheme
+    /**
+     * Converts a pipe-delimited string back to List<String>.
+     * Returns an empty list when the stored value is blank.
      */
     @TypeConverter
-    fun fromHabitColorScheme(colorScheme: HabitColorScheme): String {
-        return colorScheme.name
+    fun toStringList(value: String): List<String> {
+        return if (value.isBlank()) emptyList() else value.split("|")
     }
 }

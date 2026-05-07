@@ -4,7 +4,6 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDateTime
-import com.example.evolvix.ui.theme.HabitColorScheme
 
 /**
  * Database entity representing a habit.
@@ -18,7 +17,9 @@ import com.example.evolvix.ui.theme.HabitColorScheme
  * @property totalProgressUpdates Total number of progress increments
  * @property totalTargetReaches Number of times target was reached
  * @property lastResetDate When the progress was last reset
- * @property colorScheme Visual theme for the habit
+ * @property colorHex Hex color string for the habit (e.g. "#4CAF50")
+ * @property categories List of category labels assigned to this habit (e.g. "Health", "Fitness")
+ * @property iconKey Optional key identifying the habit's icon; null means auto-resolved
  */
 @Entity(tableName = "habits", indices = [Index(value = ["name"], unique = true)])
 data class HabitEntity(
@@ -31,5 +32,7 @@ data class HabitEntity(
     val totalProgressUpdates: Int = 0,
     val totalTargetReaches: Int = 0,
     val lastResetDate: LocalDateTime = LocalDateTime.now(),
-    val colorScheme: HabitColorScheme = HabitColorScheme.GREEN
+    val colorHex: String = "#4CAF50",
+    val categories: List<String> = emptyList(),
+    val iconKey: String? = null
 )

@@ -2,7 +2,6 @@ package com.example.evolvix.domain.model
 
 import com.example.evolvix.data.model.HabitFrequency
 import java.time.LocalDateTime
-import com.example.evolvix.ui.theme.HabitColorScheme
 
 /**
  * Represents the UI state for a habit.
@@ -33,9 +32,9 @@ data class HabitUiState(
     
     /** Timestamp of last progress reset */
     val lastResetDate: LocalDateTime = LocalDateTime.now(),
-    
-    /** Visual theme for the habit */
-    val colorScheme: HabitColorScheme = HabitColorScheme.GREEN,
+
+    /** Hex color string for the habit (e.g. "#4CAF50") */
+    val colorHex: String = "#4CAF50",
 
     /**
      * True when [currentCount] exceeds [target].

@@ -62,7 +62,7 @@ fun EditHabitScreen(
             habitName = habit.name
             target = habit.target.toString()
             selectedFrequency = habit.frequency
-            selectedColor = habit.colorScheme
+            selectedColor = HabitColorScheme.fromHex(habit.colorHex)
             isLoading = false
         }
     }
@@ -287,7 +287,7 @@ fun EditHabitScreen(
                                     name = habitName,
                                     target = target.toInt(),
                                     frequency = selectedFrequency,
-                                    colorScheme = selectedColor,
+                                    colorHex = selectedColor.toHex(),
                                     onSuccess = {
                                         onNavigateBack()
                                     },

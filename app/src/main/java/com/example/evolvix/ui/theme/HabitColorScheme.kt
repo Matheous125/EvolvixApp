@@ -78,4 +78,32 @@ enum class HabitColorScheme {
         INDIGO -> if (isDark) Color(0xFFE8EAF6) else Color(0xFF1A237E)
         LIME -> if (isDark) Color(0xFF212121) else Color(0xFF827717)
     }
+
+    /**
+     * Returns the canonical hex string for this color scheme.
+     * Used when persisting a user's color selection as a plain String in HabitEntity.
+     * Canonical values match the Material Design primary color for each name.
+     */
+    fun toHex(): String = when (this) {
+        GREEN -> "#4CAF50"
+        BLUE -> "#2196F3"
+        PURPLE -> "#9C27B0"
+        RED -> "#F44336"
+        ORANGE -> "#FF9800"
+        PINK -> "#E91E63"
+        CYAN -> "#00BCD4"
+        TEAL -> "#009688"
+        INDIGO -> "#3F51B5"
+        LIME -> "#8BC34A"
+    }
+
+    companion object {
+        /**
+         * Resolves a hex string back to the matching [HabitColorScheme] enum value.
+         * Falls back to [GREEN] for unknown or malformed strings so the UI
+         * never crashes on unexpected stored data.
+         */
+        fun fromHex(hex: String): HabitColorScheme =
+            entries.firstOrNull { it.toHex().equals(hex, ignoreCase = true) } ?: GREEN
+    }
 }

@@ -284,7 +284,7 @@ fun AddNewHabitScreen(
                                 currentCount = 0,
                                 target = target.toInt(),
                                 frequency = selectedFrequency,
-                                colorScheme = selectedColor
+                                colorHex = selectedColor.toHex()
                             )
                             habitViewModel.addHabit(newHabit)
                             onNavigateBack()

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.ui.components.ProgressItem
+import com.example.evolvix.ui.theme.HabitColorScheme
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -106,7 +107,7 @@ fun MainScreen(
                         title = habit.name,
                         maxClicks = habit.target,
                         currentClickCount = habit.currentCount,
-                        colorScheme = habit.colorScheme,
+                        colorScheme = HabitColorScheme.fromHex(habit.colorHex),
                         isOverCompleted = habit.isOverCompleted,
                         isSystemInDarkTheme = true,
                         modifier = Modifier.fillMaxWidth()

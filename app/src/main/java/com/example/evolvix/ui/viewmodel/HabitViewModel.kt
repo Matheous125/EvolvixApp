@@ -10,7 +10,6 @@ import com.example.evolvix.domain.model.HabitUiState
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
-import com.example.evolvix.ui.theme.HabitColorScheme
 import com.example.evolvix.data.model.HabitFrequency
 import android.util.Log
 
@@ -69,7 +68,7 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                     currentCount = entity.currentCount,
                     target = entity.target,
                     frequency = entity.frequency,
-                    colorScheme = entity.colorScheme,
+                    colorHex = entity.colorHex,
                     totalProgressUpdates = entity.totalProgressUpdates,
                     totalTargetReaches = entity.totalTargetReaches,
                     lastResetDate = entity.lastResetDate,
@@ -95,7 +94,7 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                     currentCount = habit.currentCount,
                     target = habit.target,
                     frequency = habit.frequency,
-                    colorScheme = habit.colorScheme,
+                    colorHex = habit.colorHex,
                     totalProgressUpdates = habit.totalProgressUpdates,
                     totalTargetReaches = habit.totalTargetReaches,
                     lastResetDate = habit.lastResetDate
@@ -157,7 +156,7 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
         name: String,
         target: Int,
         frequency: HabitFrequency,
-        colorScheme: HabitColorScheme,
+        colorHex: String,
         onSuccess: () -> Unit,
         onError: () -> Unit
     ) {
@@ -168,7 +167,7 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                     name = name,
                     target = target,
                     frequency = frequency,
-                    colorScheme = colorScheme
+                    colorHex = colorHex
                 )
                 habitDao.updateHabit(updatedHabit)
                 onSuccess()

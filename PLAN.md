@@ -39,7 +39,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
   - [x] In `ui/components/ProgressItem.kt`: render contrasting border when `isOverCompleted` (M3 `Card` + `Modifier.border`), replace counter with +N counter
 
 ### 1.2 Top bar unification
-- [ ] **View only** — Standardize `TopAppBar` across `MainScreen.kt`, `AddNewHabitScreen.kt`, `EditHabitScreen.kt`, `StatisticsScreen.kt`. Edit screen gets `Icons.Filled.Delete` + confirm `AlertDialog` (Pattern: **Composition over inheritance**).
+- [x] **View only** — Standardize `TopAppBar` across `MainScreen.kt`, `AddNewHabitScreen.kt`, `EditHabitScreen.kt`, `StatisticsScreen.kt`. Edit screen gets `Icons.Filled.Delete` + confirm `AlertDialog` (Pattern: **Composition over inheritance**).
 
 ---
 
@@ -47,9 +47,9 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 **Goal:** Round out CRUD UX. Pure local logic, depends only on Phase 1 schema.
 
 ### 2.1 Reduced-friction Add/Edit forms
-- [ ] **Model:** New `data/model/HabitTemplate.kt` (in-memory list, no Room) seeded from `HABIT-TEMPLATES.MD`.
-- [ ] **Model:** Add `categories: List<String>` + `colorHex: String` + `iconKey: String?` columns (bump DB version).
-- [ ] **Model (layering fix):** Remove `HabitEntity`'s import of `HabitColorScheme` from `ui/theme/` — replacing it with the new `colorHex: String` primitive eliminates a data→UI layer dependency violation found during Phase 0 audit.
+- [x] **Model:** New `data/model/HabitTemplate.kt` (in-memory list, no Room) seeded from `HABIT-TEMPLATES.MD`.
+- [x] **Model:** Add `categories: List<String>` + `colorHex: String` + `iconKey: String?` columns (bump DB version).
+- [x] **Model (layering fix):** Remove `HabitEntity`'s import of `HabitColorScheme` from `ui/theme/` — replacing it with the new `colorHex: String` primitive eliminates a data→UI layer dependency violation found during Phase 0 audit.
 - [ ] **ViewModel:** Extend `HabitUiState` with `templates`, `selectedCategories`, `selectedColor`, `frequencyN`, `frequencyUnit`, `targetCount` (Pattern: **State Holder / Unidirectional Data Flow**).
 - [ ] **View:** Refactor `AddNewHabitScreen.kt` into sections: Templates row · Name · Frequency builder · Target · Categories chips (`FilterChip`) · Color picker · Reminder switch.
 - [ ] **View:** `EditHabitScreen.kt` mirrors form but swaps Templates row for Icon picker.

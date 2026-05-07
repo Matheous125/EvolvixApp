@@ -271,8 +271,10 @@ private fun ProgressUpdateChart(
             
             BarChart(
                 values = dailyCounts,
-                color = selectedHabit?.colorScheme?.getProgressColor(true) 
-                    ?: MaterialTheme.colorScheme.primary,
+                color = selectedHabit?.let { habit ->
+                    runCatching { Color(android.graphics.Color.parseColor(habit.colorHex)) }
+                        .getOrElse { MaterialTheme.colorScheme.primary }
+                } ?: MaterialTheme.colorScheme.primary,
                 startDate = startDate,
                 endDate = endDate,
                 modifier = Modifier
