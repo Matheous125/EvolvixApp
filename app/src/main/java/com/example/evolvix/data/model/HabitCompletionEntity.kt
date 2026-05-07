@@ -8,6 +8,11 @@ import java.time.LocalDateTime
 /**
  * Entity representing a single progress update for a habit.
  * Stores individual completion records with timestamps and target status.
+ *
+ * Over-completion is explicitly supported: there is no DB-level constraint clamping
+ * the number of records per habit per cycle. A habit whose [isTargetReached] was
+ * already true can still receive additional completion rows (progress > target).
+ * The ViewModel layer is responsible for exposing `isOverCompleted` state.
  */
 @Entity(
     tableName = "habit_completions",

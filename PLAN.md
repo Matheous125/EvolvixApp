@@ -15,10 +15,10 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 
 - [x] Populate root `.gitignore` with standard Android, Gradle, and VS Code exclusions to prevent committing build artifacts.
 - [x] Create root README.md with project title, short description, thesis context, tech stack (Kotlin, Jetpack Compose, Room), and current status.
-- [ ] Audit current entities in `data/model/` (`HabitEntity.kt`, `HabitCompletitionEntity.kt`, `HabitFrequency.kt`) and confirm they match `STRUCTURE.md`.
-- [ ] Confirm `data/local/HabitDao.kt` exposes suspend/Flow functions (Pattern: **DAO / Repository contract**).
-- [ ] Verify `ui/viewmodel/HabitViewModel.kt` exposes `StateFlow<HabitUiState>` (Pattern: **Observer via Flow**, **MVVM**).
-- [ ] Confirm `navigation/NavGraph.kt` + `Screen.kt` route definitions are sealed/typed (Pattern: **Sealed Class State**).
+- [x] Audit current entities in `data/model/` (`HabitEntity.kt`, `HabitCompletitionEntity.kt`, `HabitFrequency.kt`) and confirm they match `STRUCTURE.md`.
+- [x] Confirm `data/local/HabitDao.kt` exposes suspend/Flow functions (Pattern: **DAO / Repository contract**).
+- [x] Verify `ui/viewmodel/HabitViewModel.kt` exposes `StateFlow<HabitUiState>` (Pattern: **Observer via Flow**, **MVVM**).
+- [x] Confirm `navigation/NavGraph.kt` + `Screen.kt` route definitions are sealed/typed (Pattern: **Sealed Class State**).
 
 ---
 
@@ -26,16 +26,16 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 **Goal:** Make the local Room schema bulletproof before any UI/AI features depend on it. No cloud yet.
 
 ### 1.1 Unique habit names + over-completion support
-- [ ] **Model**
-  - [ ] Add `@Index(value=["name"], unique=true)` to `HabitEntity` in `data/model/HabitEntity.kt`.
-  - [ ] Allow completion count to exceed target (no DB constraint clamp) in `HabitCompletitionEntity.kt`.
-  - [ ] Bump DB version in `data/local/AppDatabase.kt` (no Migration code in dev — reinstall app, per workstyle).
-  - [ ] Add DAO query `findByNameIgnoreCase()` in `data/local/HabitDao.kt` for pre-insert validation (Pattern: **Repository / DAO**).
-- [ ] **ViewModel** (`ui/viewmodel/HabitViewModel.kt`)
-  - [ ] Add `validateName()` returning `Result<Unit>` exposed via `StateFlow<FormError?>`.
-  - [ ] Allow `progress > target` in state computation; expose `isOverCompleted: Boolean`.
+- [x] **Model**
+  - [x] Add `@Index(value=["name"], unique=true)` to `HabitEntity` in `data/model/HabitEntity.kt`.
+  - [x] Allow completion count to exceed target (no DB constraint clamp) in `HabitCompletitionEntity.kt`.
+  - [x] Bump DB version in `data/local/AppDatabase.kt` (no Migration code in dev — reinstall app, per workstyle).
+  - [x] Add DAO query `findByNameIgnoreCase()` in `data/local/HabitDao.kt` for pre-insert validation (Pattern: **Repository / DAO**).
+- [x] **ViewModel** (`ui/viewmodel/HabitViewModel.kt`)
+  - [x] Add `validateName()` returning `Result<Unit>` exposed via `StateFlow<FormError?>`.
+  - [x] Allow `progress > target` in state computation; expose `isOverCompleted: Boolean`.
 - [ ] **View**
-  - [ ] In `ui/screens/AddNewHabitScreen.kt` and `EditHabitScreen.kt`: show inline error on duplicate.
+  - [x] In `ui/screens/AddNewHabitScreen.kt` and `EditHabitScreen.kt`: show inline error on duplicate.
   - [ ] In `ui/components/ProgressItem.kt`: render glowing border when `isOverCompleted` (M3 `Card` + `Modifier.border`).
 
 ### 1.2 Top bar unification

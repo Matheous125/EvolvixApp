@@ -35,5 +35,12 @@ data class HabitUiState(
     val lastResetDate: LocalDateTime = LocalDateTime.now(),
     
     /** Visual theme for the habit */
-    val colorScheme: HabitColorScheme = HabitColorScheme.GREEN
+    val colorScheme: HabitColorScheme = HabitColorScheme.GREEN,
+
+    /**
+     * True when [currentCount] exceeds [target].
+     * Computed by the ViewModel during the entity→UiState mapping.
+     * The View uses this to render a glowing over-completion border on the card.
+     */
+    val isOverCompleted: Boolean = false
 )

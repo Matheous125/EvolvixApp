@@ -40,6 +40,9 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.focus.onFocusChanged
+import com.example.evolvix.domain.model.FormError
+import kotlinx.coroutines.launch
 
 /**
  * A composable that displays a grid of color options for habit themes.
@@ -134,12 +137,18 @@ fun AddNewHabitScreen(
 ) {
     var habitName by remember { mutableStateOf("") }
     var target by remember { mutableStateOf("") }
-    var showError by remember { mutableStateOf(false) }
     var showNameError by remember { mutableStateOf(false) }
     var showTargetError by remember { mutableStateOf(false) }
+    // True once the target field has been focused at least once; prevents
+    // premature validation when the screen first opens with focus on name field
+    var targetTouched by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
     var selectedFrequency by remember { mutableStateOf(HabitFrequency.Daily) }
     var selectedColor by remember { mutableStateOf(HabitColorScheme.GREEN) }
+    // rememberCoroutineScope ties the scope to this composable's lifecycle
+    val coroutineScope = rememberCoroutineScope()
+    // Observe form validation errors from the ViewModel (Observer pattern)
+    val formError by habitViewModel.formError.collectAsState()
 
     Scaffold(
         topBar = {
@@ -165,16 +174,26 @@ fun AddNewHabitScreen(
             // Name input
             OutlinedTextField(
                 value = habitName,
-                onValueChange = { 
+                onValueChange = {
                     habitName = it
                     showNameError = it.isEmpty()
+                    habitViewModel.clearFormError() // dismiss duplicate error while typing
                 },
                 label = { Text("Habit Name") },
-                isError = showNameError,
-                supportingText = if (showNameError) {
-                    { Text("Name cannot be empty") }
-                } else null,
-                modifier = Modifier.fillMaxWidth()
+                isError = showNameError || formError is FormError.DuplicateName,
+                supportingText = when {
+                    showNameError -> { { Text("Name cannot be empty") } }
+                    formError is FormError.DuplicateName -> { { Text("A habit with this name already exists") } }
+                    else -> null
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        // Validate when focus leaves the field, not on every keystroke
+                        if (!focusState.isFocused && habitName.isNotBlank()) {
+                            coroutineScope.launch { habitViewModel.validateName(habitName) }
+                        }
+                    }
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -194,7 +213,16 @@ fun AddNewHabitScreen(
                 supportingText = if (showTargetError) {
                     { Text("Target must be greater than 0") }
                 } else null,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused) {
+                            targetTouched = true
+                        } else if (targetTouched) {
+                            // Validate when focus leaves the field
+                            showTargetError = target.isEmpty() || (target.toIntOrNull() ?: 0) == 0
+                        }
+                    }
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -276,24 +304,26 @@ fun AddNewHabitScreen(
             // Create button
             Button(
             onClick = {
-                if (habitName.isNotBlank() && target.isNotBlank()) {
-                    val habitTarget = target.toIntOrNull() ?: 0
-                    if (habitTarget > 0) {
-                        val newHabit = HabitUiState(
-                            id = 0,
-                            name = habitName,
-                            currentCount = 0,
-                            target = habitTarget,
-                            frequency = selectedFrequency,
-                            colorScheme = selectedColor
-                        )
-                        habitViewModel.addHabit(newHabit)
-                        onNavigateBack()
-                    } else {
-                        showError = true
+                showNameError = habitName.isBlank()
+                showTargetError = target.isBlank() || (target.toIntOrNull() ?: 0) == 0
+                if (!showNameError && !showTargetError) {
+                    // Launch coroutine to call suspend validateName() before inserting
+                    coroutineScope.launch {
+                        val validation = habitViewModel.validateName(habitName)
+                        if (validation.isSuccess) {
+                            val newHabit = HabitUiState(
+                                id = 0,
+                                name = habitName,
+                                currentCount = 0,
+                                target = target.toInt(),
+                                frequency = selectedFrequency,
+                                colorScheme = selectedColor
+                            )
+                            habitViewModel.addHabit(newHabit)
+                            onNavigateBack()
+                        }
+                        // On failure, formError StateFlow already holds DuplicateName
                     }
-                } else {
-                    showError = true
                 }
             },
             modifier = Modifier.fillMaxWidth()

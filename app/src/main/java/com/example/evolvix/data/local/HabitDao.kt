@@ -31,6 +31,16 @@ interface HabitDao {
     Returns nullable HabitEntity
     */
 
+    /**
+     * Finds a habit whose name matches [name] case-insensitively.
+     * Used by the ViewModel for pre-insert validation before attempting to write,
+     * avoiding a SQLite unique-constraint exception on the name index.
+     * Returns null if no matching habit exists (name is available).
+     * (Pattern: Repository / DAO — validation query)
+     */
+    @Query("SELECT * FROM habits WHERE LOWER(name) = LOWER(:name) LIMIT 1")
+    suspend fun findByNameIgnoreCase(name: String): HabitEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHabit(habit: HabitEntity)
     /*

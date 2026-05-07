@@ -21,6 +21,7 @@ app/src/main/java/com/example/evolvix
 │
 ├── domain/                 # Domain Layer - Business Logic
 │   └── model/              # Domain models and state classes
+│       ├── FormError.kt    # Domain model for Form Errors
 │       ├── HabitData.kt    # Domain model for Habit data
 │       └── HabitUiState.kt # UI state data class
 │

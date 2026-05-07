@@ -1,6 +1,7 @@
 package com.example.evolvix.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDateTime
 import com.example.evolvix.ui.theme.HabitColorScheme
@@ -19,7 +20,7 @@ import com.example.evolvix.ui.theme.HabitColorScheme
  * @property lastResetDate When the progress was last reset
  * @property colorScheme Visual theme for the habit
  */
-@Entity(tableName = "habits")
+@Entity(tableName = "habits", indices = [Index(value = ["name"], unique = true)])
 data class HabitEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
