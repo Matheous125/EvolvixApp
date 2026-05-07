@@ -13,6 +13,7 @@ import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import com.example.evolvix.domain.model.HabitUiState
@@ -62,6 +63,7 @@ import android.widget.Toast
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatisticsScreen(
+    onNavigateBack: () -> Unit = {},
     modifier: Modifier = Modifier,
     habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
@@ -111,6 +113,18 @@ fun StatisticsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Habit Statistics") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                windowInsets = WindowInsets(0),
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Navigate back"
+                        )
+                    }
+                },
                 actions = {
                     selectedHabit?.let { habit ->
                         val context = LocalContext.current

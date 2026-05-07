@@ -121,6 +121,10 @@ fun EditHabitScreen(
         topBar = {
             TopAppBar(
             title = { Text("Edit Habit") },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            ),
+            windowInsets = WindowInsets(0),
             navigationIcon = {
                 IconButton(onClick = onNavigateBack) {
                     Icon(

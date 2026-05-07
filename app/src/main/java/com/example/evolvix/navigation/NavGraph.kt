@@ -36,6 +36,9 @@ fun HabitNavGraph(
                 },
                 onNavigateToEditHabit = { habitId ->
                     navController.navigate(Screen.EditHabit.createRoute(habitId))
+                },
+                onNavigateToSettings = {
+                    // Settings screen not yet implemented — placeholder
                 }
             )
         }
@@ -51,7 +54,11 @@ fun HabitNavGraph(
 
         // Statistics screen
         composable(route = Screen.Statistics.route) {
-            StatisticsScreen()
+            StatisticsScreen(
+                onNavigateBack = {
+                    navController.navigateUp()
+                }
+            )
         }
 
         // Edit habit screen with habitId parameter

@@ -154,6 +154,10 @@ fun AddNewHabitScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Create New Habit") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                windowInsets = WindowInsets(0),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(

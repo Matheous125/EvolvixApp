@@ -34,9 +34,9 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **ViewModel** (`ui/viewmodel/HabitViewModel.kt`)
   - [x] Add `validateName()` returning `Result<Unit>` exposed via `StateFlow<FormError?>`.
   - [x] Allow `progress > target` in state computation; expose `isOverCompleted: Boolean`.
-- [ ] **View**
+- [x] **View**
   - [x] In `ui/screens/AddNewHabitScreen.kt` and `EditHabitScreen.kt`: show inline error on duplicate.
-  - [ ] In `ui/components/ProgressItem.kt`: render glowing border when `isOverCompleted` (M3 `Card` + `Modifier.border`).
+  - [x] In `ui/components/ProgressItem.kt`: render contrasting border when `isOverCompleted` (M3 `Card` + `Modifier.border`), replace counter with +N counter
 
 ### 1.2 Top bar unification
 - [ ] **View only** — Standardize `TopAppBar` across `MainScreen.kt`, `AddNewHabitScreen.kt`, `EditHabitScreen.kt`, `StatisticsScreen.kt`. Edit screen gets `Icons.Filled.Delete` + confirm `AlertDialog` (Pattern: **Composition over inheritance**).

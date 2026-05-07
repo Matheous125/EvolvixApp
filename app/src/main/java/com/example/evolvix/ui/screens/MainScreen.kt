@@ -3,8 +3,16 @@ package com.example.evolvix.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
@@ -27,14 +35,16 @@ import androidx.compose.ui.input.pointer.pointerInput
  * @param modifier Modifier for screen customization
  * @param onNavigateToAddHabit Callback for navigation to add habit screen
  * @param onNavigateToEditHabit Callback for navigation to edit habit screen
+ * @param onNavigateToSettings Callback for navigation to settings screen (not yet implemented)
  * @param habitViewModel ViewModel for habit operations
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
     onNavigateToAddHabit: () -> Unit = {},
     onNavigateToEditHabit: (Int) -> Unit = {},
-    
+    onNavigateToSettings: () -> Unit = {},
     habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
             AppDatabase.getDatabase(LocalContext.current).habitDao()
@@ -48,19 +58,32 @@ fun MainScreen(
 
     val allHabitsUiState by habitViewModel.allHabits.collectAsState()
 
-    Column(
-        modifier = modifier.fillMaxSize()
-    ) {
-        // Screen title
-        Text(
-            text = "My Habits",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-         // Scrollable list of habits
+    Scaffold(
+        topBar = {
+            // TopAppBar acts as the standardized header across all screens (Composition over inheritance)
+            TopAppBar(
+                title = { Text("My Habits") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                windowInsets = WindowInsets(0),
+                actions = {
+                    // Placeholder for future Settings screen navigation
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            imageVector = Icons.Filled.Settings,
+                            contentDescription = "Settings"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        // Scrollable list of habits
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
