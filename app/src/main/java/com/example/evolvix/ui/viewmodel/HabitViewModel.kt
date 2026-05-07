@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.data.model.HabitTemplate
+import com.example.evolvix.data.model.defaultHabitTemplates
 import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.domain.model.FormError
 import com.example.evolvix.domain.model.HabitUiState
@@ -85,8 +87,92 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
         )
 
 
-    fun addHabit(habit: HabitUiState) {
-        viewModelScope.launch {
+    // ── Add-habit form state (State Holder / Unidirectional Data Flow) ──────────
+
+    /**
+     * Holds the transient form state for the Add New Habit screen.
+     * The View observes this [StateFlow] and dispatches user actions back through
+     * the functions below — classic UDF: State flows down, Events flow up.
+     */
+    private val _addHabitFormState = MutableStateFlow(initialFormState())
+    val addHabitFormState: StateFlow<HabitUiState> = _addHabitFormState.asStateFlow()
+
+    /** Returns the blank initial state for the Add form with templates pre-loaded. */
+    private fun initialFormState() = HabitUiState(
+        name = "",
+        currentCount = 0,
+        target = 1,
+        templates = defaultHabitTemplates,
+        selectedColor = "#4CAF50",
+        frequencyN = 1,
+        frequencyUnit = HabitFrequency.Daily,
+        targetCount = 1
+    )
+
+    /**
+     * Applies a [HabitTemplate] to the form, pre-filling name, frequency, target, and color.
+     * Called when the user taps a template chip in the Templates row.
+     */
+    fun selectTemplate(template: HabitTemplate) {
+        _addHabitFormState.update { current ->
+            current.copy(
+                name = template.name,
+                frequencyUnit = template.frequency,
+                targetCount = template.target,
+                selectedColor = template.colorHex
+            )
+        }
+    }
+
+    /**
+     * Toggles [category] in/out of [HabitUiState.selectedCategories].
+     * Called when the user taps a [FilterChip] in the Categories section.
+     */
+    fun toggleCategory(category: String) {
+        _addHabitFormState.update { current ->
+            val updated = if (category in current.selectedCategories)
+                current.selectedCategories - category
+            else
+                current.selectedCategories + category
+            current.copy(selectedCategories = updated)
+        }
+    }
+
+    /**
+     * Updates the pending color in the form state.
+     * Called when the user picks a color from the color picker.
+     */
+    fun selectColor(colorHex: String) {
+        _addHabitFormState.update { it.copy(selectedColor = colorHex) }
+    }
+
+    /**
+     * Updates the frequency builder fields in the form state.
+     * [n] is the repetition count; [unit] is the time period.
+     */
+    fun setFrequency(n: Int, unit: HabitFrequency) {
+        _addHabitFormState.update { it.copy(frequencyN = n, frequencyUnit = unit) }
+    }
+
+    /**
+     * Updates the target count in the form state.
+     * Called on every keystroke in the Target input field.
+     */
+    fun setTargetCount(count: Int) {
+        _addHabitFormState.update { it.copy(targetCount = count) }
+    }
+
+    /**
+     * Resets the form to its blank initial state.
+     * Call this when the Add screen opens or after a successful submission.
+     */
+    fun resetFormState() {
+        _addHabitFormState.value = initialFormState()
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun addHabit(habit: HabitUiState) {        viewModelScope.launch {
             habitDao.insertHabit(
                 HabitEntity(
                     id = habit.id,
@@ -97,7 +183,9 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                     colorHex = habit.colorHex,
                     totalProgressUpdates = habit.totalProgressUpdates,
                     totalTargetReaches = habit.totalTargetReaches,
-                    lastResetDate = habit.lastResetDate
+                    lastResetDate = habit.lastResetDate,
+                    // selectedCategories carries the form's chosen categories on submission
+                    categories = habit.selectedCategories.toList()
                 )
             )
         }

@@ -50,7 +50,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **Model:** New `data/model/HabitTemplate.kt` (in-memory list, no Room) seeded from `HABIT-TEMPLATES.MD`.
 - [x] **Model:** Add `categories: List<String>` + `colorHex: String` + `iconKey: String?` columns (bump DB version).
 - [x] **Model (layering fix):** Remove `HabitEntity`'s import of `HabitColorScheme` from `ui/theme/` — replacing it with the new `colorHex: String` primitive eliminates a data→UI layer dependency violation found during Phase 0 audit.
-- [ ] **ViewModel:** Extend `HabitUiState` with `templates`, `selectedCategories`, `selectedColor`, `frequencyN`, `frequencyUnit`, `targetCount` (Pattern: **State Holder / Unidirectional Data Flow**).
+- [x] **ViewModel:** Extend `HabitUiState` with `templates`, `selectedCategories`, `selectedColor`, `frequencyN`, `frequencyUnit`, `targetCount` (Pattern: **State Holder / Unidirectional Data Flow**).
 - [ ] **View:** Refactor `AddNewHabitScreen.kt` into sections: Templates row · Name · Frequency builder · Target · Categories chips (`FilterChip`) · Color picker · Reminder switch.
 - [ ] **View:** `EditHabitScreen.kt` mirrors form but swaps Templates row for Icon picker.
 
