@@ -2,6 +2,7 @@ package com.example.evolvix.data.model
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDateTime
 
@@ -23,7 +24,8 @@ import java.time.LocalDateTime
             childColumns = ["habitId"],
             onDelete = ForeignKey.CASCADE // Automatically deletes completions when habit is deleted
         )
-    ]
+    ],
+    indices = [Index(value = ["habitId"])] // Prevents full table scan on parent (HabitEntity) delete/update
 )
 data class HabitCompletionEntity(
     @PrimaryKey(autoGenerate = true)

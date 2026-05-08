@@ -1,7 +1,6 @@
 plugins {
+    alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("com.google.devtools.ksp") version "2.3.2"
 }
 
@@ -32,9 +31,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
-    }
+
     buildFeatures {
         compose = true
     }
