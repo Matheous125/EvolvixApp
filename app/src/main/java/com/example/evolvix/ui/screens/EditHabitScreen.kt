@@ -1,12 +1,7 @@
 package com.example.evolvix.ui.screens
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -17,10 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.emoji2.emojipicker.EmojiPickerView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitFrequency
@@ -30,69 +26,66 @@ import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
 import kotlinx.coroutines.launch
 
-/** Associates a stable String key (persisted to [HabitEntity.iconKey]) with a Material icon vector. */
-private data class HabitIcon(val key: String, val vector: ImageVector, val label: String)
-
-/** Habit icon palette — covers the main habit categories from IDEAS.MD. */
-private val ALL_HABIT_ICONS = listOf(
-    HabitIcon("star",           Icons.Filled.Star,            "Star"),
-    HabitIcon("favorite",       Icons.Filled.Favorite,        "Health"),
-    HabitIcon("fitness_center", Icons.Filled.FitnessCenter,   "Fitness"),
-    HabitIcon("menu_book",      Icons.Filled.School,          "Learning"),
-    HabitIcon("self_improve",   Icons.Filled.SelfImprovement, "Mindfulness"),
-    HabitIcon("water_drop",     Icons.Filled.WaterDrop,       "Hydration"),
-    HabitIcon("run",            Icons.Filled.Sports,          "Running"),
-    HabitIcon("psychology",     Icons.Filled.Psychology,      "Mental"),
-    HabitIcon("money",          Icons.Filled.AttachMoney,     "Finance"),
-    HabitIcon("people",         Icons.Filled.People,          "Social"),
-    HabitIcon("bedtime",        Icons.Filled.Bedtime,         "Sleep")
-)
-
 /**
- * Horizontally scrollable row of selectable habit icon chips.
- * Replaces the Templates row from [AddNewHabitScreen] — the selected key is
- * persisted to [HabitEntity.iconKey] on save.
+ * A button that shows the selected emoji (or a prompt) and opens the AndroidX
+ * [EmojiPickerView] inside a [ModalBottomSheet] when tapped.
  *
- * @param selectedKey Currently selected icon key (null = none selected yet).
- * @param onIconSelected Callback dispatched when the user taps an icon.
+ * The selected emoji is stored as a plain Unicode String in [HabitEntity.iconKey],
+ * so no schema change is required — it replaces the old Material-icon key string.
+ *
+ * @param selectedEmoji Currently stored emoji string, or null if none chosen.
+ * @param onEmojiSelected Callback with the chosen emoji Unicode string.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IconPickerRow(
-    selectedKey: String?,
-    onIconSelected: (String) -> Unit
+private fun EmojiPickerField(
+    selectedEmoji: String?,
+    onEmojiSelected: (String) -> Unit
 ) {
+    // Drives ModalBottomSheet visibility. Kept as explicit MutableState so the
+    // View-based listener lambda below can safely mutate it from the main thread.
+    val showPickerState = remember { mutableStateOf(false) }
+    // rememberUpdatedState ensures the listener always calls the latest callback
+    // even if the composable recomposes before the user picks an emoji.
+    val latestCallback = rememberUpdatedState(onEmojiSelected)
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Icon",
+            text = "Emoji",
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(bottom = 8.dp)
         )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(ALL_HABIT_ICONS) { habitIcon ->
-                val isSelected = habitIcon.key == selectedKey
-                Surface(
-                    shape = CircleShape,
-                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceVariant,
-                    border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                             else null,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable { onIconSelected(habitIcon.key) }
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = habitIcon.vector,
-                            contentDescription = habitIcon.label,
-                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                   else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+        // OutlinedButton acts as the trigger — shows the current emoji or a prompt.
+        OutlinedButton(
+            onClick = { showPickerState.value = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (selectedEmoji != null) {
+                Text(text = selectedEmoji, style = MaterialTheme.typography.headlineMedium)
+            } else {
+                Text(text = "Tap to pick an emoji", style = MaterialTheme.typography.bodyLarge)
             }
+        }
+    }
+
+    if (showPickerState.value) {
+        ModalBottomSheet(onDismissRequest = { showPickerState.value = false }) {
+            // AndroidView bridges the View-based EmojiPickerView into the Compose tree
+            // (Adapter pattern). The emoji2 library provides the full system-style picker.
+            AndroidView(
+                factory = { context ->
+                    EmojiPickerView(context).apply {
+                        setOnEmojiPickedListener { item ->
+                            latestCallback.value(item.emoji)
+                            showPickerState.value = false
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(400.dp)
+                    .navigationBarsPadding()
+            )
         }
     }
 }
@@ -261,10 +254,12 @@ fun EditHabitScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── 1. Icon picker (replaces Templates row) ───────────────────────
-            IconPickerRow(
-                selectedKey = selectedIconKey,
-                onIconSelected = { selectedIconKey = it }
+            // ── 1. Emoji picker (replaces Material icon picker) ────────────────
+            // The chosen emoji is stored in HabitEntity.iconKey as a Unicode string
+            // and will be displayed on the Statistics screen next to the habit title.
+            EmojiPickerField(
+                selectedEmoji = selectedIconKey,
+                onEmojiSelected = { selectedIconKey = it }
             )
 
             HorizontalDivider()

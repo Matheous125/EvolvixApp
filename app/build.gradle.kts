@@ -75,4 +75,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
     implementation("com.itextpdf:itext7-core:7.2.5")
+
+    // AndroidX emoji picker — displayed in a ModalBottomSheet in EditHabitScreen.
+    // The selected emoji is stored as a plain Unicode String in HabitEntity.iconKey.
+    implementation("androidx.emoji2:emoji2-emojipicker:1.5.0")
 }
