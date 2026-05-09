@@ -1,6 +1,8 @@
 package com.example.evolvix.ui.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
@@ -16,14 +18,18 @@ import java.time.LocalDateTime
 import com.example.evolvix.data.model.HabitFrequency
 import android.util.Log
 
-//Takes habitDao as dependency, Extends Android ViewModel
 /**
  * ViewModel managing habit-related business logic and UI state.
- * Handles CRUD operations, progress tracking, and periodic resets.
+ * Extends [AndroidViewModel] to access [Application] context for SharedPreferences,
+ * which persists [SortMode] across process restarts without a full database.
  *
  * @property habitDao Data access object for habit operations
  */
-class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
+class HabitViewModel(application: Application, private val habitDao: HabitDao) : AndroidViewModel(application) {
+
+    // SharedPreferences used exclusively for lightweight UI preferences (sort order).
+    // Habit data lives in Room; only presentation state is stored here.
+    private val prefs = application.getSharedPreferences("habit_ui_prefs", Context.MODE_PRIVATE)
 
     
     /**
@@ -63,16 +69,22 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
 
     /**
      * Controls the active sort order for the habit list.
+     * Initialized from SharedPreferences so the user's choice survives process restarts.
      * Changing this value triggers [allHabits] to switch to a different DAO query
      * reactively via [flatMapLatest] — no manual refresh needed.
      * (Pattern: Observer via StateFlow — Unidirectional Data Flow)
      */
-    private val _sortMode = MutableStateFlow(SortMode.MANUAL)
+    private val _sortMode = MutableStateFlow(
+        SortMode.valueOf(
+            prefs.getString("sort_mode", SortMode.MANUAL.name) ?: SortMode.MANUAL.name
+        )
+    )
     val sortMode: StateFlow<SortMode> = _sortMode.asStateFlow()
 
-    /** Sets the active sort mode; [allHabits] reacts automatically. */
+    /** Sets the active sort mode and persists it to SharedPreferences. */
     fun setSortMode(mode: SortMode) {
         _sortMode.value = mode
+        prefs.edit().putString("sort_mode", mode.name).apply()
     }
 
     /**

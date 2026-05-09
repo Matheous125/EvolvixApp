@@ -1,5 +1,6 @@
 package com.example.evolvix.ui.screens
 
+import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -59,7 +60,8 @@ fun StatisticsScreen(
     modifier: Modifier = Modifier,
     habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
-            AppDatabase.getDatabase(LocalContext.current).habitDao()
+            application = LocalContext.current.applicationContext as Application,
+            habitDao = AppDatabase.getDatabase(LocalContext.current).habitDao()
         )
     )
 ) {

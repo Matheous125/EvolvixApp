@@ -1,5 +1,6 @@
 package com.example.evolvix.ui.screens
 
+import android.app.Application
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -230,7 +231,8 @@ fun AddNewHabitScreen(
     modifier: Modifier = Modifier,
     habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
-            AppDatabase.getDatabase(LocalContext.current).habitDao()
+            application = LocalContext.current.applicationContext as Application,
+            habitDao = AppDatabase.getDatabase(LocalContext.current).habitDao()
         )
     )
 ) {

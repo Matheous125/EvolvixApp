@@ -1,7 +1,10 @@
 package com.example.evolvix.ui.screens
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import android.app.Application
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -34,7 +37,7 @@ import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
  * @param onNavigateToHistory Callback to open the History screen for a given habit id (Phase 3.1)
  * @param onTriggerReorder Callback to activate drag-and-drop reorder mode (Phase 2.4)
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
@@ -46,7 +49,8 @@ fun MainScreen(
     onTriggerReorder: () -> Unit = {},
     habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
-            AppDatabase.getDatabase(LocalContext.current).habitDao()
+            application = LocalContext.current.applicationContext as Application,
+            habitDao = AppDatabase.getDatabase(LocalContext.current).habitDao()
         )
     )
 ) {
@@ -206,40 +210,60 @@ fun MainScreen(
             // ── Habit list ────────────────────────────────────────────────────
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                // No global spacedBy — spacing between groups is handled per-item below
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 if (groupedHabits != null) {
-                    // CATEGORY mode: one stickyHeader per group; tapping the header
-                    // collapses or expands the items below (local remembered state)
-                    groupedHabits.forEach { (group, habits) ->
-                        stickyHeader(key = "header_$group") {
-                            CategoryGroupHeader(
-                                title = group,
-                                isCollapsed = group in collapsedGroups,
-                                onToggle = {
-                                    collapsedGroups = if (group in collapsedGroups)
-                                        collapsedGroups - group
-                                    else
-                                        collapsedGroups + group
-                                }
-                            )
+                    // CATEGORY mode: each group is ONE LazyColumn item (a Column) so there
+                    // is no lazy item boundary between the header and the habits — gap-free.
+                    groupedHabits.entries.forEachIndexed { groupIndex, (group, habits) ->
+                        if (groupIndex > 0) {
+                            item(key = "gap_$group") { Spacer(Modifier.height(12.dp)) }
                         }
-                        if (group !in collapsedGroups) {
-                            items(habits, key = { it.id }) { habit ->
-                                HabitRow(
-                                    habit = habit,
-                                    viewModel = habitViewModel,
-                                    onNavigateToStatistics = onNavigateToStatistics,
-                                    onNavigateToHistory = onNavigateToHistory,
-                                    onNavigateToEditHabit = onNavigateToEditHabit,
-                                    onTriggerReorder = onTriggerReorder
+                        item(key = "group_$group") {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                            ) {
+                                // Header row — background comes from the parent Column
+                                CategoryGroupHeader(
+                                    title = group,
+                                    isCollapsed = group in collapsedGroups,
+                                    onToggle = {
+                                        collapsedGroups = if (group in collapsedGroups)
+                                            collapsedGroups - group
+                                        else
+                                            collapsedGroups + group
+                                    }
                                 )
+                                if (group !in collapsedGroups) {
+                                    habits.forEach { habit ->
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(start = 8.dp, end = 8.dp, top = 0.dp, bottom = 4.dp)
+                                        ) {
+                                            HabitRow(
+                                                habit = habit,
+                                                viewModel = habitViewModel,
+                                                onNavigateToStatistics = onNavigateToStatistics,
+                                                onNavigateToHistory = onNavigateToHistory,
+                                                onNavigateToEditHabit = onNavigateToEditHabit,
+                                                onTriggerReorder = onTriggerReorder
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                }
                             }
                         }
                     }
                 } else {
-                    // MANUAL or NAME mode: flat list, no grouping
+                    // MANUAL or NAME mode: flat list with simple spacing
                     items(allHabitsUiState, key = { it.id }) { habit ->
                         HabitRow(
                             habit = habit,
@@ -249,6 +273,7 @@ fun MainScreen(
                             onNavigateToEditHabit = onNavigateToEditHabit,
                             onTriggerReorder = onTriggerReorder
                         )
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
             }
@@ -257,9 +282,9 @@ fun MainScreen(
 }
 
 /**
- * Sticky header row for a category group in the habit list.
- * Tapping it collapses or expands the group's items below it.
- * Rendered via [LazyListScope.stickyHeader] so it pins to the top while scrolling.
+ * Header row for a collapsible category group.
+ * Background and shape are provided by the parent [Column] so this composable
+ * is fully transparent — no gap can appear between it and the rows below.
  */
 @Composable
 private fun CategoryGroupHeader(
@@ -267,27 +292,23 @@ private fun CategoryGroupHeader(
     isCollapsed: Boolean,
     onToggle: () -> Unit
 ) {
-    // Surface with onClick makes the entire header row tappable
-    Surface(
-        onClick = onToggle,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(
-                imageVector = if (isCollapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
-                contentDescription = if (isCollapsed) "Expand group" else "Collapse group"
-            )
-        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = if (isCollapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
+            contentDescription = if (isCollapsed) "Expand group" else "Collapse group"
+        )
     }
 }
 
