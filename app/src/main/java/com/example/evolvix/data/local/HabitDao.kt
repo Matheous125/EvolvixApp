@@ -3,6 +3,7 @@ package com.example.evolvix.data.local
 import androidx.room.*
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.domain.model.SortMode
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 
@@ -11,13 +12,36 @@ import java.time.LocalDateTime
  * Provides methods for CRUD operations on habits and their completions.
  */
 @Dao
-interface HabitDao {
+abstract class HabitDao {
     /**
      * Retrieves all habits as a Flow for reactive updates
      * @return Flow of List<HabitEntity>
      */
     @Query("SELECT * FROM habits")
-    fun getAllHabits(): Flow<List<HabitEntity>>
+    abstract fun getAllHabits(): Flow<List<HabitEntity>>
+
+    // --- Sorted queries (backing functions for getHabitsSorted) ---
+
+    @Query("SELECT * FROM habits ORDER BY sortOrder ASC")
+    protected abstract fun getHabitsByManualOrder(): Flow<List<HabitEntity>>
+
+    @Query("SELECT * FROM habits ORDER BY name ASC")
+    protected abstract fun getHabitsByName(): Flow<List<HabitEntity>>
+
+    @Query("SELECT * FROM habits ORDER BY categoryGroup ASC, sortOrder ASC")
+    protected abstract fun getHabitsByCategory(): Flow<List<HabitEntity>>
+
+    /**
+     * Returns a reactive [Flow] of all habits ordered according to [sortMode].
+     * Dispatches to the appropriate [Query] function based on the selected mode.
+     * Called by the ViewModel whenever [SortMode] changes.
+     * (Pattern: Strategy — the SortMode enum selects the concrete query at runtime)
+     */
+    fun getHabitsSorted(sortMode: SortMode): Flow<List<HabitEntity>> = when (sortMode) {
+        SortMode.MANUAL   -> getHabitsByManualOrder()
+        SortMode.NAME     -> getHabitsByName()
+        SortMode.CATEGORY -> getHabitsByCategory()
+    }
 
     /**
      * Retrieves only habits that are currently active (not paused).
@@ -26,7 +50,7 @@ interface HabitDao {
      * (Pattern: DAO / Repository — filtered query for pause system)
      */
     @Query("SELECT * FROM habits WHERE pausedUntil IS NULL OR pausedUntil <= :now")
-    fun getActiveHabits(now: Long): Flow<List<HabitEntity>>
+    abstract fun getActiveHabits(now: Long): Flow<List<HabitEntity>>
 
     /*
     Retrieves all habits from database
@@ -34,7 +58,7 @@ interface HabitDao {
     No suspension needed as Flow handles asynchronous operations
     */
     @Query("SELECT * FROM habits WHERE id = :habitId")
-    suspend fun getHabitById(habitId: Int): HabitEntity?
+    abstract suspend fun getHabitById(habitId: Int): HabitEntity?
     /*
     Retrieves single habit by ID
     Returns nullable HabitEntity
@@ -48,36 +72,36 @@ interface HabitDao {
      * (Pattern: Repository / DAO — validation query)
      */
     @Query("SELECT * FROM habits WHERE LOWER(name) = LOWER(:name) LIMIT 1")
-    suspend fun findByNameIgnoreCase(name: String): HabitEntity?
+    abstract suspend fun findByNameIgnoreCase(name: String): HabitEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertHabit(habit: HabitEntity)
+    abstract suspend fun insertHabit(habit: HabitEntity)
     /*
     Inserts new habit
     Replaces existing if ID conflicts
     */
 
     @Update
-    suspend fun updateHabit(habit: HabitEntity)
+    abstract suspend fun updateHabit(habit: HabitEntity)
     /*
     Updates existing habit
     */
 
     @Query("DELETE FROM habits WHERE id = :habitId")
-    suspend fun deleteHabit(habitId: Int)
+    abstract suspend fun deleteHabit(habitId: Int)
     /*
     Deletes habit by ID
     */
 
     @Insert
-    suspend fun insertCompletion(completion: HabitCompletionEntity)
+    abstract suspend fun insertCompletion(completion: HabitCompletionEntity)
 
     @Query("""
         SELECT * FROM habit_completions 
         WHERE habitId = :habitId AND 
         progressUpdate BETWEEN :startDate AND :endDate
     """)
-    fun getCompletionsForPeriod(
+    abstract fun getCompletionsForPeriod(
         habitId: Int,
         startDate: LocalDateTime,
         endDate: LocalDateTime
@@ -95,7 +119,7 @@ interface HabitDao {
         WHERE habitId = :habitId AND 
         progressUpdate BETWEEN :startDate AND :endDate
     """)
-    suspend fun getCompletionCountForPeriod(
+    abstract suspend fun getCompletionCountForPeriod(
         habitId: Int,
         startDate: LocalDateTime,
         endDate: LocalDateTime
@@ -106,7 +130,7 @@ interface HabitDao {
         WHERE habitId = :habitId AND isTargetReached = 1 
         ORDER BY progressUpdate DESC
     """)
-    fun getTargetCompletions(habitId: Int): Flow<List<HabitCompletionEntity>>
+    abstract fun getTargetCompletions(habitId: Int): Flow<List<HabitCompletionEntity>>
 
     @Query("""
         SELECT * FROM habit_completions 
@@ -114,7 +138,7 @@ interface HabitDao {
         progressUpdate BETWEEN :startDate AND :endDate 
         ORDER BY progressUpdate ASC
     """)
-    fun getProgressUpdates(
+    abstract fun getProgressUpdates(
         habitId: Int,
         startDate: LocalDateTime,
         endDate: LocalDateTime

@@ -23,7 +23,8 @@ app/src/main/java/com/example/evolvix
 │   └── model/              # Domain models and state classes
 │       ├── FormError.kt    # Domain model for Form Errors
 │       ├── HabitData.kt    # Domain model for Habit data
-│       └── HabitUiState.kt # UI state data class
+│       ├── HabitUiState.kt # UI state data class
+│       └── SortMode.kt # Enum defining sort options
 │
 ├── navigation/             # Navigation Configuration
 │   ├── NavGraph.kt         # Compose navigation graph setup

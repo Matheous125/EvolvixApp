@@ -9,6 +9,7 @@ import com.example.evolvix.data.model.defaultHabitTemplates
 import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.domain.model.FormError
 import com.example.evolvix.domain.model.HabitUiState
+import com.example.evolvix.domain.model.SortMode
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -58,12 +59,61 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
         }
     }
 
+    // ── Sort & Filter state ──────────────────────────────────────────────────
+
     /**
-     * Observable flow of all habits transformed into UI state
+     * Controls the active sort order for the habit list.
+     * Changing this value triggers [allHabits] to switch to a different DAO query
+     * reactively via [flatMapLatest] — no manual refresh needed.
+     * (Pattern: Observer via StateFlow — Unidirectional Data Flow)
      */
-    val allHabits: StateFlow<List<HabitUiState>> = habitDao.getAllHabits()
-        .map { entities ->
-            entities.map { entity ->
+    private val _sortMode = MutableStateFlow(SortMode.MANUAL)
+    val sortMode: StateFlow<SortMode> = _sortMode.asStateFlow()
+
+    /** Sets the active sort mode; [allHabits] reacts automatically. */
+    fun setSortMode(mode: SortMode) {
+        _sortMode.value = mode
+    }
+
+    /**
+     * Holds the set of category labels currently used as filters.
+     * An empty set means "show all habits". The View observes this to render
+     * active/inactive filter chips in the top bar.
+     * (Pattern: Observer via StateFlow)
+     */
+    private val _activeFilters = MutableStateFlow<Set<String>>(emptySet())
+    val activeFilters: StateFlow<Set<String>> = _activeFilters.asStateFlow()
+
+    /** Toggles [category] in/out of the active filter set. */
+    fun toggleFilter(category: String) {
+        _activeFilters.update { current ->
+            if (category in current) current - category else current + category
+        }
+    }
+
+    /** Clears all active category filters, restoring the full habit list. */
+    fun clearFilters() {
+        _activeFilters.value = emptySet()
+    }
+
+    // ── Habits list ──────────────────────────────────────────────────────────
+
+    /**
+     * Observable list of habits in UI-ready form.
+     * [flatMapLatest] switches the underlying DAO query whenever [sortMode] changes.
+     * [combine] then applies the [activeFilters] set as a client-side predicate:
+     * if the filter set is non-empty, only habits that share at least one category
+     * with the active filters are included.
+     * (Pattern: Observer via StateFlow + reactive combination)
+     */
+    val allHabits: StateFlow<List<HabitUiState>> = _sortMode
+        .flatMapLatest { mode -> habitDao.getHabitsSorted(mode) }
+        .combine(_activeFilters) { entities, filters ->
+            val filtered = if (filters.isEmpty()) entities
+                           else entities.filter { entity ->
+                               entity.categories.any { it in filters }
+                           }
+            filtered.map { entity ->
                 HabitUiState(
                     id = entity.id,
                     name = entity.name,
@@ -80,7 +130,6 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                 )
             }
         }
-
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

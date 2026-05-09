@@ -20,6 +20,8 @@ import java.time.LocalDateTime
  * @property colorHex Hex color string for the habit (e.g. "#4CAF50")
  * @property categories List of category labels assigned to this habit (e.g. "Health", "Fitness")
  * @property iconKey Optional key identifying the habit's icon; null means auto-resolved
+ * @property sortOrder Manual drag-and-drop position within the list (lower = higher up)
+ * @property categoryGroup Optional group label used when habits are displayed by category
  */
 @Entity(tableName = "habits", indices = [Index(value = ["name"], unique = true)])
 data class HabitEntity(
@@ -37,5 +39,9 @@ data class HabitEntity(
     val iconKey: String? = null,
     val reminderEnabled: Boolean = false,
     /** Timestamp (millis since Unix epoch) until which the habit is paused. Null = active; Long.MAX_VALUE = paused indefinitely. */
-    val pausedUntil: Long? = null
+    val pausedUntil: Long? = null,
+    /** Manual sort position for drag-and-drop ordering; lower value = higher in the list. */
+    val sortOrder: Int = 0,
+    /** Optional category group label used when grouping habits by category in the list. */
+    val categoryGroup: String? = null
 )

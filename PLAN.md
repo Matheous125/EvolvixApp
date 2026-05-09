@@ -66,9 +66,9 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **ViewModel:** Add `markProgressOnce(id)` reusing existing increment logic.
 
 ### 2.4 Reordering, grouping, filtering
-- [ ] **Model:** Add `sortOrder: Int` and `categoryGroup: String?` columns. Bump DB version.
-- [ ] **Model:** DAO updates: `getHabitsSorted(SortMode)` returning `Flow<List<HabitEntity>>`.
-- [ ] **ViewModel:** Expose `sortMode: StateFlow<SortMode>` and `activeFilters: StateFlow<Set<String>>` (Pattern: **Observer**).
+- [x] **Model:** Add `sortOrder: Int` and `categoryGroup: String?` columns. Bump DB version.
+- [x] **Model:** DAO updates: `getHabitsSorted(SortMode)` returning `Flow<List<HabitEntity>>`.
+- [x] **ViewModel:** Expose `sortMode: StateFlow<SortMode>` and `activeFilters: StateFlow<Set<String>>` (Pattern: **Observer**).
 - [ ] **View:** `MainScreen.kt` — filter chip row + search field; collapsible group headers via `LazyColumn` `stickyHeader`.
 - [ ] **View:** Drag & drop using community-standard `Modifier.pointerInput` with index swap (Pattern: **Command pattern** for swap action).
 
