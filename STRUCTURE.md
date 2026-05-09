@@ -31,6 +31,7 @@ app/src/main/java/com/example/evolvix
 │
 ├── ui/                     # The "View" Layer (Jetpack Compose)
 │   ├── components/         # Reusable Compose widgets
+│       ├── PauseBottomSheet.kt    # Modal bottom sheet with date picker for habit pausing
 │   │   └── ProgressItem.kt # Animated progress bar row (title + x/y)
 │   ├── screens/            # Main UI screens (e.g., HomeScreen.kt)
 │   │   ├── AddNewHabitScreen.kt  # Create habit form
