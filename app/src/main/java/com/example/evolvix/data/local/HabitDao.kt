@@ -19,6 +19,15 @@ interface HabitDao {
     @Query("SELECT * FROM habits")
     fun getAllHabits(): Flow<List<HabitEntity>>
 
+    /**
+     * Retrieves only habits that are currently active (not paused).
+     * A habit is active if [pausedUntil] is NULL or its pause period has already expired.
+     * [now] should be [System.currentTimeMillis].
+     * (Pattern: DAO / Repository — filtered query for pause system)
+     */
+    @Query("SELECT * FROM habits WHERE pausedUntil IS NULL OR pausedUntil <= :now")
+    fun getActiveHabits(now: Long): Flow<List<HabitEntity>>
+
     /*
     Retrieves all habits from database
     Returns Flow for reactive updates

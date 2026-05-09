@@ -181,9 +181,8 @@ Replaces immediate edit. Opens a menu with:
 3.  **Pause / Cancel Pause:** Pauses habit indefinitely or until a date.
 4.  **View history:** Navigates to history screen.
 5.  **Edit habit:** Navigates to edit screen.
-6.  **Duplicate:** Creates a copy appended with " - copy", " - copy (1)", etc.
-7.  **Delete:** Triggers delete confirmation.
-8.  **Reorder habits:** Triggers drag & drop edit mode.
+6.  **Delete:** Triggers delete confirmation.
+7.  **Reorder habits:** Triggers drag & drop edit mode.
 
 ### 4.5. Pause System
 *   **Functionality:** Freezes the habit. Does not break streak, does not require completion.

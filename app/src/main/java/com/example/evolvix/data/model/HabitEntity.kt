@@ -35,5 +35,7 @@ data class HabitEntity(
     val colorHex: String = "#4CAF50",
     val categories: List<String> = emptyList(),
     val iconKey: String? = null,
-    val reminderEnabled: Boolean = false
+    val reminderEnabled: Boolean = false,
+    /** Timestamp (millis since Unix epoch) until which the habit is paused. Null = active; Long.MAX_VALUE = paused indefinitely. */
+    val pausedUntil: Long? = null
 )

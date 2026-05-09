@@ -55,15 +55,14 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **View:** `EditHabitScreen.kt` mirrors form but swaps Templates row for Icon picker.
 
 ### 2.2 Pause system
-- [ ] **Model:** Add `pausedUntil: Long?` (nullable = not paused; `Long.MAX_VALUE` = indefinite) to `HabitEntity`. Bump DB version.
-- [ ] **Model:** DAO query `getActiveHabits(now: Long)` filters pausedUntil.
-- [ ] **ViewModel:** `pauseHabit(id, until)` / `resumeHabit(id)` in `viewModelScope.launch`.
+- [x] **Model:** Add `pausedUntil: Long?` (nullable = not paused; `Long.MAX_VALUE` = indefinite) to `HabitEntity`. Bump DB version.
+- [x] **Model:** DAO query `getActiveHabits(now: Long)` filters pausedUntil.
+- [x] **ViewModel:** `pauseHabit(id, until)` / `resumeHabit(id)` in `viewModelScope.launch`.
 - [ ] **View:** New `ui/components/PauseBottomSheet.kt` using `ModalBottomSheet` (M3) — options: indefinite / date picker.
 - [ ] **View:** `ProgressItem.kt` renders dimmed + pause icon when paused.
 
 ### 2.3 Long-press context menu
-- [ ] **View:** `ui/components/HabitContextMenu.kt` using `DropdownMenu` triggered by `Modifier.combinedClickable(onLongClick=…)`. 8 actions per `IDEAS.MD §4.4`.
-- [ ] **ViewModel:** Add `duplicateHabit(id)` (suffix `" - copy"` / `" - copy (n)"`) — uses unique-name logic from Phase 1.
+- [ ] **View:** `ui/components/HabitContextMenu.kt` using `DropdownMenu` triggered by `Modifier.combinedClickable(onLongClick=…)`. 7 actions per `IDEAS.MD §4.4`.
 - [ ] **ViewModel:** Add `markProgressOnce(id)` reusing existing increment logic.
 
 ### 2.4 Reordering, grouping, filtering

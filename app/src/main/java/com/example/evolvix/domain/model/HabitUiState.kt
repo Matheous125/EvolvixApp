@@ -87,5 +87,12 @@ data class HabitUiState(
     val targetCount: Int = 1,
 
     /** Whether smart reminders are enabled for this habit. Persisted to [HabitEntity.reminderEnabled]. */
-    val reminderEnabled: Boolean = false
+    val reminderEnabled: Boolean = false,
+
+    /**
+     * Timestamp (millis since Unix epoch) until which the habit is paused.
+     * Null = active; [Long.MAX_VALUE] = paused indefinitely.
+     * Mapped from [HabitEntity.pausedUntil] by the ViewModel.
+     */
+    val pausedUntil: Long? = null
 )

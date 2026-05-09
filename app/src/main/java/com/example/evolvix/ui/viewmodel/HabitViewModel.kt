@@ -75,7 +75,8 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                     totalTargetReaches = entity.totalTargetReaches,
                     lastResetDate = entity.lastResetDate,
                     // Computed here so the View never does arithmetic — pure UDF
-                    isOverCompleted = entity.currentCount > entity.target
+                    isOverCompleted = entity.currentCount > entity.target,
+                    pausedUntil = entity.pausedUntil
                 )
             }
         }
@@ -287,6 +288,29 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
                 Log.e("HabitViewModel", "Error deleting habit: ${e.message}")
                 onError()
             }
+        }
+    }
+
+    /**
+     * Pauses a habit until the given timestamp.
+     * Pass [Long.MAX_VALUE] for an indefinite pause, or a future epoch-millis for a timed pause.
+     * The DAO's [getActiveHabits] query will automatically exclude this habit until [until] passes.
+     * (Pattern: Command — encapsulates a state-mutation operation)
+     */
+    fun pauseHabit(id: Int, until: Long) {
+        viewModelScope.launch {
+            val habit = habitDao.getHabitById(id) ?: return@launch
+            habitDao.updateHabit(habit.copy(pausedUntil = until))
+        }
+    }
+
+    /**
+     * Resumes a paused habit immediately by clearing its [pausedUntil] timestamp.
+     */
+    fun resumeHabit(id: Int) {
+        viewModelScope.launch {
+            val habit = habitDao.getHabitById(id) ?: return@launch
+            habitDao.updateHabit(habit.copy(pausedUntil = null))
         }
     }
 
