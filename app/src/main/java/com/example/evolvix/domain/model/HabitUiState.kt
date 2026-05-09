@@ -94,5 +94,18 @@ data class HabitUiState(
      * Null = active; [Long.MAX_VALUE] = paused indefinitely.
      * Mapped from [HabitEntity.pausedUntil] by the ViewModel.
      */
-    val pausedUntil: Long? = null
+    val pausedUntil: Long? = null,
+
+    /**
+     * Category labels saved on this habit.
+     * Empty in form context — use [selectedCategories] there.
+     * Used to populate the filter chip row and [SortMode.CATEGORY] group headers.
+     */
+    val categories: List<String> = emptyList(),
+
+    /**
+     * Optional group label for stickyHeader grouping when [SortMode.CATEGORY] is active.
+     * Maps from [HabitEntity.categoryGroup]; null means ungrouped.
+     */
+    val categoryGroup: String? = null
 )

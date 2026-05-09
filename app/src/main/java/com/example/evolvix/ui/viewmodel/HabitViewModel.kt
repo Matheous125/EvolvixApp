@@ -96,45 +96,71 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
         _activeFilters.value = emptySet()
     }
 
+    // ── Search state ─────────────────────────────────────────────────────
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    /** Updates the name search query; [allHabits] applies it reactively. */
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    /**
+     * All unique category labels across every habit, derived from the unfiltered list.
+     * Used by the View to populate the filter chip row regardless of active filters.
+     * (Pattern: Observer via StateFlow)
+     */
+    val availableCategories: StateFlow<Set<String>> = habitDao.getAllHabits()
+        .map { entities -> entities.flatMap { it.categories }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     // ── Habits list ──────────────────────────────────────────────────────────
 
     /**
      * Observable list of habits in UI-ready form.
-     * [flatMapLatest] switches the underlying DAO query whenever [sortMode] changes.
-     * [combine] then applies the [activeFilters] set as a client-side predicate:
-     * if the filter set is non-empty, only habits that share at least one category
-     * with the active filters are included.
+     * Uses a 3-way [combine]: the sorted entity list (switched by [flatMapLatest] on
+     * [sortMode]), [activeFilters] (category predicate), and [searchQuery] (name predicate).
+     * All three dimensions update the list reactively with no manual refresh.
      * (Pattern: Observer via StateFlow + reactive combination)
      */
-    val allHabits: StateFlow<List<HabitUiState>> = _sortMode
-        .flatMapLatest { mode -> habitDao.getHabitsSorted(mode) }
-        .combine(_activeFilters) { entities, filters ->
-            val filtered = if (filters.isEmpty()) entities
-                           else entities.filter { entity ->
-                               entity.categories.any { it in filters }
-                           }
-            filtered.map { entity ->
-                HabitUiState(
-                    id = entity.id,
-                    name = entity.name,
-                    currentCount = entity.currentCount,
-                    target = entity.target,
-                    frequency = entity.frequency,
-                    colorHex = entity.colorHex,
-                    totalProgressUpdates = entity.totalProgressUpdates,
-                    totalTargetReaches = entity.totalTargetReaches,
-                    lastResetDate = entity.lastResetDate,
-                    // Computed here so the View never does arithmetic — pure UDF
-                    isOverCompleted = entity.currentCount > entity.target,
-                    pausedUntil = entity.pausedUntil
-                )
-            }
+    val allHabits: StateFlow<List<HabitUiState>> = combine(
+        _sortMode.flatMapLatest { mode -> habitDao.getHabitsSorted(mode) },
+        _activeFilters,
+        _searchQuery
+    ) { entities, filters, query ->
+        val categoryFiltered = if (filters.isEmpty()) entities
+                               else entities.filter { entity ->
+                                   entity.categories.any { it in filters }
+                               }
+        val searchFiltered = if (query.isBlank()) categoryFiltered
+                             else categoryFiltered.filter {
+                                 it.name.contains(query.trim(), ignoreCase = true)
+                             }
+        searchFiltered.map { entity ->
+            HabitUiState(
+                id = entity.id,
+                name = entity.name,
+                currentCount = entity.currentCount,
+                target = entity.target,
+                frequency = entity.frequency,
+                colorHex = entity.colorHex,
+                totalProgressUpdates = entity.totalProgressUpdates,
+                totalTargetReaches = entity.totalTargetReaches,
+                lastResetDate = entity.lastResetDate,
+                // Computed here so the View never does arithmetic — pure UDF
+                isOverCompleted = entity.currentCount > entity.target,
+                pausedUntil = entity.pausedUntil,
+                categories = entity.categories,
+                categoryGroup = entity.categoryGroup
+            )
         }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    }
+    .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
 
     // ── Add-habit form state (State Holder / Unidirectional Data Flow) ──────────
