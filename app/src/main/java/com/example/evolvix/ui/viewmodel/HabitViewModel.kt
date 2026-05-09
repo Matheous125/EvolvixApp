@@ -319,9 +319,17 @@ class HabitViewModel(private val habitDao: HabitDao) : ViewModel() {
             try {
                 val habits = habitDao.getAllHabits()
                 val now = LocalDateTime.now()
+                val nowMillis = System.currentTimeMillis()
 
                 habits.collect { habitList ->
                     habitList.forEach { habit ->
+                        // Auto-resume: if pausedUntil has passed, clear it so the habit
+                        // becomes active again without any manual action from the user.
+                        if (habit.pausedUntil != null && habit.pausedUntil != Long.MAX_VALUE
+                            && nowMillis >= habit.pausedUntil) {
+                            habitDao.updateHabit(habit.copy(pausedUntil = null))
+                        }
+
                         val lastReset = habit.lastResetDate
                         val shouldReset = when (habit.frequency) {
                             HabitFrequency.Daily -> {

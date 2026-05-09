@@ -11,13 +11,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -36,6 +41,7 @@ import com.example.evolvix.ui.theme.HabitColorScheme
  * @param currentClickCount Current number of completions
  * @param colorScheme Color scheme to use for the item
  * @param isOverCompleted Whether the habit has been completed more than the target
+ * @param isPaused Whether the habit is currently paused
  * @param isSystemInDarkTheme Whether dark mode is enabled
  */
 @Composable
@@ -46,6 +52,7 @@ fun ProgressItem(
     currentClickCount: Int,
     colorScheme: HabitColorScheme,
     isOverCompleted: Boolean = false,
+    isPaused: Boolean = false,
     isSystemInDarkTheme: Boolean = isSystemInDarkTheme()
 ) {
     // Clamp at 1f when over-completed so the bar doesn't overflow its container
@@ -74,10 +81,12 @@ fun ProgressItem(
     // Border must be applied before clip — otherwise the clip masks the stroke out.
     // When over-completed, a 2.dp border in the habit's own progress color acts as a
     // "celebratory frame" that respects each habit's color identity.
+    // When paused, alpha(0.4f) dims the entire item to signal inactivity.
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
+            .then(if (isPaused) Modifier.alpha(0.4f) else Modifier)
             .then(
                 if (isOverCompleted) Modifier.border(2.dp, borderColor, shape)
                 else Modifier
@@ -106,13 +115,24 @@ fun ProgressItem(
                 style = MaterialTheme.typography.bodyLarge,
                 color = colorScheme.getTextColor(isSystemInDarkTheme)
             )
-            Text(
-                text = countLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                // +N uses the habit's text color so it's always readable regardless of bar color
-                color = colorScheme.getTextColor(isSystemInDarkTheme)
-                    .let { if (isOverCompleted) it else it.copy(alpha = 0.7f) }
-            )
+            // When paused, show a pause icon instead of the count — the icon signals
+            // state without cluttering the row with an extra text label.
+            if (isPaused) {
+                Icon(
+                    imageVector = Icons.Filled.Pause,
+                    contentDescription = "Paused",
+                    tint = colorScheme.getTextColor(isSystemInDarkTheme),
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Text(
+                    text = countLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    // +N uses the habit's text color so it's always readable regardless of bar color
+                    color = colorScheme.getTextColor(isSystemInDarkTheme)
+                        .let { if (isOverCompleted) it else it.copy(alpha = 0.7f) }
+                )
+            }
         }
     }
 }

@@ -58,12 +58,12 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **Model:** Add `pausedUntil: Long?` (nullable = not paused; `Long.MAX_VALUE` = indefinite) to `HabitEntity`. Bump DB version.
 - [x] **Model:** DAO query `getActiveHabits(now: Long)` filters pausedUntil.
 - [x] **ViewModel:** `pauseHabit(id, until)` / `resumeHabit(id)` in `viewModelScope.launch`.
-- [ ] **View:** New `ui/components/PauseBottomSheet.kt` using `ModalBottomSheet` (M3) — options: indefinite / date picker.
-- [ ] **View:** `ProgressItem.kt` renders dimmed + pause icon when paused.
+- [x] **View:** New `ui/components/PauseBottomSheet.kt` using `ModalBottomSheet` (M3) — options: indefinite / date picker.
+- [x] **View:** `ProgressItem.kt` renders dimmed + pause icon when paused.
 
 ### 2.3 Long-press context menu
-- [ ] **View:** `ui/components/HabitContextMenu.kt` using `DropdownMenu` triggered by `Modifier.combinedClickable(onLongClick=…)`. 7 actions per `IDEAS.MD §4.4`.
-- [ ] **ViewModel:** Add `markProgressOnce(id)` reusing existing increment logic.
+- [x] **View:** `ui/components/HabitContextMenu.kt` using `DropdownMenu` triggered by `Modifier.combinedClickable(onLongClick=…)`. 7 actions per `IDEAS.MD §4.4`.
+- [x] **ViewModel:** Add `markProgressOnce(id)` reusing existing increment logic.
 
 ### 2.4 Reordering, grouping, filtering
 - [ ] **Model:** Add `sortOrder: Int` and `categoryGroup: String?` columns. Bump DB version.

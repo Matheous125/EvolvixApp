@@ -39,6 +39,17 @@ fun HabitNavGraph(
                 },
                 onNavigateToSettings = {
                     // Settings screen not yet implemented — placeholder
+                },
+                onNavigateToStatistics = {
+                    // Use the same tab-switch pattern as the BottomNav so the
+                    // back stack stays flat (habits is not stacked under statistics).
+                    navController.navigate(Screen.Statistics.route) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
             )
         }
