@@ -443,6 +443,32 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     }
 
     /**
+     * Persists a reorder that may include [HabitUiState.manualGroup] changes.
+     *
+     * Used after cross-group drags where an ungrouped habit is dropped into a group.
+     * For each habit, both [HabitEntity.sortOrder] and [HabitEntity.manualGroup] are
+     * updated if they differ from the current DB value — a single pass covers both
+     * pure reorder (group drag) and cross-group assignment (ungrouped → group drag).
+     *
+     * (Pattern: Command — encapsulates the full post-drag persistence in one operation)
+     *
+     * @param orderedHabits Full list of [HabitUiState] in the desired display order.
+     */
+    fun applyNewOrderWithGroups(orderedHabits: List<HabitUiState>) {
+        viewModelScope.launch {
+            orderedHabits.forEachIndexed { index, uiState ->
+                val entity = habitDao.getHabitById(uiState.id) ?: return@forEachIndexed
+                if (entity.sortOrder != index || entity.manualGroup != uiState.manualGroup) {
+                    habitDao.updateHabit(entity.copy(
+                        sortOrder = index,
+                        manualGroup = uiState.manualGroup
+                    ))
+                }
+            }
+        }
+    }
+
+    /**
      * Creates a new manual group and assigns the selected habits to it.
      *
      * The selected habits are packed at the bottom of the list by assigning them

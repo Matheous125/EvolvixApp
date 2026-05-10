@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +41,50 @@ private data class ManualSection(
     val groupName: String?,
     val habits: List<HabitUiState>
 )
+
+/**
+ * Converts a flat habit list into an ordered list of [ManualSection]s.
+ * Consecutive habits sharing the same non-null [HabitUiState.manualGroup] form one section;
+ * ungrouped habits each become a single-habit section.
+ *
+ * **Deduplication guarantee**: if the same group name appears non-contiguously in [habits]
+ * (e.g. due to desynchronised sort-orders in the DB), all its habits are coalesced into the
+ * section at the FIRST occurrence. This prevents LazyColumn from receiving duplicate keys
+ * (`"manual_header_$group"`) which would cause an [IllegalArgumentException] crash.
+ *
+ * Extracted as a top-level function so that gesture lambdas inside [pointerInput] can call
+ * it on [localList] inline — those lambdas cannot access a `remember`-cached value that may
+ * be stale between recompositions.
+ */
+private fun buildManualSections(habits: List<HabitUiState>): List<ManualSection> {
+    val result = mutableListOf<ManualSection>()
+    // Tracks the result-list index at which each group name first appeared.
+    val seenGroupIndex = mutableMapOf<String, Int>()
+    var i = 0
+    while (i < habits.size) {
+        val group = habits[i].manualGroup
+        if (group != null) {
+            val groupHabits = mutableListOf<HabitUiState>()
+            while (i < habits.size && habits[i].manualGroup == group) {
+                groupHabits.add(habits[i++])
+            }
+            val existingIdx = seenGroupIndex[group]
+            if (existingIdx != null) {
+                // Non-contiguous recurrence: merge habits into the first section so we
+                // never emit two sections with the same groupName / LazyColumn key.
+                result[existingIdx] = result[existingIdx].copy(
+                    habits = result[existingIdx].habits + groupHabits
+                )
+            } else {
+                seenGroupIndex[group] = result.size
+                result.add(ManualSection(groupName = group, habits = groupHabits))
+            }
+        } else {
+            result.add(ManualSection(groupName = null, habits = listOf(habits[i++])))
+        }
+    }
+    return result
+}
 
 /**
  * Supports tap-to-increment, long-press context menu, and collapsible category groups.
@@ -114,13 +159,29 @@ fun MainScreen(
     var draggingItemHeight by remember { mutableIntStateOf(0) }
     // LazyListState lets us query each item's viewport offset during the drag gesture.
     val listState = rememberLazyListState()
+
+    // ── Group drag state (MANUAL sort mode only) ──────────────────────────────
+    // Name of the group currently being dragged as a whole block; null = no group drag.
+    // Declared before localList / LaunchedEffect so it is in scope for the guard check.
+    var draggingGroupName by remember { mutableStateOf<String?>(null) }
+    // Accumulated pixel delta for the group drag overlay (Y axis only).
+    var draggingGroupDeltaY by remember { mutableFloatStateOf(0f) }
+    // Y offset (in viewport px) of the dragged group header at the moment drag started.
+    var draggingGroupStartY by remember { mutableFloatStateOf(0f) }
+    // Height (in px) of the group header item — used for the overlay anchor calculation.
+    var draggingGroupHeaderHeight by remember { mutableIntStateOf(0) }
+
     // Local mutable copy of the list, updated in real-time during drag.
     // Driving LazyColumn from this (not allHabitsUiState directly) lets animateItem()
     // produce the "spreading out to make room" animation as items shift positions.
     var localList by remember { mutableStateOf(allHabitsUiState) }
     // Keep localList in sync with ViewModel emissions when no drag is in progress.
+    // Run the new value through buildManualSections so that any non-contiguous group
+    // order persisted in the DB is coalesced before it reaches the LazyColumn.
     LaunchedEffect(allHabitsUiState) {
-        if (draggingItemId == -1) localList = allHabitsUiState
+        if (draggingItemId == -1 && draggingGroupName == null) {
+            localList = buildManualSections(allHabitsUiState).flatMap { it.habits }
+        }
     }
 
     // When CATEGORY sort is active, group habits by categoryGroup (falls back to first
@@ -138,26 +199,7 @@ fun MainScreen(
     // ungrouped habits (null) each become their own single-habit section.
     // Returns null in CATEGORY/NAME modes — those branches use their own rendering.
     val manualSections: List<ManualSection>? = remember(localList, sortMode) {
-        if (sortMode == SortMode.MANUAL) {
-            buildList {
-                var i = 0
-                while (i < localList.size) {
-                    val habit = localList[i]
-                    val group = habit.manualGroup
-                    if (group != null) {
-                        val groupHabits = mutableListOf<HabitUiState>()
-                        while (i < localList.size && localList[i].manualGroup == group) {
-                            groupHabits.add(localList[i])
-                            i++
-                        }
-                        add(ManualSection(groupName = group, habits = groupHabits))
-                    } else {
-                        add(ManualSection(groupName = null, habits = listOf(habit)))
-                        i++
-                    }
-                }
-            }
-        } else null
+        if (sortMode == SortMode.MANUAL) buildManualSections(localList) else null
     }
 
     Scaffold(
@@ -206,7 +248,7 @@ fun MainScreen(
                     // Sort-order picker — opens a DropdownMenu with 3 sort options
                     Box {
                         IconButton(onClick = { sortMenuExpanded = true }) {
-                            Icon(Icons.Filled.Sort, contentDescription = "Sort order")
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort order")
                         }
                         DropdownMenu(
                             expanded = sortMenuExpanded,
@@ -446,16 +488,132 @@ fun MainScreen(
                             // so it reacts to collapse/expand state changes automatically.
                             item(key = "manual_header_$groupName") {
                                 val isCollapsed = groupName in collapsedManualGroups
+                                // Hide this header (and the overlay takes over) while it is being dragged.
+                                val isDraggingThisGroup = draggingGroupName == groupName
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .animateItem()
+                                        .alpha(if (isDraggingThisGroup) 0f else 1f)
                                         .background(
                                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                             shape = if (isCollapsed || section.habits.isEmpty())
                                                 RoundedCornerShape(12.dp)
                                             else
                                                 RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+                                        )
+                                        .then(
+                                            // Attach the group-level drag gesture only in reorder mode.
+                                            // Long-press on the header starts dragging the entire group block.
+                                            if (reorderMode && !multiSelectMode)
+                                                Modifier.pointerInput("group_drag_$groupName") {
+                                                    detectDragGesturesAfterLongPress(
+                                                        onDragStart = { _ ->
+                                                            val info = listState.layoutInfo.visibleItemsInfo
+                                                                .firstOrNull { it.key == "manual_header_$groupName" }
+                                                            draggingGroupStartY = info?.offset?.toFloat() ?: 0f
+                                                            draggingGroupHeaderHeight = info?.size ?: 0
+                                                            draggingGroupName = groupName
+                                                            draggingGroupDeltaY = 0f
+                                                        },
+                                                        onDrag = { _, dragAmount ->
+                                                            draggingGroupDeltaY += dragAmount.y
+                                                            val currentGroupName = draggingGroupName
+                                                                ?: return@detectDragGesturesAfterLongPress
+                                                            // Rebuild sections from the live localList so we always
+                                                            // work with the latest order (gesture lambdas don't recompose).
+                                                            val sections = buildManualSections(localList)
+                                                            val fromSectionIdx = sections.indexOfFirst {
+                                                                it.groupName == currentGroupName
+                                                            }
+                                                            if (fromSectionIdx == -1) return@detectDragGesturesAfterLongPress
+
+                                                            val draggedCenter = draggingGroupStartY.toInt() +
+                                                                draggingGroupHeaderHeight / 2 +
+                                                                draggingGroupDeltaY.toInt()
+
+                                                            // Visible items that are NOT part of the dragged group
+                                                            // and are valid reorder anchors (habits or group headers).
+                                                            val relevantItems = listState.layoutInfo.visibleItemsInfo
+                                                                .filter { info ->
+                                                                    val key = info.key
+                                                                    val isOwn = when (key) {
+                                                                        is Int -> localList.firstOrNull { it.id == key }
+                                                                            ?.manualGroup == currentGroupName
+                                                                        is String -> key == "manual_header_$currentGroupName"
+                                                                        else -> true  // gaps: always exclude
+                                                                    }
+                                                                    !isOwn && (key is Int ||
+                                                                        (key is String &&
+                                                                            (key as String).startsWith("manual_header_")))
+                                                                }
+
+                                                            // Find the item whose Y range contains the drag center.
+                                                            val targetInfo = relevantItems
+                                                                .firstOrNull { info ->
+                                                                    draggedCenter in info.offset until (info.offset + info.size)
+                                                                }
+
+                                                            // Map the hit item (or edge position) to a section index.
+                                                            val toSectionIdx: Int = if (targetInfo != null) {
+                                                                when (val key = targetInfo.key) {
+                                                                    is Int -> sections.indexOfFirst { s ->
+                                                                        s.habits.any { it.id == key }
+                                                                    }
+                                                                    is String -> {
+                                                                        val tgn = (key as String).removePrefix("manual_header_")
+                                                                        sections.indexOfFirst { it.groupName == tgn }
+                                                                    }
+                                                                    else -> -1
+                                                                }
+                                                            } else {
+                                                                // Drag center is outside all visible items:
+                                                                // resolve to list-top (0) or list-bottom (last section).
+                                                                when {
+                                                                    relevantItems.isNotEmpty() &&
+                                                                        draggedCenter < relevantItems.first().offset -> 0
+                                                                    relevantItems.isNotEmpty() &&
+                                                                        draggedCenter >= relevantItems.last().offset +
+                                                                            relevantItems.last().size ->
+                                                                        sections.size - 1
+                                                                    else -> -1
+                                                                }
+                                                            }
+
+                                                            if (toSectionIdx != -1 &&
+                                                                toSectionIdx != fromSectionIdx
+                                                            ) {
+                                                                // Section-level move: remove the group from its current
+                                                                // position and insert at toSectionIdx.
+                                                                // Using toSectionIdx directly (no -1 adjustment) gives
+                                                                // the correct "slide-past" behavior: the dragged group
+                                                                // overtakes the target and can reach any position
+                                                                // including the very first and very last slot.
+                                                                val newSections = sections.toMutableList()
+                                                                val movedSection = newSections.removeAt(fromSectionIdx)
+                                                                newSections.add(
+                                                                    toSectionIdx.coerceIn(0, newSections.size),
+                                                                    movedSection
+                                                                )
+                                                                localList = newSections.flatMap { it.habits }
+                                                            }
+                                                        },
+                                                        onDragEnd = {
+                                                            // Commit the new sort order to the DB.
+                                                            // manualGroup values are unchanged so applyNewOrderWithGroups
+                                                            // behaves identically to applyNewOrder here.
+                                                            habitViewModel.applyNewOrderWithGroups(localList)
+                                                            draggingGroupName = null
+                                                            draggingGroupDeltaY = 0f
+                                                        },
+                                                        onDragCancel = {
+                                                            localList = allHabitsUiState
+                                                            draggingGroupName = null
+                                                            draggingGroupDeltaY = 0f
+                                                        }
+                                                    )
+                                                }
+                                            else Modifier
                                         )
                                 ) {
                                     CategoryGroupHeader(
@@ -469,6 +627,7 @@ fun MainScreen(
                                                     collapsedManualGroups + groupName
                                         },
                                         showEditIcon = reorderMode && !multiSelectMode,
+                                        showDragHandle = reorderMode && !multiSelectMode,
                                         isEditing = editingGroupName == groupName,
                                         editText = editingGroupNameInput,
                                         onEditTextChange = { editingGroupNameInput = it },
@@ -499,6 +658,8 @@ fun MainScreen(
                                     val isLastInGroup = habitIdx == section.habits.size - 1
                                     item(key = habit.id) {
                                         val isDragging = draggingItemId == habit.id
+                                        // Also ghost this habit when its whole group is being dragged.
+                                        val isInDraggedGroup = draggingGroupName == groupName
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -569,7 +730,7 @@ fun MainScreen(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .padding(start = 8.dp, end = 8.dp)
-                                                    .alpha(if (isDragging) 0f else 1f)
+                                                    .alpha(if (isDragging || isInDraggedGroup) 0f else 1f)
                                             ) {
                                                 if (reorderMode && !multiSelectMode) {
                                                     Icon(
@@ -602,7 +763,8 @@ fun MainScreen(
                                                     )
                                                 }
                                             }
-                                            if (isLastInGroup) Spacer(Modifier.height(4.dp))
+                                            //if (isLastInGroup) 
+                                            Spacer(Modifier.height(4.dp))
                                         }
                                     }
                                 }
@@ -630,32 +792,74 @@ fun MainScreen(
                                                         },
                                                         onDrag = { _, dragAmount ->
                                                             draggingDeltaY += dragAmount.y
-                                                            val fromIdx = localList.indexOfFirst { it.id == draggingItemId }
-                                                            if (fromIdx != -1) {
+                                                            // Section-level reordering: treat the entire list as
+                                                            // an ordered sequence of sections (single habits and
+                                                            // groups). The dragged habit moves its whole section
+                                                            // past other sections — including entire groups —
+                                                            // without joining them. This lets ungrouped habits
+                                                            // freely move above or below any group.
+                                                            val sections = buildManualSections(localList)
+                                                            val fromSectionIdx = sections.indexOfFirst { s ->
+                                                                s.groupName == null && s.habits.any { it.id == draggingItemId }
+                                                            }
+                                                            if (fromSectionIdx != -1) {
                                                                 val draggedCenter = draggingItemStartY.toInt() +
                                                                     draggingItemHeight / 2 +
                                                                     draggingDeltaY.toInt()
-                                                                val targetInfo = listState.layoutInfo.visibleItemsInfo
-                                                                    .firstOrNull { info ->
-                                                                        info.key != draggingItemId &&
-                                                                        draggedCenter in info.offset until (info.offset + info.size)
+
+                                                                // Valid anchor items: habits (Int key) or group
+                                                                // headers (String "manual_header_*"), excluding self
+                                                                // and spacer/gap keys.
+                                                                val visibleItems = listState.layoutInfo.visibleItemsInfo
+                                                                val relevantItems = visibleItems.filter { info ->
+                                                                    val key = info.key
+                                                                    key != draggingItemId &&
+                                                                    (key is Int || (key is String &&
+                                                                        (key as String).startsWith("manual_header_")))
+                                                                }
+                                                                val targetInfo = relevantItems.firstOrNull { info ->
+                                                                    draggedCenter in info.offset until (info.offset + info.size)
+                                                                }
+
+                                                                val toSectionIdx: Int = if (targetInfo != null) {
+                                                                    when (val key = targetInfo.key) {
+                                                                        is Int -> sections.indexOfFirst { s ->
+                                                                            s.habits.any { it.id == key }
+                                                                        }
+                                                                        is String -> sections.indexOfFirst { s ->
+                                                                            s.groupName == (key as String)
+                                                                                .removePrefix("manual_header_")
+                                                                        }
+                                                                        else -> -1
                                                                     }
-                                                                if (targetInfo != null) {
-                                                                    val toIdx = localList.indexOfFirst { it.id == targetInfo.key }
-                                                                    val fromHabit = localList.getOrNull(fromIdx)
-                                                                    val toHabit = localList.getOrNull(toIdx)
-                                                                    // Only swap with other ungrouped habits (both have null manualGroup)
-                                                                    if (toIdx != -1 && toIdx != fromIdx &&
-                                                                        fromHabit?.manualGroup == toHabit?.manualGroup) {
-                                                                        val newList = localList.toMutableList()
-                                                                        val moved = newList.removeAt(fromIdx)
-                                                                        newList.add(toIdx, moved)
-                                                                        localList = newList
+                                                                } else {
+                                                                    // Edge case: drag center is above or below all items.
+                                                                    when {
+                                                                        relevantItems.isNotEmpty() &&
+                                                                            draggedCenter < relevantItems.first().offset -> 0
+                                                                        relevantItems.isNotEmpty() &&
+                                                                            draggedCenter >= relevantItems.last().offset +
+                                                                                relevantItems.last().size ->
+                                                                            sections.size - 1
+                                                                        else -> -1
                                                                     }
+                                                                }
+
+                                                                if (toSectionIdx != -1 && toSectionIdx != fromSectionIdx) {
+                                                                    val newSections = sections.toMutableList()
+                                                                    val movedSection = newSections.removeAt(fromSectionIdx)
+                                                                    newSections.add(
+                                                                        toSectionIdx.coerceIn(0, newSections.size),
+                                                                        movedSection
+                                                                    )
+                                                                    localList = newSections.flatMap { it.habits }
                                                                 }
                                                             }
                                                         },
                                                         onDragEnd = {
+                                                            // manualGroup values are unchanged (section-level
+                                                            // reorder never reassigns groups), so applyNewOrder
+                                                            // is sufficient here.
                                                             habitViewModel.applyNewOrder(localList.map { it.id })
                                                             draggingItemId = -1
                                                             draggingDeltaY = 0f
@@ -772,6 +976,50 @@ fun MainScreen(
                     )
                 }
             }
+
+            // ── Group drag overlay ────────────────────────────────────────────
+            // Shows a compact group header card that tracks the finger while the
+            // user drags an entire group block to a new position.
+            if (draggingGroupName != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .offset {
+                            IntOffset(
+                                0,
+                                (draggingGroupStartY + draggingGroupDeltaY).roundToInt()
+                            )
+                        }
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.DragHandle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 16.dp, end = 8.dp)
+                    )
+                    Text(
+                        text = draggingGroupName!!,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 10.dp)
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.ExpandLess,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                }
+            }
+
             } // end Box
         }
     }
@@ -782,6 +1030,7 @@ fun MainScreen(
  * Used in both CATEGORY mode (read-only) and MANUAL mode (optionally editable).
  * Background and shape are provided by the parent container — this composable is transparent.
  *
+ * @param showDragHandle When true, a DragHandle icon is shown at the leading edge (MANUAL reorder mode).
  * @param showEditIcon When true, an Edit icon is shown for inline rename (MANUAL reorder mode).
  * @param isEditing When true, replaces the title [Text] with an inline [BasicTextField].
  * @param editText Current value of the inline rename field.
@@ -794,6 +1043,7 @@ private fun CategoryGroupHeader(
     title: String,
     isCollapsed: Boolean,
     onToggle: () -> Unit,
+    showDragHandle: Boolean = false,
     showEditIcon: Boolean = false,
     isEditing: Boolean = false,
     editText: String = "",
@@ -805,9 +1055,19 @@ private fun CategoryGroupHeader(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
-            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = if (showDragHandle) 8.dp else 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Drag handle shown in reorder mode — the outer Box has the pointerInput gesture,
+        // this icon is purely visual feedback that the header is draggable.
+        if (showDragHandle) {
+            Icon(
+                imageVector = Icons.Filled.DragHandle,
+                contentDescription = "Drag group to reorder",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.padding(end = 4.dp)
+            )
+        }
         if (isEditing) {
             // Inline rename field: replaces the title text during edit mode.
             // BasicTextField is used (not OutlinedTextField) to match the header's style.

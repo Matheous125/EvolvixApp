@@ -47,6 +47,12 @@ The test: Every changed line should trace directly to the user's request.
 - **Inline Comments:** Briefly explain *why* a specific Android component is used.
 - When providing code, explain it in standard CS terms (e.g., "This acts as a Singleton," or "This is an Observer pattern").
 
+## 7.0 VS Code False-Positive Errors — DO NOT ACT ON THESE
+**VS Code's Kotlin Language Server cannot resolve the Android SDK classpath.** All `android.*`, `androidx.*`, and `kotlinx.*` imports will appear red in VS Code even when the project compiles and runs correctly in Android Studio. This is a permanent limitation of VS Code with Android projects — it is NOT caused by missing dependencies, wrong imports, or build script errors.
+- **Never suggest fixing imports, adding dependencies, or changing build files based solely on red highlights in VS Code.**
+- **Always treat Android Studio's build output as the authoritative source of truth.**
+- If the user reports red underlines on standard Android/AndroidX/KotlinX symbols, acknowledge them as VS Code false positives and move on.
+
 ## 7. Token Conservation & Workflow Guardrails
 **Maximize monthly token limits and avoid path hallucinations.**
 - **No Path Guessing:** Before creating *any* new file, you must silently check `STRUCTURE.md` to ensure you are placing the file in the correct nested Android package directory and using the correct `package com...` declaration at the top of the file.
