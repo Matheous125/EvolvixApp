@@ -14,7 +14,7 @@ import com.example.evolvix.data.model.HabitCompletionEntity
         HabitEntity::class,
         HabitCompletionEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

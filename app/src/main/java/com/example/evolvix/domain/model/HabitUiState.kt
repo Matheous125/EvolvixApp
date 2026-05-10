@@ -107,5 +107,11 @@ data class HabitUiState(
      * Optional group label for stickyHeader grouping when [SortMode.CATEGORY] is active.
      * Maps from [HabitEntity.categoryGroup]; null means ungrouped.
      */
-    val categoryGroup: String? = null
+    val categoryGroup: String? = null,
+
+    /**
+     * User-created group label for MANUAL sort mode collapsible sections.
+     * Maps from [HabitEntity.manualGroup]; null means the habit is ungrouped.
+     */
+    val manualGroup: String? = null
 )

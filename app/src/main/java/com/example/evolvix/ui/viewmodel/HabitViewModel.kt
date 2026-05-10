@@ -181,7 +181,8 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                 isOverCompleted = entity.currentCount > entity.target,
                 pausedUntil = entity.pausedUntil,
                 categories = entity.categories,
-                categoryGroup = entity.categoryGroup
+                categoryGroup = entity.categoryGroup,
+                manualGroup = entity.manualGroup
             )
         }
     }
@@ -438,6 +439,43 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                     habitDao.updateHabit(entity.copy(sortOrder = index))
                 }
             }
+        }
+    }
+
+    /**
+     * Creates a new manual group and assigns the selected habits to it.
+     *
+     * The selected habits are packed at the bottom of the list by assigning them
+     * [sortOrder] values beyond the current maximum. This guarantees they appear
+     * consecutively in the MANUAL sorted query, which the View relies on to build
+     * contiguous group sections.
+     *
+     * @param groupName Display name of the new group.
+     * @param habitIds IDs of habits to assign to the group.
+     */
+    fun createManualGroup(groupName: String, habitIds: List<Int>) {
+        viewModelScope.launch {
+            val allHabits = habitDao.getAllHabitsOnce()
+            val maxOrder = allHabits.maxOfOrNull { it.sortOrder } ?: 0
+            habitIds.forEachIndexed { index, id ->
+                val entity = habitDao.getHabitById(id) ?: return@forEachIndexed
+                habitDao.updateHabit(entity.copy(
+                    manualGroup = groupName,
+                    sortOrder = maxOrder + 1 + index
+                ))
+            }
+        }
+    }
+
+    /**
+     * Renames a manual group by updating all member habits in one DAO call.
+     *
+     * @param oldName Current group name.
+     * @param newName Desired new group name.
+     */
+    fun renameManualGroup(oldName: String, newName: String) {
+        viewModelScope.launch {
+            habitDao.renameManualGroup(oldName, newName.trim())
         }
     }
 

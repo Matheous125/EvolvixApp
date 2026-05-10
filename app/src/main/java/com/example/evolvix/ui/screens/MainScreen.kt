@@ -5,6 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -16,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.draw.alpha
@@ -28,7 +32,16 @@ import com.example.evolvix.ui.viewmodel.HabitViewModel
 import kotlin.math.roundToInt
 
 /**
- * Main screen displaying the full habit list with search, category filtering, and sorting.
+ * Represents one visual "row" in the MANUAL mode list.
+ * A named group contains one or more habits; a null groupName means a single ungrouped habit.
+ * Built by scanning the sort-ordered flat list and collecting consecutive same-group habits.
+ */
+private data class ManualSection(
+    val groupName: String?,
+    val habits: List<HabitUiState>
+)
+
+/**
  * Supports tap-to-increment, long-press context menu, and collapsible category groups.
  *
  * @param onNavigateToAddHabit Callback to open the Add Habit screen
@@ -70,6 +83,24 @@ fun MainScreen(
     // (to hide the FAB). Auto-exit on sort change is handled inside setSortMode().
     val reorderMode by habitViewModel.reorderMode.collectAsState()
 
+    // ── Manual-group management state ────────────────────────────────────────
+    // Collapsed state for manual-mode group sections (independent of CATEGORY mode)
+    var collapsedManualGroups by remember { mutableStateOf(emptySet<String>()) }
+    // Whether the "New Group" name dialog is visible
+    var showNewGroupDialog by remember { mutableStateOf(false) }
+    // Text input for the new group name dialog
+    var newGroupNameInput by remember { mutableStateOf("") }
+    // Whether multi-select mode is active (user is picking habits for a new group)
+    var multiSelectMode by remember { mutableStateOf(false) }
+    // Name of the group being created during multi-select flow
+    var pendingGroupName by remember { mutableStateOf("") }
+    // IDs of habits selected for the pending group
+    var selectedHabitIds by remember { mutableStateOf(emptySet<Int>()) }
+    // Which group is currently being renamed inline (null = none)
+    var editingGroupName by remember { mutableStateOf<String?>(null) }
+    // Live text for the inline rename field
+    var editingGroupNameInput by remember { mutableStateOf("") }
+
 
     // ── Drag-and-drop state (MANUAL sort mode only) ───────────────────────────
     // ID of the item currently being dragged; -1 means no drag in progress.
@@ -102,6 +133,33 @@ fun MainScreen(
         } else null
     }
 
+    // When MANUAL sort is active, build an ordered list of sections from localList.
+    // Consecutive habits sharing the same non-null manualGroup form one ManualSection;
+    // ungrouped habits (null) each become their own single-habit section.
+    // Returns null in CATEGORY/NAME modes — those branches use their own rendering.
+    val manualSections: List<ManualSection>? = remember(localList, sortMode) {
+        if (sortMode == SortMode.MANUAL) {
+            buildList {
+                var i = 0
+                while (i < localList.size) {
+                    val habit = localList[i]
+                    val group = habit.manualGroup
+                    if (group != null) {
+                        val groupHabits = mutableListOf<HabitUiState>()
+                        while (i < localList.size && localList[i].manualGroup == group) {
+                            groupHabits.add(localList[i])
+                            i++
+                        }
+                        add(ManualSection(groupName = group, habits = groupHabits))
+                    } else {
+                        add(ManualSection(groupName = null, habits = listOf(habit)))
+                        i++
+                    }
+                }
+            }
+        } else null
+    }
+
     Scaffold(
         topBar = {
             // TopAppBar standardized across all screens (Composition over inheritance — Phase 1.2)
@@ -115,8 +173,34 @@ fun MainScreen(
                     // While in reorder mode show a "Done" button that exits the mode.
                     // The normal sort + settings actions are hidden so the UI is unambiguous.
                     if (reorderMode) {
-                        TextButton(onClick = { habitViewModel.exitReorderMode() }) {
-                            Text("Done")
+                        if (multiSelectMode) {
+                            // Multi-select: confirm assignment or cancel the group creation
+                            TextButton(
+                                enabled = selectedHabitIds.isNotEmpty(),
+                                onClick = {
+                                    habitViewModel.createManualGroup(pendingGroupName, selectedHabitIds.toList())
+                                    multiSelectMode = false
+                                    selectedHabitIds = emptySet()
+                                    pendingGroupName = ""
+                                }
+                            ) {
+                                Text("Add ${selectedHabitIds.size} habits")
+                            }
+                            TextButton(onClick = {
+                                multiSelectMode = false
+                                selectedHabitIds = emptySet()
+                                pendingGroupName = ""
+                            }) {
+                                Text("Cancel")
+                            }
+                        } else {
+                            // Normal reorder mode: offer group creation and done
+                            TextButton(onClick = { showNewGroupDialog = true }) {
+                                Text("New Group")
+                            }
+                            TextButton(onClick = { habitViewModel.exitReorderMode() }) {
+                                Text("Done")
+                            }
                         }
                     } else {
                     // Sort-order picker — opens a DropdownMenu with 3 sort options
@@ -158,6 +242,46 @@ fun MainScreen(
             )
         }
     ) { paddingValues ->
+
+        // ── New Group dialog ──────────────────────────────────────────────────
+        // Shown when the user taps "New Group" in reorder mode.
+        // On confirm, transitions to multi-select mode for habit assignment.
+        if (showNewGroupDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showNewGroupDialog = false
+                    newGroupNameInput = ""
+                },
+                title = { Text("New Group") },
+                text = {
+                    OutlinedTextField(
+                        value = newGroupNameInput,
+                        onValueChange = { newGroupNameInput = it },
+                        label = { Text("Group name") },
+                        singleLine = true
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = newGroupNameInput.isNotBlank(),
+                        onClick = {
+                            pendingGroupName = newGroupNameInput.trim()
+                            newGroupNameInput = ""
+                            showNewGroupDialog = false
+                            multiSelectMode = true
+                            selectedHabitIds = emptySet()
+                        }
+                    ) { Text("Create") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showNewGroupDialog = false
+                        newGroupNameInput = ""
+                    }) { Text("Cancel") }
+                }
+            )
+        }
+
         Column(
             modifier = modifier
                 .fillMaxSize()
@@ -299,99 +423,313 @@ fun MainScreen(
                             }
                         }
                     }
-                } else {
-                    // MANUAL or NAME mode: flat list driven by [localList].
-                    // The dragged item is made invisible (alpha=0f) so its layout slot is
-                    // preserved (other items animate around it via animateItem()) while the
-                    // floating overlay Box above renders it on top of everything.
-                    items(localList, key = { it.id }) { habit ->
-                        val isDragging = draggingItemId == habit.id
+                } else if (manualSections != null) {
+                    // MANUAL mode: section-based rendering.
+                    // Named groups appear as collapsible cards (matching CATEGORY mode visually).
+                    // Habits within a group are individual LazyColumn items so drag-and-drop
+                    // position tracking via listState.layoutInfo still works per-item.
+                    // Drag is constrained to items sharing the same manualGroup.
+                    manualSections.forEachIndexed { sectionIdx, section ->
+                        // Gap between sections when adjacent to a named group
+                        if (sectionIdx > 0) {
+                            val prevSection = manualSections[sectionIdx - 1]
+                            if (prevSection.groupName != null || section.groupName != null) {
+                                item(key = "manual_gap_$sectionIdx") {
+                                    Spacer(Modifier.height(12.dp))
+                                }
+                            }
+                        }
 
+                        if (section.groupName != null) {
+                            val groupName = section.groupName
+                            // Group header item — background shape is computed at compose time
+                            // so it reacts to collapse/expand state changes automatically.
+                            item(key = "manual_header_$groupName") {
+                                val isCollapsed = groupName in collapsedManualGroups
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .animateItem()
+                                        .background(
+                                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            shape = if (isCollapsed || section.habits.isEmpty())
+                                                RoundedCornerShape(12.dp)
+                                            else
+                                                RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+                                        )
+                                ) {
+                                    CategoryGroupHeader(
+                                        title = groupName,
+                                        isCollapsed = isCollapsed,
+                                        onToggle = {
+                                            collapsedManualGroups =
+                                                if (groupName in collapsedManualGroups)
+                                                    collapsedManualGroups - groupName
+                                                else
+                                                    collapsedManualGroups + groupName
+                                        },
+                                        showEditIcon = reorderMode && !multiSelectMode,
+                                        isEditing = editingGroupName == groupName,
+                                        editText = editingGroupNameInput,
+                                        onEditTextChange = { editingGroupNameInput = it },
+                                        onEditStart = {
+                                            editingGroupName = groupName
+                                            editingGroupNameInput = groupName
+                                        },
+                                        onEditConfirm = {
+                                            val trimmed = editingGroupNameInput.trim()
+                                            if (trimmed.isNotEmpty()) {
+                                                habitViewModel.renameManualGroup(groupName, trimmed)
+                                                if (groupName in collapsedManualGroups) {
+                                                    collapsedManualGroups =
+                                                        collapsedManualGroups - groupName + trimmed
+                                                }
+                                            }
+                                            editingGroupName = null
+                                        }
+                                    )
+                                }
+                            }
+
+                            // Individual habit items within the group (only when expanded).
+                            // Keeping each habit as its own LazyColumn item preserves
+                            // listState position tracking needed for drag-and-drop.
+                            if (groupName !in collapsedManualGroups) {
+                                section.habits.forEachIndexed { habitIdx, habit ->
+                                    val isLastInGroup = habitIdx == section.habits.size - 1
+                                    item(key = habit.id) {
+                                        val isDragging = draggingItemId == habit.id
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .animateItem()
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                                    shape = if (isLastInGroup)
+                                                        RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)
+                                                    else
+                                                        RoundedCornerShape(0.dp)
+                                                )
+                                                .then(
+                                                    if (reorderMode && !multiSelectMode)
+                                                        Modifier.pointerInput(habit.id) {
+                                                            detectDragGesturesAfterLongPress(
+                                                                onDragStart = { _ ->
+                                                                    val info = listState.layoutInfo.visibleItemsInfo
+                                                                        .firstOrNull { it.key == habit.id }
+                                                                    draggingItemStartY = info?.offset?.toFloat() ?: 0f
+                                                                    draggingItemHeight = info?.size ?: 0
+                                                                    draggingItemId = habit.id
+                                                                    draggingDeltaY = 0f
+                                                                },
+                                                                onDrag = { _, dragAmount ->
+                                                                    draggingDeltaY += dragAmount.y
+                                                                    val fromIdx = localList.indexOfFirst { it.id == draggingItemId }
+                                                                    if (fromIdx != -1) {
+                                                                        val draggedCenter = draggingItemStartY.toInt() +
+                                                                            draggingItemHeight / 2 +
+                                                                            draggingDeltaY.toInt()
+                                                                        val targetInfo = listState.layoutInfo.visibleItemsInfo
+                                                                            .firstOrNull { info ->
+                                                                                info.key != draggingItemId &&
+                                                                                draggedCenter in info.offset until (info.offset + info.size)
+                                                                            }
+                                                                        if (targetInfo != null) {
+                                                                            val toIdx = localList.indexOfFirst { it.id == targetInfo.key }
+                                                                            val fromHabit = localList.getOrNull(fromIdx)
+                                                                            val toHabit = localList.getOrNull(toIdx)
+                                                                            // Only swap within the same group (including ungrouped → ungrouped)
+                                                                            if (toIdx != -1 && toIdx != fromIdx &&
+                                                                                fromHabit?.manualGroup == toHabit?.manualGroup) {
+                                                                                val newList = localList.toMutableList()
+                                                                                val moved = newList.removeAt(fromIdx)
+                                                                                newList.add(toIdx, moved)
+                                                                                localList = newList
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                },
+                                                                onDragEnd = {
+                                                                    habitViewModel.applyNewOrder(localList.map { it.id })
+                                                                    draggingItemId = -1
+                                                                    draggingDeltaY = 0f
+                                                                },
+                                                                onDragCancel = {
+                                                                    localList = allHabitsUiState
+                                                                    draggingItemId = -1
+                                                                    draggingDeltaY = 0f
+                                                                }
+                                                            )
+                                                        }
+                                                    else Modifier
+                                                )
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(start = 8.dp, end = 8.dp)
+                                                    .alpha(if (isDragging) 0f else 1f)
+                                            ) {
+                                                if (reorderMode && !multiSelectMode) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.DragHandle,
+                                                        contentDescription = "Drag to reorder",
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                                        modifier = Modifier.padding(end = 4.dp)
+                                                    )
+                                                }
+                                                if (multiSelectMode) {
+                                                    Checkbox(
+                                                        checked = habit.id in selectedHabitIds,
+                                                        onCheckedChange = { checked ->
+                                                            selectedHabitIds =
+                                                                if (checked) selectedHabitIds + habit.id
+                                                                else selectedHabitIds - habit.id
+                                                        }
+                                                    )
+                                                }
+                                                Box(modifier = Modifier.weight(1f)) {
+                                                    HabitRow(
+                                                        habit = habit,
+                                                        viewModel = habitViewModel,
+                                                        onNavigateToStatistics = onNavigateToStatistics,
+                                                        onNavigateToHistory = onNavigateToHistory,
+                                                        onNavigateToEditHabit = onNavigateToEditHabit,
+                                                        isManualSortActive = true,
+                                                        reorderMode = reorderMode,
+                                                        onTriggerReorder = { habitViewModel.enterReorderMode() }
+                                                    )
+                                                }
+                                            }
+                                            if (isLastInGroup) Spacer(Modifier.height(4.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // Ungrouped single habit — same rendering as before with group constraint
+                            val habit = section.habits.first()
+                            item(key = habit.id) {
+                                val isDragging = draggingItemId == habit.id
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .animateItem()
+                                        .then(
+                                            if (reorderMode && !multiSelectMode)
+                                                Modifier.pointerInput(habit.id) {
+                                                    detectDragGesturesAfterLongPress(
+                                                        onDragStart = { _ ->
+                                                            val info = listState.layoutInfo.visibleItemsInfo
+                                                                .firstOrNull { it.key == habit.id }
+                                                            draggingItemStartY = info?.offset?.toFloat() ?: 0f
+                                                            draggingItemHeight = info?.size ?: 0
+                                                            draggingItemId = habit.id
+                                                            draggingDeltaY = 0f
+                                                        },
+                                                        onDrag = { _, dragAmount ->
+                                                            draggingDeltaY += dragAmount.y
+                                                            val fromIdx = localList.indexOfFirst { it.id == draggingItemId }
+                                                            if (fromIdx != -1) {
+                                                                val draggedCenter = draggingItemStartY.toInt() +
+                                                                    draggingItemHeight / 2 +
+                                                                    draggingDeltaY.toInt()
+                                                                val targetInfo = listState.layoutInfo.visibleItemsInfo
+                                                                    .firstOrNull { info ->
+                                                                        info.key != draggingItemId &&
+                                                                        draggedCenter in info.offset until (info.offset + info.size)
+                                                                    }
+                                                                if (targetInfo != null) {
+                                                                    val toIdx = localList.indexOfFirst { it.id == targetInfo.key }
+                                                                    val fromHabit = localList.getOrNull(fromIdx)
+                                                                    val toHabit = localList.getOrNull(toIdx)
+                                                                    // Only swap with other ungrouped habits (both have null manualGroup)
+                                                                    if (toIdx != -1 && toIdx != fromIdx &&
+                                                                        fromHabit?.manualGroup == toHabit?.manualGroup) {
+                                                                        val newList = localList.toMutableList()
+                                                                        val moved = newList.removeAt(fromIdx)
+                                                                        newList.add(toIdx, moved)
+                                                                        localList = newList
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        onDragEnd = {
+                                                            habitViewModel.applyNewOrder(localList.map { it.id })
+                                                            draggingItemId = -1
+                                                            draggingDeltaY = 0f
+                                                        },
+                                                        onDragCancel = {
+                                                            localList = allHabitsUiState
+                                                            draggingItemId = -1
+                                                            draggingDeltaY = 0f
+                                                        }
+                                                    )
+                                                }
+                                            else Modifier
+                                        )
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .alpha(if (isDragging) 0f else 1f)
+                                    ) {
+                                        if (reorderMode && !multiSelectMode) {
+                                            Icon(
+                                                imageVector = Icons.Filled.DragHandle,
+                                                contentDescription = "Drag to reorder",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                                modifier = Modifier.padding(end = 4.dp)
+                                            )
+                                        }
+                                        if (multiSelectMode) {
+                                            Checkbox(
+                                                checked = habit.id in selectedHabitIds,
+                                                onCheckedChange = { checked ->
+                                                    selectedHabitIds =
+                                                        if (checked) selectedHabitIds + habit.id
+                                                        else selectedHabitIds - habit.id
+                                                }
+                                            )
+                                        }
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            HabitRow(
+                                                habit = habit,
+                                                viewModel = habitViewModel,
+                                                onNavigateToStatistics = onNavigateToStatistics,
+                                                onNavigateToHistory = onNavigateToHistory,
+                                                onNavigateToEditHabit = onNavigateToEditHabit,
+                                                isManualSortActive = true,
+                                                reorderMode = reorderMode,
+                                                onTriggerReorder = { habitViewModel.enterReorderMode() }
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // NAME mode: flat list, no grouping, no reorder
+                    items(localList, key = { it.id }) { habit ->
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .animateItem()
-                                // Drag activates on the whole item when in reorder mode.
-                                // Using the full item (not just the handle) is more ergonomic
-                                // and is keyed on habit.id so it is stable across recompositions.
-                                .then(
-                                    if (reorderMode) Modifier.pointerInput(habit.id) {
-                                        detectDragGesturesAfterLongPress(
-                                            onDragStart = { _ ->
-                                                val info = listState.layoutInfo.visibleItemsInfo
-                                                    .firstOrNull { it.key == habit.id }
-                                                draggingItemStartY = info?.offset?.toFloat() ?: 0f
-                                                draggingItemHeight = info?.size ?: 0
-                                                draggingItemId = habit.id
-                                                draggingDeltaY = 0f
-                                            },
-                                            onDrag = { _, dragAmount ->
-                                                draggingDeltaY += dragAmount.y
-                                                val fromIdx = localList.indexOfFirst { it.id == draggingItemId }
-                                                if (fromIdx != -1) {
-                                                    val draggedCenter = draggingItemStartY.toInt() +
-                                                                        draggingItemHeight / 2 +
-                                                                        draggingDeltaY.toInt()
-                                                    val targetInfo = listState.layoutInfo.visibleItemsInfo
-                                                        .firstOrNull { info ->
-                                                            info.key != draggingItemId &&
-                                                            draggedCenter in info.offset until (info.offset + info.size)
-                                                        }
-                                                    if (targetInfo != null) {
-                                                        val toIdx = localList.indexOfFirst { it.id == targetInfo.key }
-                                                        if (toIdx != -1 && toIdx != fromIdx) {
-                                                            val newList = localList.toMutableList()
-                                                            val moved = newList.removeAt(fromIdx)
-                                                            newList.add(toIdx, moved)
-                                                            localList = newList
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            onDragEnd = {
-                                                habitViewModel.applyNewOrder(localList.map { it.id })
-                                                draggingItemId = -1
-                                                draggingDeltaY = 0f
-                                            },
-                                            onDragCancel = {
-                                                localList = allHabitsUiState
-                                                draggingItemId = -1
-                                                draggingDeltaY = 0f
-                                            }
-                                        )
-                                    } else Modifier
-                                )
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .alpha(if (isDragging) 0f else 1f)
-                            ) {
-                                // Drag handle icon: decorative only in reorder mode.
-                                // Gesture is now on the whole Column so no pointerInput here.
-                                if (reorderMode) {
-                                    Icon(
-                                        imageVector = Icons.Filled.DragHandle,
-                                        contentDescription = "Drag to reorder",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                        modifier = Modifier.padding(end = 4.dp)
-                                    )
-                                }
-
-                                Box(modifier = Modifier.weight(1f)) {
-                                    HabitRow(
-                                        habit = habit,
-                                        viewModel = habitViewModel,
-                                        onNavigateToStatistics = onNavigateToStatistics,
-                                        onNavigateToHistory = onNavigateToHistory,
-                                        onNavigateToEditHabit = onNavigateToEditHabit,
-                                        isManualSortActive = (sortMode == SortMode.MANUAL),
-                                        reorderMode = reorderMode,
-                                        onTriggerReorder = { habitViewModel.enterReorderMode() }
-                                    )
-                                }
-                            }
+                            HabitRow(
+                                habit = habit,
+                                viewModel = habitViewModel,
+                                onNavigateToStatistics = onNavigateToStatistics,
+                                onNavigateToHistory = onNavigateToHistory,
+                                onNavigateToEditHabit = onNavigateToEditHabit,
+                                isManualSortActive = false,
+                                reorderMode = false,
+                                onTriggerReorder = {}
+                            )
                             Spacer(Modifier.height(8.dp))
                         }
                     }
@@ -440,33 +778,80 @@ fun MainScreen(
 }
 
 /**
- * Header row for a collapsible category group.
- * Background and shape are provided by the parent [Column] so this composable
- * is fully transparent — no gap can appear between it and the rows below.
+ * Header row for a collapsible group section.
+ * Used in both CATEGORY mode (read-only) and MANUAL mode (optionally editable).
+ * Background and shape are provided by the parent container — this composable is transparent.
+ *
+ * @param showEditIcon When true, an Edit icon is shown for inline rename (MANUAL reorder mode).
+ * @param isEditing When true, replaces the title [Text] with an inline [BasicTextField].
+ * @param editText Current value of the inline rename field.
+ * @param onEditTextChange Called on every keystroke in the rename field.
+ * @param onEditStart Called when the user taps the Edit icon to start renaming.
+ * @param onEditConfirm Called when the user confirms the rename (Done action or icon).
  */
 @Composable
 private fun CategoryGroupHeader(
     title: String,
     isCollapsed: Boolean,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    showEditIcon: Boolean = false,
+    isEditing: Boolean = false,
+    editText: String = "",
+    onEditTextChange: (String) -> Unit = {},
+    onEditStart: () -> Unit = {},
+    onEditConfirm: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggle)
-            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+            .padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f)
-        )
-        Icon(
-            imageVector = if (isCollapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
-            contentDescription = if (isCollapsed) "Expand group" else "Collapse group"
-        )
+        if (isEditing) {
+            // Inline rename field: replaces the title text during edit mode.
+            // BasicTextField is used (not OutlinedTextField) to match the header's style.
+            BasicTextField(
+                value = editText,
+                onValueChange = onEditTextChange,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { onEditConfirm() }),
+                textStyle = MaterialTheme.typography.titleSmall.copy(
+                    color = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            // Confirm button for the rename
+            IconButton(onClick = onEditConfirm) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = "Confirm rename",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        } else {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f)
+            )
+            // Edit icon shown only in MANUAL reorder mode — opens inline rename
+            if (showEditIcon) {
+                IconButton(onClick = onEditStart) {
+                    Icon(
+                        imageVector = Icons.Filled.EditNote,
+                        contentDescription = "Rename group",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Icon(
+                imageVector = if (isCollapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
+                contentDescription = if (isCollapsed) "Expand group" else "Collapse group"
+            )
+        }
     }
 }
 

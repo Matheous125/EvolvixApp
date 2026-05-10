@@ -43,5 +43,9 @@ data class HabitEntity(
     /** Manual sort position for drag-and-drop ordering; lower value = higher in the list. */
     val sortOrder: Int = 0,
     /** Optional category group label used when grouping habits by category in the list. */
-    val categoryGroup: String? = null
+    val categoryGroup: String? = null,
+    /** User-created group name in MANUAL sort mode; null = ungrouped. */
+    val manualGroup: String? = null,
+    /** Sort position of the group itself in MANUAL mode (Phase B — group-level drag). */
+    val groupSortOrder: Int = 0
 )

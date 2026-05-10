@@ -74,6 +74,27 @@ abstract class HabitDao {
     @Query("SELECT * FROM habits WHERE LOWER(name) = LOWER(:name) LIMIT 1")
     abstract suspend fun findByNameIgnoreCase(name: String): HabitEntity?
 
+    /**
+     * Returns all habits that belong to the given [manualGroup] as a one-shot list.
+     * Used by [HabitViewModel.renameManualGroup] to batch-update group members.
+     */
+    @Query("SELECT * FROM habits WHERE manualGroup = :manualGroup")
+    abstract suspend fun getHabitsByManualGroup(manualGroup: String): List<HabitEntity>
+
+    /**
+     * Returns all habits as a one-shot snapshot, ordered by [sortOrder].
+     * Used during group creation to determine where to pack new group members.
+     */
+    @Query("SELECT * FROM habits ORDER BY sortOrder ASC")
+    abstract suspend fun getAllHabitsOnce(): List<HabitEntity>
+
+    /**
+     * Renames a manual group in one atomic SQL UPDATE.
+     * All habits whose [manualGroup] equals [oldName] are updated to [newName].
+     */
+    @Query("UPDATE habits SET manualGroup = :newName WHERE manualGroup = :oldName")
+    abstract suspend fun renameManualGroup(oldName: String, newName: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertHabit(habit: HabitEntity)
     /*
