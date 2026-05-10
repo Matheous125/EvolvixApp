@@ -51,6 +51,8 @@ import com.example.evolvix.domain.model.HabitUiState
  * @param onDelete Action 6 — called after the user confirms deletion.
  * @param isManualSortActive True when MANUAL sort order is active. The "Reorder habits" item
  *   is enabled only in this mode; it is grayed out (but still visible) in all other modes.
+ * @param reorderMode When true, all taps and long-presses are suppressed so only drag
+ *   gestures are active. Progress recording and the context menu are unavailable.
  * @param onTriggerReorder Action 7 — activate drag & drop reorder mode.
  * @param content The habit row composable to render (e.g. [ProgressItem]).
  */
@@ -66,6 +68,7 @@ fun HabitContextMenu(
     onNavigateToEdit: () -> Unit,
     onDelete: () -> Unit,
     isManualSortActive: Boolean,
+    reorderMode: Boolean,
     onTriggerReorder: () -> Unit,
     content: @Composable () -> Unit
 ) {
@@ -119,14 +122,18 @@ fun HabitContextMenu(
     // combinedClickable replaces the raw pointerInput/detectTapGestures block.
     // The DropdownMenu anchors itself to the enclosing Box so it always appears
     // near the long-pressed item, regardless of scroll position.
+    // In reorder mode both interactions are suppressed — the Box becomes inert
+    // so only the drag gesture handler on the parent item Column fires.
     Box(
-        modifier = Modifier.combinedClickable(
-            onClick = onMarkProgress,
-            onLongClick = { menuExpanded = true }
-        )
+        modifier = if (reorderMode) Modifier
+                   else Modifier.combinedClickable(
+                       onClick = onMarkProgress,
+                       onLongClick = { menuExpanded = true }
+                   )
     ) {
         content()
 
+        if (!reorderMode) {
         DropdownMenu(
             expanded = menuExpanded,
             onDismissRequest = { menuExpanded = false }
@@ -215,5 +222,6 @@ fun HabitContextMenu(
                 }
             )
         }
+        } // end if (!reorderMode)
     }
 }

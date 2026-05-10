@@ -9,6 +9,7 @@ import com.example.evolvix.ui.screens.*
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import android.util.Log
+import com.example.evolvix.ui.viewmodel.HabitViewModel
 
 /**
  * Main navigation graph for the application.
@@ -16,11 +17,14 @@ import android.util.Log
  *
  * @param navController Controller that handles navigation between screens
  * @param modifier Optional modifier for the navigation host
+ * @param habitViewModel Activity-scoped ViewModel passed down from [AppContent] so that
+ *   [MainScreen] and [MainActivity] share the same instance.
  */
 @Composable
 fun HabitNavGraph(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    habitViewModel: HabitViewModel
 ) {
     NavHost(
         navController = navController,
@@ -31,6 +35,7 @@ fun HabitNavGraph(
     // Main screen with habit list    
         composable(route = Screen.Habits.route) {
             MainScreen(
+                habitViewModel = habitViewModel,
                 onNavigateToAddHabit = {
                     navController.navigate(Screen.AddNewHabit.route)
                 },

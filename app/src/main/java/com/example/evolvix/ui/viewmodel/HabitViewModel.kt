@@ -85,7 +85,24 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     fun setSortMode(mode: SortMode) {
         _sortMode.value = mode
         prefs.edit().putString("sort_mode", mode.name).apply()
+        // Automatically exit reorder mode when the user switches away from MANUAL sort.
+        if (mode != SortMode.MANUAL) _reorderMode.value = false
     }
+
+    /**
+     * Tracks whether the drag-and-drop reorder mode is active.
+     * Lifted into the ViewModel so that [MainActivity] can observe it and hide
+     * the FAB — keeping the ViewModel as the single source of truth for all UI state.
+     * (Pattern: Observer via StateFlow — Unidirectional Data Flow)
+     */
+    private val _reorderMode = MutableStateFlow(false)
+    val reorderMode: StateFlow<Boolean> = _reorderMode.asStateFlow()
+
+    /** Activates drag-and-drop reorder mode. Only valid when [sortMode] is [SortMode.MANUAL]. */
+    fun enterReorderMode() { _reorderMode.value = true }
+
+    /** Deactivates drag-and-drop reorder mode and commits no additional changes. */
+    fun exitReorderMode() { _reorderMode.value = false }
 
     /**
      * Holds the set of category labels currently used as filters.
