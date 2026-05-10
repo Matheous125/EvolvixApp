@@ -95,6 +95,21 @@ abstract class HabitDao {
     @Query("UPDATE habits SET manualGroup = :newName WHERE manualGroup = :oldName")
     abstract suspend fun renameManualGroup(oldName: String, newName: String)
 
+    /**
+     * Deletes all habits that belong to [groupName] in one atomic DELETE.
+     * Used by [HabitViewModel.deleteManualGroupWithHabits] for bulk group deletion.
+     */
+    @Query("DELETE FROM habits WHERE manualGroup = :groupName")
+    abstract suspend fun deleteHabitsByGroup(groupName: String)
+
+    /**
+     * Removes a single habit from its manual group by clearing the [manualGroup] field.
+     * The habit remains in the database as an ungrouped habit.
+     * Used by [HabitViewModel.updateManualGroupMembers] when the user unchecks a habit.
+     */
+    @Query("UPDATE habits SET manualGroup = NULL WHERE id = :habitId")
+    abstract suspend fun unassignHabitFromGroup(habitId: Int)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     abstract suspend fun insertHabit(habit: HabitEntity)
     /*

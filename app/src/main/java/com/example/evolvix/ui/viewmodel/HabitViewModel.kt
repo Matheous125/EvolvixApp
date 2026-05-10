@@ -505,6 +505,62 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
         }
     }
 
+    /**
+     * Deletes a group and all habits inside it.
+     *
+     * Triggered when the user confirms the delete-group dialog on a non-empty group.
+     * Uses an atomic bulk DELETE so the UI reflects the removal in a single DB write.
+     *
+     * @param groupName The name of the group whose habits should be deleted.
+     */
+    fun deleteManualGroupWithHabits(groupName: String) {
+        viewModelScope.launch {
+            habitDao.deleteHabitsByGroup(groupName)
+        }
+    }
+
+    /**
+     * Edits the membership of an existing manual group.
+     *
+     * Compares [newHabitIds] against [previousHabitIds] to determine what changed:
+     * - Habits removed from the selection → [manualGroup] cleared (habit stays, just ungrouped).
+     * - Newly added habits → [manualGroup] set to [groupName] and packed at the end of the list.
+     *
+     * This is the Observer/Command pattern: the UI sends the desired end-state and the ViewModel
+     * resolves the delta, keeping the View layer free of DB logic.
+     *
+     * @param groupName   Name of the group being edited.
+     * @param newHabitIds IDs of habits that should be in the group after this operation.
+     * @param previousHabitIds IDs of habits that were in the group before editing.
+     */
+    fun updateManualGroupMembers(
+        groupName: String,
+        newHabitIds: List<Int>,
+        previousHabitIds: List<Int>
+    ) {
+        viewModelScope.launch {
+            // Habits unchecked by the user — remove from group but keep in DB.
+            val toUnassign = previousHabitIds.filter { it !in newHabitIds }
+            toUnassign.forEach { id ->
+                habitDao.unassignHabitFromGroup(id)
+            }
+
+            // Habits newly added to the group — assign group name and pack them at the end.
+            val toAdd = newHabitIds.filter { it !in previousHabitIds }
+            if (toAdd.isNotEmpty()) {
+                val allHabits = habitDao.getAllHabitsOnce()
+                val maxOrder = allHabits.maxOfOrNull { it.sortOrder } ?: 0
+                toAdd.forEachIndexed { index, id ->
+                    val entity = habitDao.getHabitById(id) ?: return@forEachIndexed
+                    habitDao.updateHabit(entity.copy(
+                        manualGroup = groupName,
+                        sortOrder = maxOrder + 1 + index
+                    ))
+                }
+            }
+        }
+    }
+
     fun checkAndResetProgress() {
         viewModelScope.launch {
             try {

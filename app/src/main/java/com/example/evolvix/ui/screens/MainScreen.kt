@@ -145,6 +145,13 @@ fun MainScreen(
     var editingGroupName by remember { mutableStateOf<String?>(null) }
     // Live text for the inline rename field
     var editingGroupNameInput by remember { mutableStateOf("") }
+    // Group awaiting delete confirmation (null = no dialog). Holds the section so we can
+    // display the habit count inside the dialog without re-querying the DB.
+    var groupPendingDelete by remember { mutableStateOf<ManualSection?>(null) }
+    // True when multi-select is used to EDIT an existing group (vs. creating a new one).
+    var isEditingExistingGroup by remember { mutableStateOf(false) }
+    // IDs the group had when the edit session started — used to compute the delta on confirm.
+    var editGroupOriginalHabitIds by remember { mutableStateOf(emptySet<Int>()) }
 
 
     // ── Drag-and-drop state (MANUAL sort mode only) ───────────────────────────
@@ -216,21 +223,34 @@ fun MainScreen(
                     // The normal sort + settings actions are hidden so the UI is unambiguous.
                     if (reorderMode) {
                         if (multiSelectMode) {
-                            // Multi-select: confirm assignment or cancel the group creation
+                            // Multi-select: confirm assignment or cancel.
+                            // Button label and ViewModel call differ for create vs. edit flows.
                             TextButton(
                                 enabled = selectedHabitIds.isNotEmpty(),
                                 onClick = {
-                                    habitViewModel.createManualGroup(pendingGroupName, selectedHabitIds.toList())
+                                    if (isEditingExistingGroup) {
+                                        habitViewModel.updateManualGroupMembers(
+                                            groupName = pendingGroupName,
+                                            newHabitIds = selectedHabitIds.toList(),
+                                            previousHabitIds = editGroupOriginalHabitIds.toList()
+                                        )
+                                    } else {
+                                        habitViewModel.createManualGroup(pendingGroupName, selectedHabitIds.toList())
+                                    }
                                     multiSelectMode = false
+                                    isEditingExistingGroup = false
                                     selectedHabitIds = emptySet()
+                                    editGroupOriginalHabitIds = emptySet()
                                     pendingGroupName = ""
                                 }
                             ) {
-                                Text("Add ${selectedHabitIds.size} habits")
+                                Text(if (isEditingExistingGroup) "Save" else "Add ${selectedHabitIds.size} habits")
                             }
                             TextButton(onClick = {
                                 multiSelectMode = false
+                                isEditingExistingGroup = false
                                 selectedHabitIds = emptySet()
+                                editGroupOriginalHabitIds = emptySet()
                                 pendingGroupName = ""
                             }) {
                                 Text("Cancel")
@@ -320,6 +340,42 @@ fun MainScreen(
                         showNewGroupDialog = false
                         newGroupNameInput = ""
                     }) { Text("Cancel") }
+                }
+            )
+        }
+
+        // ── Delete group confirmation dialog ──────────────────────────────────
+        // Two variants:
+        //   • Non-empty group: warns that habits inside will also be deleted.
+        //   • Empty group: simple confirmation (no data loss beyond the group label).
+        val pendingDeleteSection = groupPendingDelete
+        if (pendingDeleteSection != null) {
+            val habitCount = pendingDeleteSection.habits.size
+            AlertDialog(
+                onDismissRequest = { groupPendingDelete = null },
+                title = { Text("Delete \"${pendingDeleteSection.groupName}\"?") },
+                text = {
+                    if (habitCount > 0) {
+                        Text("This will permanently delete the group and all $habitCount habit${if (habitCount == 1) "" else "s"} inside it.")
+                    } else {
+                        Text("Delete this empty group?")
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val name = pendingDeleteSection.groupName ?: return@TextButton
+                            if (habitCount > 0) {
+                                habitViewModel.deleteManualGroupWithHabits(name)
+                            }
+                            // Empty group: no habits to delete; the group ceases to exist
+                            // automatically once no habits reference it.
+                            groupPendingDelete = null
+                        }
+                    ) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { groupPendingDelete = null }) { Text("Cancel") }
                 }
             )
         }
@@ -628,6 +684,8 @@ fun MainScreen(
                                         },
                                         showEditIcon = reorderMode && !multiSelectMode,
                                         showDragHandle = reorderMode && !multiSelectMode,
+                                        showDeleteIcon = reorderMode && !multiSelectMode,
+                                        showEditHabitsIcon = reorderMode && !multiSelectMode,
                                         isEditing = editingGroupName == groupName,
                                         editText = editingGroupNameInput,
                                         onEditTextChange = { editingGroupNameInput = it },
@@ -645,6 +703,19 @@ fun MainScreen(
                                                 }
                                             }
                                             editingGroupName = null
+                                        },
+                                        onDeleteGroup = {
+                                            // Capture the current section snapshot for the dialog.
+                                            groupPendingDelete = section
+                                        },
+                                        onEditGroupHabits = {
+                                            // Enter multi-select to edit existing group membership.
+                                            // Pre-check the habits already belonging to this group.
+                                            pendingGroupName = groupName
+                                            editGroupOriginalHabitIds = section.habits.map { it.id }.toSet()
+                                            selectedHabitIds = editGroupOriginalHabitIds
+                                            isEditingExistingGroup = true
+                                            multiSelectMode = true
                                         }
                                     )
                                 }
@@ -741,14 +812,21 @@ fun MainScreen(
                                                     )
                                                 }
                                                 if (multiSelectMode) {
-                                                    Checkbox(
-                                                        checked = habit.id in selectedHabitIds,
-                                                        onCheckedChange = { checked ->
-                                                            selectedHabitIds =
-                                                                if (checked) selectedHabitIds + habit.id
-                                                                else selectedHabitIds - habit.id
-                                                        }
-                                                    )
+                                                    // When editing an existing group, only show checkboxes for
+                                                    // the group being edited — habits in other groups are not
+                                                    // eligible for reassignment in this flow.
+                                                    val isEligible = !isEditingExistingGroup ||
+                                                        groupName == pendingGroupName
+                                                    if (isEligible) {
+                                                        Checkbox(
+                                                            checked = habit.id in selectedHabitIds,
+                                                            onCheckedChange = { checked ->
+                                                                selectedHabitIds =
+                                                                    if (checked) selectedHabitIds + habit.id
+                                                                    else selectedHabitIds - habit.id
+                                                            }
+                                                        )
+                                                    }
                                                 }
                                                 Box(modifier = Modifier.weight(1f)) {
                                                     HabitRow(
@@ -889,6 +967,8 @@ fun MainScreen(
                                             )
                                         }
                                         if (multiSelectMode) {
+                                            // Ungrouped habits are always eligible — they can be added
+                                            // to any group in both the create and edit flows.
                                             Checkbox(
                                                 checked = habit.id in selectedHabitIds,
                                                 onCheckedChange = { checked ->
@@ -1032,11 +1112,15 @@ fun MainScreen(
  *
  * @param showDragHandle When true, a DragHandle icon is shown at the leading edge (MANUAL reorder mode).
  * @param showEditIcon When true, an Edit icon is shown for inline rename (MANUAL reorder mode).
+ * @param showDeleteIcon When true, a Delete icon is shown to trigger group deletion (MANUAL reorder mode).
+ * @param showEditHabitsIcon When true, a list icon is shown to edit the group's habit members (MANUAL reorder mode).
  * @param isEditing When true, replaces the title [Text] with an inline [BasicTextField].
  * @param editText Current value of the inline rename field.
  * @param onEditTextChange Called on every keystroke in the rename field.
  * @param onEditStart Called when the user taps the Edit icon to start renaming.
  * @param onEditConfirm Called when the user confirms the rename (Done action or icon).
+ * @param onDeleteGroup Called when the user taps the Delete icon.
+ * @param onEditGroupHabits Called when the user taps the edit-habits icon.
  */
 @Composable
 private fun CategoryGroupHeader(
@@ -1045,11 +1129,15 @@ private fun CategoryGroupHeader(
     onToggle: () -> Unit,
     showDragHandle: Boolean = false,
     showEditIcon: Boolean = false,
+    showDeleteIcon: Boolean = false,
+    showEditHabitsIcon: Boolean = false,
     isEditing: Boolean = false,
     editText: String = "",
     onEditTextChange: (String) -> Unit = {},
     onEditStart: () -> Unit = {},
-    onEditConfirm: () -> Unit = {}
+    onEditConfirm: () -> Unit = {},
+    onDeleteGroup: () -> Unit = {},
+    onEditGroupHabits: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
@@ -1097,6 +1185,16 @@ private fun CategoryGroupHeader(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
+            // Edit-habits icon: opens the habit-selection sheet to add/remove members
+            if (showEditHabitsIcon) {
+                IconButton(onClick = onEditGroupHabits) {
+                    Icon(
+                        imageVector = Icons.Filled.List,
+                        contentDescription = "Edit group habits",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             // Edit icon shown only in MANUAL reorder mode — opens inline rename
             if (showEditIcon) {
                 IconButton(onClick = onEditStart) {
@@ -1104,6 +1202,16 @@ private fun CategoryGroupHeader(
                         imageVector = Icons.Filled.EditNote,
                         contentDescription = "Rename group",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            // Delete icon shown only in MANUAL reorder mode — triggers confirmation dialog
+            if (showDeleteIcon) {
+                IconButton(onClick = onDeleteGroup) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "Delete group",
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
