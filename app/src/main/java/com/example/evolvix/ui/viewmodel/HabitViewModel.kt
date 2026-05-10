@@ -402,34 +402,21 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     }
 
     /**
-     * Swaps the list positions of two habits identified by [fromId] and [toId].
+     * Persists a new display order for all habits after a drag-and-drop gesture.
      *
-     * Takes a snapshot of the current UI order, performs the index swap in memory,
-     * then re-assigns [HabitEntity.sortOrder] = list-index for every habit so that
-     * previously uninitialized values (all 0) are normalized in one pass.
+     * Receives [orderedIds] — the full list of habit IDs in the desired order —
+     * and writes [HabitEntity.sortOrder] = list index for each one.
+     * Using the complete ordered list (instead of a from/to swap) guarantees
+     * that the database order always exactly matches what the user saw on screen.
      *
-     * Implements the **Command pattern** — the swap is an encapsulated, atomic
-     * write operation that can be triggered from any gesture event.
+     * (Pattern: Command — the full reorder is one encapsulated, atomic write operation)
      *
-     * @param fromId ID of the habit that was dragged.
-     * @param toId   ID of the habit it was dropped onto.
+     * @param orderedIds Habit IDs in the desired display order (index 0 = top of list).
      */
-    fun reorderHabits(fromId: Int, toId: Int) {
+    fun applyNewOrder(orderedIds: List<Int>) {
         viewModelScope.launch {
-            // Snapshot of the current visible order (already filtered/sorted by the Flow)
-            val currentOrder = allHabits.value.toMutableList()
-            val fromIdx = currentOrder.indexOfFirst { it.id == fromId }
-            val toIdx   = currentOrder.indexOfFirst { it.id == toId }
-            if (fromIdx == -1 || toIdx == -1) return@launch
-
-            // Command: swap the two positions in the snapshot list
-            val temp = currentOrder[fromIdx]
-            currentOrder[fromIdx] = currentOrder[toIdx]
-            currentOrder[toIdx]   = temp
-
-            // Re-normalize sortOrder = list index so future sorts are stable
-            currentOrder.forEachIndexed { index, uiState ->
-                val entity = habitDao.getHabitById(uiState.id) ?: return@forEachIndexed
+            orderedIds.forEachIndexed { index, id ->
+                val entity = habitDao.getHabitById(id) ?: return@forEachIndexed
                 if (entity.sortOrder != index) {
                     habitDao.updateHabit(entity.copy(sortOrder = index))
                 }

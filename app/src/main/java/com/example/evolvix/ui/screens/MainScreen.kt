@@ -2,7 +2,6 @@ package com.example.evolvix.ui.screens
 
 import android.app.Application
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
@@ -21,7 +20,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.alpha
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.domain.model.HabitUiState
@@ -88,12 +87,23 @@ fun MainScreen(
     // ── Drag-and-drop state (MANUAL sort mode only) ───────────────────────────
     // ID of the item currently being dragged; -1 means no drag in progress.
     var draggingItemId by remember { mutableIntStateOf(-1) }
-    // Accumulated pixel offset from the drag start position (Y axis only).
+    // Accumulated pixel delta from the moment the drag started (Y axis only).
+    // Never reset mid-drag — allows the overlay position to track the finger absolutely.
     var draggingDeltaY by remember { mutableFloatStateOf(0f) }
-    // ID of the item that the dragged item is hovering over (the drop target).
-    var hoveredItemId  by remember { mutableIntStateOf(-1) }
+    // Y offset (in viewport px) of the dragged item at the moment the drag started.
+    var draggingItemStartY by remember { mutableFloatStateOf(0f) }
+    // Height (in px) of the dragged item — used for the drag-center hit-test.
+    var draggingItemHeight by remember { mutableIntStateOf(0) }
     // LazyListState lets us query each item's viewport offset during the drag gesture.
     val listState = rememberLazyListState()
+    // Local mutable copy of the list, updated in real-time during drag.
+    // Driving LazyColumn from this (not allHabitsUiState directly) lets animateItem()
+    // produce the "spreading out to make room" animation as items shift positions.
+    var localList by remember { mutableStateOf(allHabitsUiState) }
+    // Keep localList in sync with ViewModel emissions when no drag is in progress.
+    LaunchedEffect(allHabitsUiState) {
+        if (draggingItemId == -1) localList = allHabitsUiState
+    }
 
     // When CATEGORY sort is active, group habits by categoryGroup (falls back to first
     // category tag, then "Other"). Returns null in MANUAL/NAME modes → flat list branch.
@@ -238,6 +248,10 @@ fun MainScreen(
             }
 
             // ── Habit list ────────────────────────────────────────────────────
+            // Box wraps the LazyColumn so the floating overlay can be drawn on top
+            // of all items. This is the community-standard solution to the LazyColumn
+            // zIndex limitation — the overlay is a sibling of the list, not a child.
+            Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -296,106 +310,146 @@ fun MainScreen(
                         }
                     }
                 } else {
-                    // MANUAL or NAME mode: flat list.
-                    // In MANUAL mode a DragHandle icon is shown on the left of each row.
-                    // Long-pressing the handle triggers detectDragGesturesAfterLongPress
-                    // (Pattern: Command — the index swap is an encapsulated ViewModel action).
-                    items(allHabitsUiState, key = { it.id }) { habit ->
+                    // MANUAL or NAME mode: flat list driven by [localList].
+                    // The dragged item is made invisible (alpha=0f) so its layout slot is
+                    // preserved (other items animate around it via animateItem()) while the
+                    // floating overlay Box above renders it on top of everything.
+                    items(localList, key = { it.id }) { habit ->
                         val isDragging = draggingItemId == habit.id
-                        val isTarget   = hoveredItemId  == habit.id && !isDragging
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // Raise the dragged item above its siblings while floating
-                                .zIndex(if (isDragging) 1f else 0f)
-                                // Translate the item visually without disturbing layout flow
-                                .offset { IntOffset(0, if (isDragging) draggingDeltaY.roundToInt() else 0) }
+                                // animateItem() makes every non-dragged item slide smoothly
+                                // to its new slot — the "spreading to make room" effect.
+                                .animateItem()
                         ) {
-                            // Drag handle: only visible while reorder mode is active
-                            if (reorderMode) {
-                                Icon(
-                                    imageVector = Icons.Filled.DragHandle,
-                                    contentDescription = "Drag to reorder",
-                                    tint = if (isDragging) MaterialTheme.colorScheme.primary
-                                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                    modifier = Modifier
-                                        .padding(end = 4.dp)
-                                        // pointerInput scoped to this habit's ID so the
-                                        // lambda is stable and only restarts when the ID changes.
-                                        .pointerInput(habit.id) {
-                                            detectDragGesturesAfterLongPress(
-                                                onDragStart = { _ ->
-                                                    draggingItemId = habit.id
-                                                    draggingDeltaY = 0f
-                                                },
-                                                onDrag = { _, dragAmount ->
-                                                    draggingDeltaY += dragAmount.y
-                                                    // Find which item the drag center is over
-                                                    // using LazyListState's layout snapshot.
-                                                    val dragInfo = listState.layoutInfo
-                                                        .visibleItemsInfo
-                                                        .firstOrNull { it.key == draggingItemId }
-                                                    if (dragInfo != null) {
-                                                        val center = dragInfo.offset.toFloat() +
-                                                                     dragInfo.size / 2f +
-                                                                     draggingDeltaY
-                                                        hoveredItemId = listState.layoutInfo
-                                                            .visibleItemsInfo
-                                                            .firstOrNull { info ->
-                                                                center >= info.offset &&
-                                                                center < info.offset + info.size
-                                                            }?.key as? Int ?: -1
-                                                    }
-                                                },
-                                                onDragEnd = {
-                                                    val from = draggingItemId
-                                                    val to   = hoveredItemId
-                                                    if (from != -1 && to != -1 && from != to) {
-                                                        habitViewModel.reorderHabits(from, to)
-                                                    }
-                                                    draggingItemId = -1
-                                                    draggingDeltaY = 0f
-                                                    hoveredItemId  = -1
-                                                },
-                                                onDragCancel = {
-                                                    draggingItemId = -1
-                                                    draggingDeltaY = 0f
-                                                    hoveredItemId  = -1
-                                                }
-                                            )
-                                        }
-                                )
-                            }
-
-                            // Highlight the drop target with a primary-color border
-                            Box(
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .then(
-                                        if (isTarget) Modifier.border(
-                                            width = 2.dp,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            shape = RoundedCornerShape(8.dp)
-                                        ) else Modifier
-                                    )
+                                    .fillMaxWidth()
+                                    // Hide the in-list item while dragging so only the
+                                    // overlay is visible; layout space is still occupied.
+                                    .alpha(if (isDragging) 0f else 1f)
                             ) {
-                                HabitRow(
-                                    habit = habit,
-                                    viewModel = habitViewModel,
-                                    onNavigateToStatistics = onNavigateToStatistics,
-                                    onNavigateToHistory = onNavigateToHistory,
-                                    onNavigateToEditHabit = onNavigateToEditHabit,
-                                    isManualSortActive = (sortMode == SortMode.MANUAL),
-                                    onTriggerReorder = { reorderMode = true }
-                                )
+                                // Drag handle: only visible while reorder mode is active
+                                if (reorderMode) {
+                                    Icon(
+                                        imageVector = Icons.Filled.DragHandle,
+                                        contentDescription = "Drag to reorder",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                        modifier = Modifier
+                                            .padding(end = 4.dp)
+                                            // pointerInput keyed on habit.id so the gesture
+                                            // block is not recreated when the list reorders.
+                                            .pointerInput(habit.id) {
+                                                detectDragGesturesAfterLongPress(
+                                                    onDragStart = { _ ->
+                                                        // Capture the item's absolute Y in the
+                                                        // viewport at the moment dragging begins.
+                                                        val info = listState.layoutInfo.visibleItemsInfo
+                                                            .firstOrNull { it.key == habit.id }
+                                                        draggingItemStartY = info?.offset?.toFloat() ?: 0f
+                                                        draggingItemHeight = info?.size ?: 0
+                                                        draggingItemId = habit.id
+                                                        draggingDeltaY = 0f
+                                                    },
+                                                    onDrag = { _, dragAmount ->
+                                                        // Accumulate without reset — draggingItemStartY +
+                                                        // draggingDeltaY always equals the finger's
+                                                        // absolute Y position in the viewport.
+                                                        draggingDeltaY += dragAmount.y
+                                                        val fromIdx = localList.indexOfFirst { it.id == draggingItemId }
+                                                        if (fromIdx != -1) {
+                                                            val draggedCenter = draggingItemStartY.toInt() +
+                                                                                draggingItemHeight / 2 +
+                                                                                draggingDeltaY.toInt()
+                                                            val targetInfo = listState.layoutInfo.visibleItemsInfo
+                                                                .firstOrNull { info ->
+                                                                    info.key != draggingItemId &&
+                                                                    draggedCenter in info.offset until (info.offset + info.size)
+                                                                }
+                                                            if (targetInfo != null) {
+                                                                val toIdx = localList.indexOfFirst { it.id == targetInfo.key }
+                                                                if (toIdx != -1 && toIdx != fromIdx) {
+                                                                    val newList = localList.toMutableList()
+                                                                    val moved = newList.removeAt(fromIdx)
+                                                                    newList.add(toIdx, moved)
+                                                                    localList = newList
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    onDragEnd = {
+                                                        habitViewModel.applyNewOrder(localList.map { it.id })
+                                                        draggingItemId = -1
+                                                        draggingDeltaY = 0f
+                                                    },
+                                                    onDragCancel = {
+                                                        localList = allHabitsUiState
+                                                        draggingItemId = -1
+                                                        draggingDeltaY = 0f
+                                                    }
+                                                )
+                                            }
+                                    )
+                                }
+
+                                Box(modifier = Modifier.weight(1f)) {
+                                    HabitRow(
+                                        habit = habit,
+                                        viewModel = habitViewModel,
+                                        onNavigateToStatistics = onNavigateToStatistics,
+                                        onNavigateToHistory = onNavigateToHistory,
+                                        onNavigateToEditHabit = onNavigateToEditHabit,
+                                        isManualSortActive = (sortMode == SortMode.MANUAL),
+                                        onTriggerReorder = { reorderMode = true }
+                                    )
+                                }
                             }
+                            Spacer(Modifier.height(8.dp))
                         }
-                        Spacer(Modifier.height(8.dp))
                     }
                 }
+            } // end LazyColumn
+
+            // ── Floating overlay ──────────────────────────────────────────────
+            // Rendered as a sibling of LazyColumn inside the Box, so it is
+            // guaranteed to be drawn on top of all list items regardless of
+            // zIndex or layer ordering inside the LazyColumn.
+            val draggedHabit = if (draggingItemId != -1)
+                localList.firstOrNull { it.id == draggingItemId }
+            else null
+
+            if (draggedHabit != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Match the LazyColumn's horizontal content padding
+                        .padding(horizontal = 16.dp)
+                        // Position the overlay at the finger's absolute Y in the viewport
+                        .offset { IntOffset(0, (draggingItemStartY + draggingDeltaY).roundToInt()) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.DragHandle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                    ProgressItem(
+                        title = draggedHabit.name,
+                        maxClicks = draggedHabit.target,
+                        currentClickCount = draggedHabit.currentCount,
+                        colorScheme = HabitColorScheme.fromHex(draggedHabit.colorHex),
+                        isOverCompleted = draggedHabit.isOverCompleted,
+                        isPaused = draggedHabit.pausedUntil != null,
+                        isSystemInDarkTheme = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
+            } // end Box
         }
     }
 }
