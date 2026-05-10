@@ -2,20 +2,26 @@ package com.example.evolvix.ui.screens
 
 import android.app.Application
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.domain.model.HabitUiState
@@ -25,6 +31,7 @@ import com.example.evolvix.ui.components.ProgressItem
 import com.example.evolvix.ui.theme.HabitColorScheme
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
+import kotlin.math.roundToInt
 
 /**
  * Main screen displaying the full habit list with search, category filtering, and sorting.
@@ -35,7 +42,6 @@ import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
  * @param onNavigateToSettings Callback to open Settings
  * @param onNavigateToStatistics Callback to open Statistics
  * @param onNavigateToHistory Callback to open the History screen for a given habit id (Phase 3.1)
- * @param onTriggerReorder Callback to activate drag-and-drop reorder mode (Phase 2.4)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +52,6 @@ fun MainScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
     onNavigateToHistory: (Int) -> Unit = {},
-    onTriggerReorder: () -> Unit = {},
     habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
             application = LocalContext.current.applicationContext as Application,
@@ -72,6 +77,23 @@ fun MainScreen(
     var sortMenuExpanded by remember { mutableStateOf(false) }
     // Controls whether the search field is expanded in the chip row
     var searchExpanded by remember { mutableStateOf(false) }
+    // True while the user is in drag-and-drop reorder mode (activated from context menu)
+    var reorderMode by remember { mutableStateOf(false) }
+
+    // Auto-exit reorder mode if the user switches away from MANUAL sort while it is active.
+    LaunchedEffect(sortMode) {
+        if (sortMode != SortMode.MANUAL) reorderMode = false
+    }
+
+    // ── Drag-and-drop state (MANUAL sort mode only) ───────────────────────────
+    // ID of the item currently being dragged; -1 means no drag in progress.
+    var draggingItemId by remember { mutableIntStateOf(-1) }
+    // Accumulated pixel offset from the drag start position (Y axis only).
+    var draggingDeltaY by remember { mutableFloatStateOf(0f) }
+    // ID of the item that the dragged item is hovering over (the drop target).
+    var hoveredItemId  by remember { mutableIntStateOf(-1) }
+    // LazyListState lets us query each item's viewport offset during the drag gesture.
+    val listState = rememberLazyListState()
 
     // When CATEGORY sort is active, group habits by categoryGroup (falls back to first
     // category tag, then "Other"). Returns null in MANUAL/NAME modes → flat list branch.
@@ -93,6 +115,13 @@ fun MainScreen(
                 ),
                 windowInsets = WindowInsets(0),
                 actions = {
+                    // While in reorder mode show a "Done" button that exits the mode.
+                    // The normal sort + settings actions are hidden so the UI is unambiguous.
+                    if (reorderMode) {
+                        TextButton(onClick = { reorderMode = false }) {
+                            Text("Done")
+                        }
+                    } else {
                     // Sort-order picker — opens a DropdownMenu with 3 sort options
                     Box {
                         IconButton(onClick = { sortMenuExpanded = true }) {
@@ -127,6 +156,7 @@ fun MainScreen(
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
+                    } // end of else (normal mode actions)
                 }
             )
         }
@@ -209,6 +239,7 @@ fun MainScreen(
 
             // ── Habit list ────────────────────────────────────────────────────
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 // No global spacedBy — spacing between groups is handled per-item below
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
@@ -216,6 +247,7 @@ fun MainScreen(
                 if (groupedHabits != null) {
                     // CATEGORY mode: each group is ONE LazyColumn item (a Column) so there
                     // is no lazy item boundary between the header and the habits — gap-free.
+                    // reorderMode is inactive in this branch (auto-exited via LaunchedEffect).
                     groupedHabits.entries.forEachIndexed { groupIndex, (group, habits) ->
                         if (groupIndex > 0) {
                             item(key = "gap_$group") { Spacer(Modifier.height(12.dp)) }
@@ -253,7 +285,8 @@ fun MainScreen(
                                                 onNavigateToStatistics = onNavigateToStatistics,
                                                 onNavigateToHistory = onNavigateToHistory,
                                                 onNavigateToEditHabit = onNavigateToEditHabit,
-                                                onTriggerReorder = onTriggerReorder
+                                            isManualSortActive = false,
+                                            onTriggerReorder = {}
                                             )
                                         }
                                     }
@@ -263,16 +296,102 @@ fun MainScreen(
                         }
                     }
                 } else {
-                    // MANUAL or NAME mode: flat list with simple spacing
+                    // MANUAL or NAME mode: flat list.
+                    // In MANUAL mode a DragHandle icon is shown on the left of each row.
+                    // Long-pressing the handle triggers detectDragGesturesAfterLongPress
+                    // (Pattern: Command — the index swap is an encapsulated ViewModel action).
                     items(allHabitsUiState, key = { it.id }) { habit ->
-                        HabitRow(
-                            habit = habit,
-                            viewModel = habitViewModel,
-                            onNavigateToStatistics = onNavigateToStatistics,
-                            onNavigateToHistory = onNavigateToHistory,
-                            onNavigateToEditHabit = onNavigateToEditHabit,
-                            onTriggerReorder = onTriggerReorder
-                        )
+                        val isDragging = draggingItemId == habit.id
+                        val isTarget   = hoveredItemId  == habit.id && !isDragging
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // Raise the dragged item above its siblings while floating
+                                .zIndex(if (isDragging) 1f else 0f)
+                                // Translate the item visually without disturbing layout flow
+                                .offset { IntOffset(0, if (isDragging) draggingDeltaY.roundToInt() else 0) }
+                        ) {
+                            // Drag handle: only visible while reorder mode is active
+                            if (reorderMode) {
+                                Icon(
+                                    imageVector = Icons.Filled.DragHandle,
+                                    contentDescription = "Drag to reorder",
+                                    tint = if (isDragging) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    modifier = Modifier
+                                        .padding(end = 4.dp)
+                                        // pointerInput scoped to this habit's ID so the
+                                        // lambda is stable and only restarts when the ID changes.
+                                        .pointerInput(habit.id) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = { _ ->
+                                                    draggingItemId = habit.id
+                                                    draggingDeltaY = 0f
+                                                },
+                                                onDrag = { _, dragAmount ->
+                                                    draggingDeltaY += dragAmount.y
+                                                    // Find which item the drag center is over
+                                                    // using LazyListState's layout snapshot.
+                                                    val dragInfo = listState.layoutInfo
+                                                        .visibleItemsInfo
+                                                        .firstOrNull { it.key == draggingItemId }
+                                                    if (dragInfo != null) {
+                                                        val center = dragInfo.offset.toFloat() +
+                                                                     dragInfo.size / 2f +
+                                                                     draggingDeltaY
+                                                        hoveredItemId = listState.layoutInfo
+                                                            .visibleItemsInfo
+                                                            .firstOrNull { info ->
+                                                                center >= info.offset &&
+                                                                center < info.offset + info.size
+                                                            }?.key as? Int ?: -1
+                                                    }
+                                                },
+                                                onDragEnd = {
+                                                    val from = draggingItemId
+                                                    val to   = hoveredItemId
+                                                    if (from != -1 && to != -1 && from != to) {
+                                                        habitViewModel.reorderHabits(from, to)
+                                                    }
+                                                    draggingItemId = -1
+                                                    draggingDeltaY = 0f
+                                                    hoveredItemId  = -1
+                                                },
+                                                onDragCancel = {
+                                                    draggingItemId = -1
+                                                    draggingDeltaY = 0f
+                                                    hoveredItemId  = -1
+                                                }
+                                            )
+                                        }
+                                )
+                            }
+
+                            // Highlight the drop target with a primary-color border
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .then(
+                                        if (isTarget) Modifier.border(
+                                            width = 2.dp,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) else Modifier
+                                    )
+                            ) {
+                                HabitRow(
+                                    habit = habit,
+                                    viewModel = habitViewModel,
+                                    onNavigateToStatistics = onNavigateToStatistics,
+                                    onNavigateToHistory = onNavigateToHistory,
+                                    onNavigateToEditHabit = onNavigateToEditHabit,
+                                    isManualSortActive = (sortMode == SortMode.MANUAL),
+                                    onTriggerReorder = { reorderMode = true }
+                                )
+                            }
+                        }
                         Spacer(Modifier.height(8.dp))
                     }
                 }
@@ -324,6 +443,8 @@ private fun HabitRow(
     onNavigateToStatistics: () -> Unit,
     onNavigateToHistory: (Int) -> Unit,
     onNavigateToEditHabit: (Int) -> Unit,
+    /** True when MANUAL sort is active — passed to [HabitContextMenu] to enable the reorder item. */
+    isManualSortActive: Boolean,
     onTriggerReorder: () -> Unit
 ) {
     // Long press opens the 7-action DropdownMenu (IDEAS.MD §4.4)
@@ -336,6 +457,7 @@ private fun HabitRow(
         onNavigateToHistory = { onNavigateToHistory(habit.id) },
         onNavigateToEdit = { onNavigateToEditHabit(habit.id) },
         onDelete = { viewModel.deleteHabit(habit.id, onSuccess = {}, onError = {}) },
+        isManualSortActive = isManualSortActive,
         onTriggerReorder = onTriggerReorder
     ) {
         ProgressItem(

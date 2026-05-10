@@ -49,7 +49,9 @@ import com.example.evolvix.domain.model.HabitUiState
  * @param onNavigateToHistory Action 4 — open History screen (Phase 3.1 stub).
  * @param onNavigateToEdit Action 5 — open Edit screen.
  * @param onDelete Action 6 — called after the user confirms deletion.
- * @param onTriggerReorder Action 7 — activate drag & drop mode (Phase 2.4 stub).
+ * @param isManualSortActive True when MANUAL sort order is active. The "Reorder habits" item
+ *   is enabled only in this mode; it is grayed out (but still visible) in all other modes.
+ * @param onTriggerReorder Action 7 — activate drag & drop reorder mode.
  * @param content The habit row composable to render (e.g. [ProgressItem]).
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -63,6 +65,7 @@ fun HabitContextMenu(
     onNavigateToHistory: () -> Unit,
     onNavigateToEdit: () -> Unit,
     onDelete: () -> Unit,
+    isManualSortActive: Boolean,
     onTriggerReorder: () -> Unit,
     content: @Composable () -> Unit
 ) {
@@ -200,10 +203,12 @@ fun HabitContextMenu(
                 }
             )
 
-            // 7. Reorder habits — stub until Phase 2.4 adds drag & drop
+            // 7. Reorder habits — enabled only when MANUAL sort is active.
+            // In any other sort mode the item is grayed out to signal it is not applicable.
             DropdownMenuItem(
                 text = { Text("Reorder habits") },
                 leadingIcon = { Icon(Icons.Filled.SwapVert, contentDescription = null) },
+                enabled = isManualSortActive,
                 onClick = {
                     menuExpanded = false
                     onTriggerReorder()

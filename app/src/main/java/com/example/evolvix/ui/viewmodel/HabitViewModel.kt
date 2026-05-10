@@ -401,6 +401,42 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
         }
     }
 
+    /**
+     * Swaps the list positions of two habits identified by [fromId] and [toId].
+     *
+     * Takes a snapshot of the current UI order, performs the index swap in memory,
+     * then re-assigns [HabitEntity.sortOrder] = list-index for every habit so that
+     * previously uninitialized values (all 0) are normalized in one pass.
+     *
+     * Implements the **Command pattern** — the swap is an encapsulated, atomic
+     * write operation that can be triggered from any gesture event.
+     *
+     * @param fromId ID of the habit that was dragged.
+     * @param toId   ID of the habit it was dropped onto.
+     */
+    fun reorderHabits(fromId: Int, toId: Int) {
+        viewModelScope.launch {
+            // Snapshot of the current visible order (already filtered/sorted by the Flow)
+            val currentOrder = allHabits.value.toMutableList()
+            val fromIdx = currentOrder.indexOfFirst { it.id == fromId }
+            val toIdx   = currentOrder.indexOfFirst { it.id == toId }
+            if (fromIdx == -1 || toIdx == -1) return@launch
+
+            // Command: swap the two positions in the snapshot list
+            val temp = currentOrder[fromIdx]
+            currentOrder[fromIdx] = currentOrder[toIdx]
+            currentOrder[toIdx]   = temp
+
+            // Re-normalize sortOrder = list index so future sorts are stable
+            currentOrder.forEachIndexed { index, uiState ->
+                val entity = habitDao.getHabitById(uiState.id) ?: return@forEachIndexed
+                if (entity.sortOrder != index) {
+                    habitDao.updateHabit(entity.copy(sortOrder = index))
+                }
+            }
+        }
+    }
+
     fun checkAndResetProgress() {
         viewModelScope.launch {
             try {
