@@ -59,3 +59,5 @@ The test: Every changed line should trace directly to the user's request.
 - **Room Database Migrations:** During development, do NOT write Room `Migration` code. Instruct the user to increment the database `version = X` and reinstall the app.
 - Always consult `PLAN.md` before coding to maintain context.
 - **Fail Fast:** If code fails twice in a row, STOP. Do not attempt a third fix. Advise the user to `git reset --hard` and rethink the approach.
+- **No External Documentation Files:** Do NOT create, suggest, or update external documentation files like `etapy-wyjasnienia.md` or `roadmap.md`. All documentation must be strictly in-code using KDoc and inline comments.
+- **Read-Only Plan:** `PLAN.md` is strictly read-only for the AI. Do NOT attempt to automatically edit `PLAN.md` to check off boxes (`[x]`). The user will manually track their own progress.

@@ -528,12 +528,14 @@ fun MainScreen(
                     // position tracking via listState.layoutInfo still works per-item.
                     // Drag is constrained to items sharing the same manualGroup.
                     manualSections.forEachIndexed { sectionIdx, section ->
-                        // Gap between sections when adjacent to a named group
+                        // Gap between sections after a named group.
+                        // Ungrouped habits already carry their own 8.dp bottom spacer, so no
+                        // extra gap is needed when transitioning from ungrouped → group.
                         if (sectionIdx > 0) {
                             val prevSection = manualSections[sectionIdx - 1]
-                            if (prevSection.groupName != null || section.groupName != null) {
+                            if (prevSection.groupName != null) {
                                 item(key = "manual_gap_$sectionIdx") {
-                                    Spacer(Modifier.height(12.dp))
+                                    Spacer(Modifier.height(8.dp))
                                 }
                             }
                         }

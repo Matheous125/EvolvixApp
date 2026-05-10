@@ -70,7 +70,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **Model:** DAO updates: `getHabitsSorted(SortMode)` returning `Flow<List<HabitEntity>>`.
 - [x] **ViewModel:** Expose `sortMode: StateFlow<SortMode>` and `activeFilters: StateFlow<Set<String>>` (Pattern: **Observer**).
 - [x] **View:** `MainScreen.kt` — filter chip row + search field; collapsible group headers via `LazyColumn` `stickyHeader`.
-- [ ] **View:** Drag & drop using community-standard `Modifier.pointerInput` with index swap (Pattern: **Command pattern** for swap action).
+- [x] **View:** Drag & drop using community-standard `Modifier.pointerInput` with index swap (Pattern: **Command pattern** for swap action).
 
 ---
 
