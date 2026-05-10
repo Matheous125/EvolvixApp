@@ -21,8 +21,8 @@ import java.time.LocalDateTime
  * @property categories List of category labels assigned to this habit (e.g. "Health", "Fitness")
  * @property iconKey Optional key identifying the habit's icon; null means auto-resolved
  * @property sortOrder Manual drag-and-drop position within the list (lower = higher up)
- * @property categoryGroup Optional group label used when habits are displayed by category
- */
+ * @property categoryGroup Optional group label used when habits are displayed by category * @property frequencyN The "every N" multiplier for the habit's [frequency] unit (e.g. 2 for "every 2 weeks").
+ *   Defaults to 1. Used by [FREQ_ASC]/[FREQ_DESC] sort modes. */
 @Entity(tableName = "habits", indices = [Index(value = ["name"], unique = true)])
 data class HabitEntity(
     @PrimaryKey(autoGenerate = true)
@@ -47,5 +47,7 @@ data class HabitEntity(
     /** User-created group name in MANUAL sort mode; null = ungrouped. */
     val manualGroup: String? = null,
     /** Sort position of the group itself in MANUAL mode (Phase B — group-level drag). */
-    val groupSortOrder: Int = 0
+    val groupSortOrder: Int = 0,
+    /** The "every N" multiplier for [frequency] (e.g. 2 for "every 2 weeks"). Defaults to 1. */
+    val frequencyN: Int = 1
 )

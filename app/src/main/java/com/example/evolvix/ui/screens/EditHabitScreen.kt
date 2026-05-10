@@ -116,6 +116,7 @@ fun EditHabitScreen(
     // Kept local for per-keystroke reactivity (same reasoning as AddNewHabitScreen).
     var habitName by remember { mutableStateOf("") }
     var targetString by remember { mutableStateOf("1") }
+    // Initialised from the entity's stored frequencyN when the habit loads (see LaunchedEffect below).
     var frequencyNString by remember { mutableStateOf("1") }
 
     // ── Local form state ──────────────────────────────────────────────────────
@@ -148,6 +149,7 @@ fun EditHabitScreen(
         habitViewModel.getHabitById(habitId)?.let { habit ->
             habitName = habit.name
             targetString = habit.target.toString()
+            frequencyNString = habit.frequencyN.toString()
             selectedFrequency = habit.frequency
             selectedColor = HabitColorScheme.fromHex(habit.colorHex)
             selectedCategories = habit.categories.toSet()
@@ -436,6 +438,7 @@ fun EditHabitScreen(
                                     name = habitName,
                                     target = targetString.toInt(),
                                     frequency = selectedFrequency,
+                                    frequencyN = frequencyNString.toIntOrNull()?.coerceAtLeast(1) ?: 1,
                                     colorHex = selectedColor.toHex(),
                                     categories = selectedCategories.toList(),
                                     iconKey = selectedIconKey,

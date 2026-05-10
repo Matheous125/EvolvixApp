@@ -75,9 +75,15 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
      * (Pattern: Observer via StateFlow — Unidirectional Data Flow)
      */
     private val _sortMode = MutableStateFlow(
-        SortMode.valueOf(
-            prefs.getString("sort_mode", SortMode.MANUAL.name) ?: SortMode.MANUAL.name
-        )
+        // Wrap in try-catch so that a stale "MANUAL" value stored by an older build
+        // (before the MANUAL→CUSTOM rename) does not crash with IllegalArgumentException.
+        try {
+            SortMode.valueOf(
+                prefs.getString("sort_mode", SortMode.DEFAULT.name) ?: SortMode.DEFAULT.name
+            )
+        } catch (_: IllegalArgumentException) {
+            SortMode.DEFAULT
+        }
     )
     val sortMode: StateFlow<SortMode> = _sortMode.asStateFlow()
 
@@ -85,8 +91,8 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     fun setSortMode(mode: SortMode) {
         _sortMode.value = mode
         prefs.edit().putString("sort_mode", mode.name).apply()
-        // Automatically exit reorder mode when the user switches away from MANUAL sort.
-        if (mode != SortMode.MANUAL) _reorderMode.value = false
+        // Automatically exit reorder mode when the user switches away from CUSTOM sort.
+        if (mode != SortMode.CUSTOM) _reorderMode.value = false
     }
 
     /**
@@ -98,7 +104,7 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     private val _reorderMode = MutableStateFlow(false)
     val reorderMode: StateFlow<Boolean> = _reorderMode.asStateFlow()
 
-    /** Activates drag-and-drop reorder mode. Only valid when [sortMode] is [SortMode.MANUAL]. */
+    /** Activates drag-and-drop reorder mode. Only valid when [sortMode] is [SortMode.CUSTOM]. */
     fun enterReorderMode() { _reorderMode.value = true }
 
     /** Deactivates drag-and-drop reorder mode and commits no additional changes. */
@@ -288,6 +294,8 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                     currentCount = habit.currentCount,
                     target = habit.target,
                     frequency = habit.frequency,
+                    // Persist the "every N" multiplier so FREQ_ASC/FREQ_DESC sorting works
+                    frequencyN = habit.frequencyN.coerceAtLeast(1),
                     colorHex = habit.colorHex,
                     totalProgressUpdates = habit.totalProgressUpdates,
                     totalTargetReaches = habit.totalTargetReaches,
@@ -353,6 +361,7 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
         name: String,
         target: Int,
         frequency: HabitFrequency,
+        frequencyN: Int = 1,
         colorHex: String,
         categories: List<String> = emptyList(),
         iconKey: String? = null,
@@ -367,6 +376,7 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                     name = name,
                     target = target,
                     frequency = frequency,
+                    frequencyN = frequencyN.coerceAtLeast(1),
                     colorHex = colorHex,
                     categories = categories,
                     iconKey = iconKey,

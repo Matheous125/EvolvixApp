@@ -192,21 +192,22 @@ fun MainScreen(
     }
 
     // When CATEGORY sort is active, group habits by categoryGroup (falls back to first
-    // category tag, then "Other"). Returns null in MANUAL/NAME modes → flat list branch.
+    // category tag, then "Other"). Groups are sorted alphabetically via toSortedMap().
+    // Returns null in non-CATEGORY modes → flat list branch.
     val groupedHabits: Map<String, List<HabitUiState>>? = remember(allHabitsUiState, sortMode) {
         if (sortMode == SortMode.CATEGORY) {
             allHabitsUiState.groupBy {
                 it.categoryGroup ?: it.categories.firstOrNull() ?: "Other"
-            }
+            }.toSortedMap()
         } else null
     }
 
-    // When MANUAL sort is active, build an ordered list of sections from localList.
+    // When CUSTOM sort is active, build an ordered list of sections from localList.
     // Consecutive habits sharing the same non-null manualGroup form one ManualSection;
     // ungrouped habits (null) each become their own single-habit section.
-    // Returns null in CATEGORY/NAME modes — those branches use their own rendering.
+    // Returns null in all other modes — those branches use their own rendering.
     val manualSections: List<ManualSection>? = remember(localList, sortMode) {
-        if (sortMode == SortMode.MANUAL) buildManualSections(localList) else null
+        if (sortMode == SortMode.CUSTOM) buildManualSections(localList) else null
     }
 
     Scaffold(
@@ -275,9 +276,13 @@ fun MainScreen(
                             onDismissRequest = { sortMenuExpanded = false }
                         ) {
                             val sortLabels = mapOf(
-                                SortMode.MANUAL   to "Manual order",
-                                SortMode.NAME     to "Name (A–Z)",
-                                SortMode.CATEGORY to "By category"
+                                SortMode.DEFAULT   to "Default",
+                                SortMode.NAME      to "Name (A–Z)",
+                                SortMode.NAME_DESC to "Name (Z–A)",
+                                SortMode.FREQ_ASC  to "Cadence (fast \u2192 slow)",
+                                SortMode.FREQ_DESC to "Cadence (slow \u2192 fast)",
+                                SortMode.CATEGORY  to "By category",
+                                SortMode.CUSTOM    to "Custom"
                             )
                             SortMode.entries.forEach { mode ->
                                 DropdownMenuItem(

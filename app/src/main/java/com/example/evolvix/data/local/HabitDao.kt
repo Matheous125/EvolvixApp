@@ -25,10 +25,32 @@ abstract class HabitDao {
     @Query("SELECT * FROM habits ORDER BY sortOrder ASC")
     protected abstract fun getHabitsByManualOrder(): Flow<List<HabitEntity>>
 
+    @Query("SELECT * FROM habits ORDER BY id ASC")
+    protected abstract fun getHabitsByDefault(): Flow<List<HabitEntity>>
+
     @Query("SELECT * FROM habits ORDER BY name ASC")
     protected abstract fun getHabitsByName(): Flow<List<HabitEntity>>
 
-    @Query("SELECT * FROM habits ORDER BY categoryGroup ASC, sortOrder ASC")
+    @Query("SELECT * FROM habits ORDER BY name DESC")
+    protected abstract fun getHabitsByNameDesc(): Flow<List<HabitEntity>>
+
+    @Query("""
+        SELECT * FROM habits ORDER BY
+        CASE frequency WHEN 'Daily' THEN 1 WHEN 'Weekly' THEN 2 WHEN 'Monthly' THEN 3 WHEN 'Yearly' THEN 4 ELSE 5 END ASC,
+        frequencyN ASC,
+        name ASC
+    """)
+    protected abstract fun getHabitsByFreqAsc(): Flow<List<HabitEntity>>
+
+    @Query("""
+        SELECT * FROM habits ORDER BY
+        CASE frequency WHEN 'Daily' THEN 1 WHEN 'Weekly' THEN 2 WHEN 'Monthly' THEN 3 WHEN 'Yearly' THEN 4 ELSE 5 END DESC,
+        frequencyN DESC,
+        name ASC
+    """)
+    protected abstract fun getHabitsByFreqDesc(): Flow<List<HabitEntity>>
+
+    @Query("SELECT * FROM habits ORDER BY COALESCE(categoryGroup, '') ASC, name ASC")
     protected abstract fun getHabitsByCategory(): Flow<List<HabitEntity>>
 
     /**
@@ -38,9 +60,13 @@ abstract class HabitDao {
      * (Pattern: Strategy — the SortMode enum selects the concrete query at runtime)
      */
     fun getHabitsSorted(sortMode: SortMode): Flow<List<HabitEntity>> = when (sortMode) {
-        SortMode.MANUAL   -> getHabitsByManualOrder()
-        SortMode.NAME     -> getHabitsByName()
-        SortMode.CATEGORY -> getHabitsByCategory()
+        SortMode.DEFAULT   -> getHabitsByDefault()
+        SortMode.NAME      -> getHabitsByName()
+        SortMode.NAME_DESC -> getHabitsByNameDesc()
+        SortMode.FREQ_ASC  -> getHabitsByFreqAsc()
+        SortMode.FREQ_DESC -> getHabitsByFreqDesc()
+        SortMode.CATEGORY  -> getHabitsByCategory()
+        SortMode.CUSTOM    -> getHabitsByManualOrder()
     }
 
     /**

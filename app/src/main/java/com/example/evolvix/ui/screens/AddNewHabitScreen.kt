@@ -498,6 +498,8 @@ fun AddNewHabitScreen(
                                         // targetCount is kept in sync by the target field's onValueChange
                                         target = formState.targetCount.coerceAtLeast(1),
                                         frequency = formState.frequencyUnit,
+                                        // Pass frequencyN so it is persisted for frequency-based sorting
+                                        frequencyN = formState.frequencyN.coerceAtLeast(1),
                                         colorHex = formState.selectedColor,
                                         selectedCategories = formState.selectedCategories,
                                         reminderEnabled = reminderEnabled
