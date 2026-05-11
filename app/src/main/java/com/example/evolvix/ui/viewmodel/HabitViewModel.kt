@@ -12,8 +12,10 @@ import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.domain.model.FormError
 import com.example.evolvix.domain.model.HabitUiState
 import com.example.evolvix.domain.model.SortMode
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import com.example.evolvix.data.model.HabitFrequency
@@ -31,6 +33,22 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     // SharedPreferences used exclusively for lightweight UI preferences (sort order).
     // Habit data lives in Room; only presentation state is stored here.
     private val prefs = application.getSharedPreferences("habit_ui_prefs", Context.MODE_PRIVATE)
+
+    init {
+        // Watches for date rollover while the app is open and in the foreground.
+        // Calculates the exact delay until the next midnight, then calls checkAndResetProgress().
+        // The coroutine lives in viewModelScope, so it is automatically cancelled when the
+        // ViewModel is cleared (app process ends). This complements the ON_RESUME check in
+        // MainScreen which handles returns from background.
+        viewModelScope.launch {
+            while (true) {
+                val now = LocalDateTime.now()
+                val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay()
+                delay(Duration.between(now, nextMidnight).toMillis())
+                checkAndResetProgress()
+            }
+        }
+    }
 
     
     /**
@@ -575,12 +593,13 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     fun checkAndResetProgress() {
         viewModelScope.launch {
             try {
-                val habits = habitDao.getAllHabits()
+                // Use a one-shot query so this coroutine completes instead of
+                // collecting indefinitely like a Room Flow would.
+                val habitList = habitDao.getAllHabitsOnce()
                 val now = LocalDateTime.now()
                 val today = now.toLocalDate()
                 val nowMillis = System.currentTimeMillis()
 
-                habits.collect { habitList ->
                     habitList.forEach { habit ->
                         // Auto-resume: if pausedUntil has passed, clear it so the habit
                         // becomes active again without any manual action from the user.
@@ -641,7 +660,6 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                             )
                         }
                     }
-                }
             } catch (e: Exception) {
                 Log.e("HabitViewModel", "Error resetting habits: ${e.message}")
             }

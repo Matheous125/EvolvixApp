@@ -20,10 +20,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.draw.alpha
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.evolvix.domain.model.HabitUiState
 import com.example.evolvix.domain.model.SortMode
 import com.example.evolvix.ui.components.HabitContextMenu
@@ -106,9 +109,19 @@ fun MainScreen(
     onNavigateToHistory: (Int) -> Unit = {},
     habitViewModel: HabitViewModel
 ) {
-    // Reset daily/weekly/monthly progress periods on first composition
-    LaunchedEffect(Unit) {
-        habitViewModel.checkAndResetProgress()
+    // Reset daily/weekly/monthly/yearly progress whenever the screen resumes
+    // (covers: cold start, returning from background, navigating back to this screen).
+    // Uses LifecycleEventObserver so the check runs on every ON_RESUME, not just
+    // the first composition as LaunchedEffect(Unit) would.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                habitViewModel.checkAndResetProgress()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Collect all reactive state from the ViewModel (Observer pattern via StateFlow)
