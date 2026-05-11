@@ -47,7 +47,9 @@ app/src/main/java/com/example/evolvix
 │   │   └── Type.kt  # Typography styles
 │   └── viewmodel/          # The "ViewModel" Layer - UI Logic
 │       ├── HabitViewModel.kt  # Business logic & state
-│       └── HabitViewModelFactory.kt  # ViewModel creation
+│       ├── HabitViewModelFactory.kt  # ViewModel creation
+│       ├── HistoryViewModel.kt  # History logic & state
+│       └── HistoryViewModelFactory.kt  # ViewModel creation
 │
 └── MainActivity.kt         # Entry point
 ```

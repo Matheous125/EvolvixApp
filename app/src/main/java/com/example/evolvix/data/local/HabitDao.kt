@@ -205,4 +205,49 @@ abstract class HabitDao {
         startDate: LocalDateTime,
         endDate: LocalDateTime
     ): Flow<List<HabitCompletionEntity>>
+
+    // --- Phase 3.1: History Screen queries ---
+
+    /**
+     * Returns all completion records for a given habit, ordered newest-first.
+     * This is the primary data source for [HistoryViewModel] — it emits a fresh list
+     * every time a completion is inserted, updated, or deleted (Observer pattern via Flow).
+     *
+     * @param habitId The ID of the parent habit.
+     * @return Flow of all [HabitCompletionEntity] rows for that habit.
+     */
+    @Query("SELECT * FROM habit_completions WHERE habitId = :habitId ORDER BY progressUpdate DESC")
+    abstract fun getCompletionsForHabit(habitId: Int): Flow<List<HabitCompletionEntity>>
+
+    /**
+     * Overwrites an existing completion record in place.
+     * Used by the History screen's inline edit flow to change [progressUpdate] or
+     * [isTargetReached] without deleting and re-inserting (keeps the same primary key).
+     * (Pattern: DAO / Repository — targeted UPDATE via @Update)
+     *
+     * @param completion The updated entity. Its [id] must match an existing row.
+     */
+    @Update
+    abstract suspend fun updateCompletion(completion: HabitCompletionEntity)
+
+    /**
+     * Permanently removes a single completion record identified by [id].
+     * Called from [HistoryViewModel] when the user swipes-to-delete or taps the delete icon.
+     *
+     * @param id Primary key of the [HabitCompletionEntity] to remove.
+     */
+    @Query("DELETE FROM habit_completions WHERE id = :id")
+    abstract suspend fun deleteCompletion(id: Int)
+
+    /**
+     * Inserts a completion with a user-supplied past timestamp (retroactive entry).
+     * Functionally identical to [insertCompletion] at the SQL level, but named separately
+     * to make the intent explicit at the call site: the [progressUpdate] date comes from
+     * the user via a [DatePicker] + [TimePicker] dialog, not from the current system time.
+     * (Pattern: Repository — named intent over structural difference)
+     *
+     * @param completion A new [HabitCompletionEntity] with [id] = 0 (auto-generated).
+     */
+    @Insert
+    abstract suspend fun insertRetroactive(completion: HabitCompletionEntity)
 }
