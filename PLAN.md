@@ -80,7 +80,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 3.1 History screen
 - [x] **Model:** DAO queries: `getCompletionsForHabit(id): Flow<List<HabitCompletionEntity>>`, `updateCompletion(...)`, `deleteCompletion(id)`, `insertRetroactive(...)`.
 - [x] **ViewModel:** New `HistoryViewModel.kt` in `ui/viewmodel/` — exposes `groupedByYearMonth: StateFlow<Map<Year, Map<Month, List<Entry>>>>` (Pattern: **MVVM + State Holder**).
-- [ ] **View:** New `ui/screens/HistoryScreen.kt` — `LazyColumn` with collapsible Year > Month sections, edit/delete icons, FAB for retroactive add (Compose `DatePicker` + `TimePicker`).
+- [x] **View:** New `ui/screens/HistoryScreen.kt` — `LazyColumn` with collapsible Year > Month sections, edit/delete icons, FAB for retroactive add (Compose `DatePicker` + `TimePicker`).
 - [ ] **Navigation:** Add `Screen.History(habitId)` to `navigation/Screen.kt` and route in `NavGraph.kt`.
 
 ### 3.2 Streak engine (pure logic)

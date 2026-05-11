@@ -38,6 +38,7 @@ app/src/main/java/com/example/evolvix
 │   ├── screens/            # Main UI screens (e.g., HomeScreen.kt)
 │   │   ├── AddNewHabitScreen.kt  # Create habit form
 │   │   ├── EditHabitScreen.kt  # Edit habit details form
+│   │   ├── HistoryScreen.kt  # Brows, edit, add habit history
 │   │   ├── MainScreen.kt  # Habit list with interactions
 │   │   └── StatisticsScreen.kt  # Analytics and charts
 │   ├── theme/              # Colors, Typography, Shapes

@@ -106,7 +106,7 @@ fun MainScreen(
     onNavigateToEditHabit: (Int) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
-    onNavigateToHistory: (Int) -> Unit = {},
+    onNavigateToHistory: (Int, String) -> Unit = { _, _ -> },
     habitViewModel: HabitViewModel
 ) {
     // Reset daily/weekly/monthly/yearly progress whenever the screen resumes
@@ -1253,7 +1253,7 @@ private fun HabitRow(
     habit: HabitUiState,
     viewModel: HabitViewModel,
     onNavigateToStatistics: () -> Unit,
-    onNavigateToHistory: (Int) -> Unit,
+    onNavigateToHistory: (Int, String) -> Unit,
     onNavigateToEditHabit: (Int) -> Unit,
     /** True when MANUAL sort is active — passed to [HabitContextMenu] to enable the reorder item. */
     isManualSortActive: Boolean,
@@ -1268,7 +1268,7 @@ private fun HabitRow(
         onNavigateToStatistics = onNavigateToStatistics,
         onPauseUntil = { until -> viewModel.pauseHabit(habit.id, until) },
         onResume = { viewModel.resumeHabit(habit.id) },
-        onNavigateToHistory = { onNavigateToHistory(habit.id) },
+        onNavigateToHistory = { onNavigateToHistory(habit.id, habit.name) },
         onNavigateToEdit = { onNavigateToEditHabit(habit.id) },
         onDelete = { viewModel.deleteHabit(habit.id, onSuccess = {}, onError = {}) },
         isManualSortActive = isManualSortActive,

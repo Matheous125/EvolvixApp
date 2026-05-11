@@ -27,4 +27,19 @@ sealed class Screen(val route: String) {
             return route
         }
     }
+
+    /**
+     * History screen — shows all completion records for a single habit,
+     * grouped by year and month, with edit/delete and retroactive-add support.
+     * (Pattern: Sealed Class — type-safe route with Int argument)
+     */
+    object History : Screen("history/{habitId}/{habitName}") {
+        /**
+         * Builds the fully-resolved route string for navigation.
+         * @param habitId   Primary key of the habit whose history to display.
+         * @param habitName Display name forwarded to [HistoryScreen] TopAppBar.
+         */
+        fun createRoute(habitId: Int, habitName: String): String =
+            "history/$habitId/${java.net.URLEncoder.encode(habitName, "UTF-8")}"
+    }
 }

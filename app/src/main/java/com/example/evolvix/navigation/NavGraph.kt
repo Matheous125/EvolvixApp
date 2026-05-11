@@ -55,6 +55,9 @@ fun HabitNavGraph(
                         launchSingleTop = true
                         restoreState = true
                     }
+                },
+                onNavigateToHistory = { habitId, habitName ->
+                    navController.navigate(Screen.History.createRoute(habitId, habitName))
                 }
             )
         }
@@ -90,6 +93,29 @@ fun HabitNavGraph(
                     onNavigateBack = {
                         navController.navigateUp()
                     }
+                )
+            }
+        }
+
+        // History screen — shows completion log for a single habit.
+        // habitName is URL-encoded in Screen.History.createRoute() to safely
+        // carry display strings (spaces, special chars) through the route string.
+        composable(
+            route = Screen.History.route,
+            arguments = listOf(
+                navArgument("habitId") { type = NavType.IntType },
+                navArgument("habitName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val habitId = backStackEntry.arguments?.getInt("habitId")
+            val habitName = backStackEntry.arguments?.getString("habitName")
+                ?.let { java.net.URLDecoder.decode(it, "UTF-8") }
+                ?: ""
+            if (habitId != null) {
+                HistoryScreen(
+                    habitId = habitId,
+                    habitName = habitName,
+                    onNavigateUp = { navController.navigateUp() }
                 )
             }
         }
