@@ -113,5 +113,19 @@ data class HabitUiState(
      * User-created group label for MANUAL sort mode collapsible sections.
      * Maps from [HabitEntity.manualGroup]; null means the habit is ungrouped.
      */
-    val manualGroup: String? = null
+    val manualGroup: String? = null,
+
+    /**
+     * Number of consecutive completed periods ending at or just before today.
+     * Computed by [CalculateStreakUseCase] and injected here by the ViewModel.
+     * Zero in form context (Add/Edit screens).
+     */
+    val currentStreak: Int = 0,
+
+    /**
+     * All-time longest consecutive run of completed periods.
+     * Computed by [CalculateStreakUseCase] and injected here by the ViewModel.
+     * Zero in form context (Add/Edit screens).
+     */
+    val bestStreak: Int = 0
 )

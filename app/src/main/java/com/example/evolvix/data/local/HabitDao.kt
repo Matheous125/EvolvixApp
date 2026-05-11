@@ -220,6 +220,20 @@ abstract class HabitDao {
     abstract fun getCompletionsForHabit(habitId: Int): Flow<List<HabitCompletionEntity>>
 
     /**
+     * Returns ALL completion records across every habit as a single reactive [Flow].
+     *
+     * This is the data source for the streak engine in [HabitViewModel]: combining this
+     * flow with the habit list flow via [combine] means any insert, update, or delete
+     * made by [HistoryViewModel] automatically triggers a streak recomputation for all
+     * habits — no manual refresh, no polling.
+     *
+     * (Pattern: Observer via Flow — Room invalidates and re-emits after every write to
+     * the habit_completions table, regardless of which ViewModel caused the write)
+     */
+    @Query("SELECT * FROM habit_completions")
+    abstract fun getAllCompletions(): Flow<List<HabitCompletionEntity>>
+
+    /**
      * Overwrites an existing completion record in place.
      * Used by the History screen's inline edit flow to change [progressUpdate] or
      * [isTargetReached] without deleting and re-inserting (keeps the same primary key).

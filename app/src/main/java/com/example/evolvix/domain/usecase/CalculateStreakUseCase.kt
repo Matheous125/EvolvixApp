@@ -3,7 +3,9 @@ package com.example.evolvix.domain.usecase
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.data.model.HabitFrequency
 import com.example.evolvix.domain.model.StreakResult
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 
 /**
  * Use Case / Interactor responsible for computing streak metrics from a flat list of completion records.
@@ -85,13 +87,16 @@ class CalculateStreakUseCase {
      * the streak adjacency check above.
      *
      * - **Daily** → epoch day (built-in; consecutive days differ by 1).
-     * - **Weekly** → epoch day / 7 (7-day blocks from Unix epoch; adjacent weeks differ by 1).
+     * - **Weekly**  → epoch day of the ISO week's Monday / 7. Snapping to Monday via
+     *   [TemporalAdjusters.previousOrSame] ensures every date in the same Mon–Sun week
+     *   maps to the same key. Consecutive Mondays are always exactly 7 epoch days apart,
+     *   so the consecutive-difference-of-1 invariant is preserved.
      * - **Monthly** → year × 12 + monthValue (adjacent months differ by 1 across year boundaries).
-     * - **Yearly** → calendar year (adjacent years differ by 1).
+     * - **Yearly**  → calendar year (adjacent years differ by 1).
      */
     private fun toPeriodKey(date: LocalDate, frequency: HabitFrequency): Long = when (frequency) {
         HabitFrequency.Daily   -> date.toEpochDay()
-        HabitFrequency.Weekly  -> date.toEpochDay() / 7
+        HabitFrequency.Weekly  -> date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toEpochDay() / 7
         HabitFrequency.Monthly -> date.year * 12L + date.monthValue
         HabitFrequency.Yearly  -> date.year.toLong()
     }

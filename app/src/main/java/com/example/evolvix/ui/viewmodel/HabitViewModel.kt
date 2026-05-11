@@ -12,6 +12,7 @@ import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.domain.model.FormError
 import com.example.evolvix.domain.model.HabitUiState
 import com.example.evolvix.domain.model.SortMode
+import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -29,6 +30,11 @@ import android.util.Log
  * @property habitDao Data access object for habit operations
  */
 class HabitViewModel(application: Application, private val habitDao: HabitDao) : AndroidViewModel(application) {
+
+    // Pure-function interactor — no dependencies beyond its inputs.
+    // Instantiated once here and reused on every combine emission.
+    // (Pattern: Use Case / Interactor — single-responsibility streak computation)
+    private val calculateStreakUseCase = CalculateStreakUseCase()
 
     // SharedPreferences used exclusively for lightweight UI preferences (sort order).
     // Habit data lives in Room; only presentation state is stored here.
@@ -173,16 +179,28 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
 
     /**
      * Observable list of habits in UI-ready form.
-     * Uses a 3-way [combine]: the sorted entity list (switched by [flatMapLatest] on
-     * [sortMode]), [activeFilters] (category predicate), and [searchQuery] (name predicate).
-     * All three dimensions update the list reactively with no manual refresh.
+     * Uses a 4-way [combine]:
+     *   1. Sorted entity list — switched by [flatMapLatest] on [sortMode].
+     *   2. [activeFilters] — category predicate.
+     *   3. [searchQuery] — name predicate.
+     *   4. All completion records — re-emits on every insert/update/delete made by
+     *      either the main-screen tap or [HistoryViewModel] edits.
+     *
+     * The fourth arm is what makes streaks reactive: Room invalidates [getAllCompletions]
+     * after every write to `habit_completions`, so [CalculateStreakUseCase] re-runs
+     * automatically without any manual refresh.
      * (Pattern: Observer via StateFlow + reactive combination)
      */
     val allHabits: StateFlow<List<HabitUiState>> = combine(
         _sortMode.flatMapLatest { mode -> habitDao.getHabitsSorted(mode) },
         _activeFilters,
-        _searchQuery
-    ) { entities, filters, query ->
+        _searchQuery,
+        habitDao.getAllCompletions()
+    ) { entities, filters, query, allCompletions ->
+        // Group completions by habitId once per emission — O(n) — so the per-habit
+        // streak lookup below is O(1) instead of O(n) per habit.
+        val completionsByHabit = allCompletions.groupBy { it.habitId }
+
         val categoryFiltered = if (filters.isEmpty()) entities
                                else entities.filter { entity ->
                                    entity.categories.any { it in filters }
@@ -192,6 +210,10 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                                  it.name.contains(query.trim(), ignoreCase = true)
                              }
         searchFiltered.map { entity ->
+            val streakResult = calculateStreakUseCase(
+                completions = completionsByHabit[entity.id] ?: emptyList(),
+                frequency   = entity.frequency
+            )
             HabitUiState(
                 id = entity.id,
                 name = entity.name,
@@ -207,7 +229,9 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                 pausedUntil = entity.pausedUntil,
                 categories = entity.categories,
                 categoryGroup = entity.categoryGroup,
-                manualGroup = entity.manualGroup
+                manualGroup = entity.manualGroup,
+                currentStreak = streakResult.current,
+                bestStreak = streakResult.best
             )
         }
     }
