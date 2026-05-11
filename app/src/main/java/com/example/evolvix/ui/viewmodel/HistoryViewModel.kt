@@ -1,6 +1,5 @@
 package com.example.evolvix.ui.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.evolvix.data.local.HabitDao
@@ -64,12 +63,9 @@ class HistoryViewModel(
      */
     fun deleteCompletion(completionId: Int) {
         viewModelScope.launch {
-            Log.d("HistoryVM", "deleteCompletion: id=$completionId")
             try {
                 dao.deleteCompletion(completionId)
-            } catch (e: Exception) {
-                Log.e("HistoryVM", "deleteCompletion FAILED", e)
-            }
+            } catch (_: Exception) { }
             recalculateCurrentCount()
         }
     }
@@ -85,12 +81,9 @@ class HistoryViewModel(
      */
     fun updateCompletion(completion: HabitCompletionEntity) {
         viewModelScope.launch {
-            Log.d("HistoryVM", "updateCompletion: id=${completion.id} dt=${completion.progressUpdate}")
             try {
                 dao.updateCompletion(completion)
-            } catch (e: Exception) {
-                Log.e("HistoryVM", "updateCompletion FAILED", e)
-            }
+            } catch (_: Exception) { }
             recalculateCurrentCount()
         }
     }
@@ -108,7 +101,6 @@ class HistoryViewModel(
      */
     fun addRetroactiveEntry(progressUpdate: LocalDateTime, isTargetReached: Boolean) {
         viewModelScope.launch {
-            Log.d("HistoryVM", "addRetroactive: habitId=$habitId dt=$progressUpdate isTargetReached=$isTargetReached")
             try {
                 dao.insertRetroactive(
                     HabitCompletionEntity(
@@ -117,9 +109,7 @@ class HistoryViewModel(
                         isTargetReached = isTargetReached
                     )
                 )
-            } catch (e: Exception) {
-                Log.e("HistoryVM", "insertRetroactive FAILED", e)
-            }
+            } catch (_: Exception) { }
             recalculateCurrentCount()
         }
     }
@@ -131,42 +121,40 @@ class HistoryViewModel(
      * When the user adds, edits, or deletes entries via the History screen the cache
      * becomes stale. This function is the single source of truth re-sync:
      *
-     *   1. Fetch the habit to get [HabitEntity.lastResetDate] — this is the date the
-     *      current cycle started (set by [HabitViewModel.checkAndResetProgress]).
-     *   2. Floor it to midnight (atStartOfDay) so that entries added earlier in the day
-     *      than the exact reset timestamp are still counted in the current cycle.
-     *   3. COUNT all completion rows with progressUpdate >= cycleStart.
+     *   1. Fetch the habit to get [HabitEntity.lastResetDate] — the date the current cycle
+     *      started (set by [HabitViewModel.checkAndResetProgress]).
+     *   2. Floor it to midnight so entries added earlier in the day than the exact reset
+     *      timestamp are still counted in the current cycle.
+     *   3. Count completion rows with progressUpdate >= cycleStart using Kotlin's
+     *      [LocalDateTime] comparator (avoids SQLite ISO-string precision edge cases).
      *   4. Write that count back to [HabitEntity.currentCount].
-     *
-     * Detailed Logcat output (tag "HistoryVM") is emitted so any discrepancy between the
-     * expected and actual count can be diagnosed from Android Studio's Logcat filter.
+     *   5. Recompute [HabitCompletionEntity.isTargetReached] for every cycle completion:
+     *      sort chronologically — only the entry at index (target - 1) earns the flag.
+     *      Only rows where the flag changed are written back (at most one write in the
+     *      typical case), so over-completion is handled correctly at no extra cost.
      */
     private suspend fun recalculateCurrentCount() {
-        val habit = dao.getHabitById(habitId) ?: run {
-            Log.w("HistoryVM", "recalculate: habit $habitId not found, skipping")
-            return
-        }
+        val habit = dao.getHabitById(habitId) ?: return
         val cycleStart = habit.lastResetDate.toLocalDate().atStartOfDay()
-        // Fetch all completions and filter with Kotlin's LocalDateTime comparator.
-        // This bypasses SQLite ISO-string comparison entirely, which can behave
-        // unexpectedly when timestamp strings have varying precision (nanoseconds
-        // vs truncated formats). Kotlin's comparator is always chronologically correct.
+
+        // Filter with Kotlin's LocalDateTime comparator — avoids SQLite ISO-string
+        // precision edge cases — then sort chronologically for the target-flag pass.
         val allCompletions = dao.getCompletionsForHabit(habitId).first()
-        val cycleCompletions = allCompletions.filter { it.progressUpdate >= cycleStart }
-        val newCount = cycleCompletions.size
+        val cycleCompletions = allCompletions
+            .filter { it.progressUpdate >= cycleStart }
+            .sortedBy { it.progressUpdate }
 
-        Log.d(
-            "HistoryVM",
-            "recalculate habit=$habitId | " +
-            "lastResetDate=${habit.lastResetDate} | " +
-            "cycleStart=$cycleStart | " +
-            "currentCount(before)=${habit.currentCount} | " +
-            "totalCompletions=${allCompletions.size} | " +
-            "cycleCompletions=$newCount"
-        )
-        Log.d("HistoryVM", "timestamps: ${allCompletions.map { it.progressUpdate }}")
+        dao.updateHabit(habit.copy(currentCount = cycleCompletions.size))
 
-        dao.updateHabit(habit.copy(currentCount = newCount))
+        // Recompute isTargetReached purely from position in time order.
+        // The entry at index (target - 1) is the exact tap that hit the target;
+        // all others (including surplus) get false. The guard avoids unnecessary writes.
+        cycleCompletions.forEachIndexed { index, completion ->
+            val shouldBeReached = (index + 1) == habit.target
+            if (completion.isTargetReached != shouldBeReached) {
+                dao.updateCompletion(completion.copy(isTargetReached = shouldBeReached))
+            }
+        }
     }
 
     /**
