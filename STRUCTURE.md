@@ -20,12 +20,15 @@ app/src/main/java/com/example/evolvix
 │       └── HabitFrequency.kt  # Habit frequency enum/model
 │
 ├── domain/                 # Domain Layer - Business Logic
-│   └── model/              # Domain models and state classes
-│       ├── FormError.kt    # Domain model for Form Errors
-│       ├── HabitData.kt    # Domain model for Habit data
-│       ├── HabitUiState.kt # UI state data class
-│       └── SortMode.kt # Enum defining sort options
-│
+│   ├── model/              # Domain models and state classes
+│   │   ├──  FormError.kt    # Domain model for Form Errors
+│   │   ├── HabitData.kt    # Domain model for Habit data
+│   │   ├── HabitUiState.kt # UI state data class
+│   │   ├── SortMode.kt     # Enum defining sort options
+│   │   └── StreakResult.kt # Domain model holding the computed streak metrics for a single habit
+│   └── usecase/
+│       └── CalculateStreakUseCase # Interactor responsible for computing streak metrics from a flat list of completion records.
+|
 ├── navigation/             # Navigation Configuration
 │   ├── NavGraph.kt         # Compose navigation graph setup
 │   └── Screen.kt           # Screen route definitions
