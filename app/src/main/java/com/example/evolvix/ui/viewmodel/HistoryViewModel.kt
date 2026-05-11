@@ -1,5 +1,6 @@
 package com.example.evolvix.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.evolvix.data.local.HabitDao
@@ -54,11 +55,22 @@ class HistoryViewModel(
      * The Room [Flow] backing [groupedByYearMonth] emits a new value automatically,
      * so the View recomposes without any manual refresh.
      *
+     * After deletion the progress bar on the main screen is also updated: if the deleted
+     * entry fell inside the current reset cycle (progressUpdate >= lastResetDate) the
+     * live [currentCount] on the habit would be one too high. [recalculateCurrentCount]
+     * re-counts all cycle completions from the DB and patches [HabitEntity.currentCount].
+     *
      * @param completionId Primary key of the [HabitCompletionEntity] to remove.
      */
     fun deleteCompletion(completionId: Int) {
         viewModelScope.launch {
-            dao.deleteCompletion(completionId)
+            Log.d("HistoryVM", "deleteCompletion: id=$completionId")
+            try {
+                dao.deleteCompletion(completionId)
+            } catch (e: Exception) {
+                Log.e("HistoryVM", "deleteCompletion FAILED", e)
+            }
+            recalculateCurrentCount()
         }
     }
 
@@ -66,11 +78,20 @@ class HistoryViewModel(
      * Overwrites an existing completion record with new data.
      * Used by the inline-edit dialog on the History screen.
      *
+     * Triggers [recalculateCurrentCount] afterwards so that edits which move a timestamp
+     * into or out of the current reset cycle are immediately reflected in the progress bar.
+     *
      * @param completion Updated entity — its [id] must match an existing row.
      */
     fun updateCompletion(completion: HabitCompletionEntity) {
         viewModelScope.launch {
-            dao.updateCompletion(completion)
+            Log.d("HistoryVM", "updateCompletion: id=${completion.id} dt=${completion.progressUpdate}")
+            try {
+                dao.updateCompletion(completion)
+            } catch (e: Exception) {
+                Log.e("HistoryVM", "updateCompletion FAILED", e)
+            }
+            recalculateCurrentCount()
         }
     }
 
@@ -79,19 +100,73 @@ class HistoryViewModel(
      * The [progressUpdate] date comes from a [DatePicker] + [TimePicker] dialog,
      * not from the current system time.
      *
+     * Triggers [recalculateCurrentCount] afterwards so that entries added for the current
+     * reset cycle are immediately reflected in the progress bar.
+     *
      * @param progressUpdate The user-selected date and time for the retroactive entry.
      * @param isTargetReached Whether this entry should count as a target-reached completion.
      */
     fun addRetroactiveEntry(progressUpdate: LocalDateTime, isTargetReached: Boolean) {
         viewModelScope.launch {
-            dao.insertRetroactive(
-                HabitCompletionEntity(
-                    habitId = habitId,
-                    progressUpdate = progressUpdate,
-                    isTargetReached = isTargetReached
+            Log.d("HistoryVM", "addRetroactive: habitId=$habitId dt=$progressUpdate isTargetReached=$isTargetReached")
+            try {
+                dao.insertRetroactive(
+                    HabitCompletionEntity(
+                        habitId = habitId,
+                        progressUpdate = progressUpdate,
+                        isTargetReached = isTargetReached
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                Log.e("HistoryVM", "insertRetroactive FAILED", e)
+            }
+            recalculateCurrentCount()
         }
+    }
+
+    /**
+     * Recomputes [HabitEntity.currentCount] from the actual completion records in the DB.
+     *
+     * **Why**: [currentCount] is a cached integer incremented by the main-screen tap.
+     * When the user adds, edits, or deletes entries via the History screen the cache
+     * becomes stale. This function is the single source of truth re-sync:
+     *
+     *   1. Fetch the habit to get [HabitEntity.lastResetDate] — this is the date the
+     *      current cycle started (set by [HabitViewModel.checkAndResetProgress]).
+     *   2. Floor it to midnight (atStartOfDay) so that entries added earlier in the day
+     *      than the exact reset timestamp are still counted in the current cycle.
+     *   3. COUNT all completion rows with progressUpdate >= cycleStart.
+     *   4. Write that count back to [HabitEntity.currentCount].
+     *
+     * Detailed Logcat output (tag "HistoryVM") is emitted so any discrepancy between the
+     * expected and actual count can be diagnosed from Android Studio's Logcat filter.
+     */
+    private suspend fun recalculateCurrentCount() {
+        val habit = dao.getHabitById(habitId) ?: run {
+            Log.w("HistoryVM", "recalculate: habit $habitId not found, skipping")
+            return
+        }
+        val cycleStart = habit.lastResetDate.toLocalDate().atStartOfDay()
+        // Fetch all completions and filter with Kotlin's LocalDateTime comparator.
+        // This bypasses SQLite ISO-string comparison entirely, which can behave
+        // unexpectedly when timestamp strings have varying precision (nanoseconds
+        // vs truncated formats). Kotlin's comparator is always chronologically correct.
+        val allCompletions = dao.getCompletionsForHabit(habitId).first()
+        val cycleCompletions = allCompletions.filter { it.progressUpdate >= cycleStart }
+        val newCount = cycleCompletions.size
+
+        Log.d(
+            "HistoryVM",
+            "recalculate habit=$habitId | " +
+            "lastResetDate=${habit.lastResetDate} | " +
+            "cycleStart=$cycleStart | " +
+            "currentCount(before)=${habit.currentCount} | " +
+            "totalCompletions=${allCompletions.size} | " +
+            "cycleCompletions=$newCount"
+        )
+        Log.d("HistoryVM", "timestamps: ${allCompletions.map { it.progressUpdate }}")
+
+        dao.updateHabit(habit.copy(currentCount = newCount))
     }
 
     /**

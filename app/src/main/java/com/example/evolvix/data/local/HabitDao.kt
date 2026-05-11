@@ -250,4 +250,19 @@ abstract class HabitDao {
      */
     @Insert
     abstract suspend fun insertRetroactive(completion: HabitCompletionEntity)
+
+    /**
+     * Counts how many completions for [habitId] have a [progressUpdate] timestamp
+     * that falls on or after [cycleStart].
+     *
+     * Used by [HistoryViewModel] after any mutation (add / edit / delete) to recompute
+     * [HabitEntity.currentCount] so the progress bar reflects the real number of
+     * completion records in the current reset cycle.
+     *
+     * @param habitId    The parent habit's primary key.
+     * @param cycleStart The start of the current cycle — equal to [HabitEntity.lastResetDate].
+     * @return Count of matching completion rows.
+     */
+    @Query("SELECT COUNT(*) FROM habit_completions WHERE habitId = :habitId AND progressUpdate >= :cycleStart")
+    abstract suspend fun getCompletionCountSince(habitId: Int, cycleStart: LocalDateTime): Int
 }

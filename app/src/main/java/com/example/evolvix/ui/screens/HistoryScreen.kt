@@ -396,9 +396,13 @@ private fun EditCompletionDialog(
     onDismiss: () -> Unit
 ) {
     val datePickerState = rememberDatePickerState(
+        // DatePicker stores/reads dates as UTC midnight epoch millis.
+        // Use ZoneOffset.UTC here so the calendar date is preserved correctly
+        // regardless of the device's local timezone (UTC-X would otherwise
+        // shift midnight-UTC to the previous calendar day).
         initialSelectedDateMillis = initial.progressUpdate
             .toLocalDate()
-            .atStartOfDay(java.time.ZoneId.systemDefault())
+            .atStartOfDay(java.time.ZoneOffset.UTC)
             .toInstant()
             .toEpochMilli(),
         initialDisplayMode = DisplayMode.Picker
@@ -438,8 +442,10 @@ private fun EditCompletionDialog(
             confirmButton = {
                 TextButton(onClick = {
                     val epochMillis = datePickerState.selectedDateMillis!!
+                    // DatePicker gives UTC-midnight millis for the selected calendar date.
+                    // Interpret with UTC so the date is never shifted by the device timezone.
                     val date = java.time.Instant.ofEpochMilli(epochMillis)
-                        .atZone(java.time.ZoneId.systemDefault())
+                        .atZone(java.time.ZoneOffset.UTC)
                         .toLocalDate()
                     onConfirm(
                         initial.copy(
@@ -480,8 +486,10 @@ private fun RetroactiveAddDialog(
     onDismiss: () -> Unit
 ) {
     val datePickerState = rememberDatePickerState(
+        // DatePicker works in UTC midnight epoch millis — use ZoneOffset.UTC so the
+        // pre-selected date matches today's calendar date in all timezones.
         initialSelectedDateMillis = LocalDate.now()
-            .atStartOfDay(java.time.ZoneId.systemDefault())
+            .atStartOfDay(java.time.ZoneOffset.UTC)
             .toInstant()
             .toEpochMilli(),
         initialDisplayMode = DisplayMode.Picker
@@ -514,8 +522,10 @@ private fun RetroactiveAddDialog(
             confirmButton = {
                 TextButton(onClick = {
                     val epochMillis = datePickerState.selectedDateMillis!!
+                    // DatePicker gives UTC-midnight millis for the selected calendar date.
+                    // Interpret with UTC so the date is never shifted by the device timezone.
                     val date = java.time.Instant.ofEpochMilli(epochMillis)
-                        .atZone(java.time.ZoneId.systemDefault())
+                        .atZone(java.time.ZoneOffset.UTC)
                         .toLocalDate()
                     onConfirm(
                         LocalDateTime.of(date, LocalTime.of(timePickerState.hour, timePickerState.minute)),
