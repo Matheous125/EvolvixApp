@@ -50,6 +50,19 @@ class HistoryViewModel(
             )
 
     /**
+     * Flat list of all completion records for this habit, ordered newest-first.
+     * Consumed by [ExportHistoryUseCase] to build the JSON export payload.
+     * (Pattern: Observer via StateFlow — shares the same Room backing query as [groupedByYearMonth])
+     */
+    val flatCompletions: StateFlow<List<HabitCompletionEntity>> =
+        dao.getCompletionsForHabit(habitId)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = emptyList()
+            )
+
+    /**
      * Deletes a single completion record permanently.
      * The Room [Flow] backing [groupedByYearMonth] emits a new value automatically,
      * so the View recomposes without any manual refresh.

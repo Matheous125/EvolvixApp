@@ -27,7 +27,8 @@ app/src/main/java/com/example/evolvix
 │   │   ├── SortMode.kt     # Enum defining sort options
 │   │   └── StreakResult.kt # Domain model holding the computed streak metrics for a single habit
 │   └── usecase/
-│       └── CalculateStreakUseCase # Interactor responsible for computing streak metrics from a flat list of completion records.
+│       ├──CalculateStreakUseCase # Interactor responsible for computing streak metrics from a flat list of completion records.
+│   │   └──ExportHistoryUseCase # Interactor responsible for serializing a habit's full completion history
 |
 ├── navigation/             # Navigation Configuration
 │   ├── NavGraph.kt         # Compose navigation graph setup

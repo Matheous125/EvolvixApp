@@ -1,5 +1,7 @@
 package com.example.evolvix.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,8 +17,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.domain.usecase.ExportHistoryUseCase
 import com.example.evolvix.ui.viewmodel.HistoryViewModel
 import com.example.evolvix.ui.viewmodel.HistoryViewModelFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -66,6 +71,26 @@ fun HistoryScreen(
     // (Pattern: Observer via StateFlow — recomposition is driven by data changes)
     val groupedEntries by viewModel.groupedByYearMonth.collectAsState()
 
+    // Flat list consumed by ExportHistoryUseCase to build the JSON payload.
+    val flatCompletions by viewModel.flatCompletions.collectAsState()
+
+    val scope = rememberCoroutineScope()
+    val exportUseCase = remember { ExportHistoryUseCase() }
+
+    // Launches the system "Save file" picker. When the user confirms, writes the
+    // JSON export to the chosen URI via ContentResolver on the IO dispatcher.
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch(Dispatchers.IO) {
+            val json = exportUseCase(habitName, flatCompletions)
+            context.contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(json.toByteArray(Charsets.UTF_8))
+            }
+        }
+    }
+
     // Controls the retroactive-add dialog visibility.
     var showAddDialog by remember { mutableStateOf(false) }
 
@@ -90,6 +115,22 @@ fun HistoryScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
+                        )
+                    }
+                },
+                actions = {
+                    // Export button — triggers the system file-picker with a pre-filled
+                    // filename. The user can rename it before saving.
+                    IconButton(
+                        onClick = {
+                            // Sanitize the habit name so it is safe as a filename.
+                            val safeName = habitName.replace(Regex("[^\\w\\-]"), "_")
+                            exportLauncher.launch("${safeName}_history.json")
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.FileDownload,
+                            contentDescription = "Export history as JSON"
                         )
                     }
                 },

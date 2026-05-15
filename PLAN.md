@@ -90,8 +90,8 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **Unit Tests (allowed, JUnit only):** Test `CalculateStreakUseCase` with synthetic timestamp lists (per workstyle, only when explicitly requested).
 
 ### 3.3 JSON export of history
-- [ ] **Domain:** New `domain/usecase/ExportHistoryUseCase.kt` using `kotlinx.serialization`.
-- [ ] **View:** `IconButton` in `HistoryScreen.kt` top bar → `Intent.ACTION_CREATE_DOCUMENT`.
+- [x] **Domain:** New `domain/usecase/ExportHistoryUseCase.kt` using `kotlinx.serialization`.
+- [x] **View:** `IconButton` in `HistoryScreen.kt` top bar → `Intent.ACTION_CREATE_DOCUMENT`.
 
 ---
 
