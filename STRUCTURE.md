@@ -10,7 +10,7 @@ When creating NEW files, you MUST place them in the correct directory under the 
 app/src/main/java/com/example/evolvix
 ├── data/                   # The "Model" Layer - Data & Persistence
 │   ├── local/              # Room Database
-│   │   ├── AchievementDao.kt  # Data Access Object for achievement persistence
+│   │   ├── AchievementDao.kt  # Data Access Object for achievement persistence; includes one-shot batch query for retraction
 │   │   ├── AppDatabase.kt  # Room Database setup
 │   │   ├── Converters.kt   # Type converters for Room
 │   │   ├── HabitDao.kt     # Database Access Object for habits + completion queries (CRUD)
@@ -30,8 +30,9 @@ app/src/main/java/com/example/evolvix
 │   │   ├── SortMode.kt     # Enum defining sort options
 │   │   └── StreakResult.kt # Domain model holding the computed streak metrics for a single habit
 │   └── usecase/
-│       ├──CalculateStreakUseCase # Interactor responsible for computing streak metrics from a flat list of completion records.
-│   │   └──ExportHistoryUseCase # Interactor responsible for serializing a habit's full completion history
+│       ├──CalculateStreakUseCase.kt # Interactor responsible for computing streak metrics from a flat list of completion records.
+│       EvaluateAchievementsUseCase.kt # Interactor responsible for evaluating which of the 50 achievements the user has earned
+│   │   └──ExportHistoryUseCase.kt # Interactor responsible for serializing a habit's full completion history
 |
 ├── navigation/             # Navigation Configuration
 │   ├── NavGraph.kt         # Compose navigation graph setup
@@ -54,6 +55,8 @@ app/src/main/java/com/example/evolvix
 │   │   ├── Theme.kt  # App theme configuration
 │   │   └── Type.kt  # Typography styles
 │   └── viewmodel/          # The "ViewModel" Layer - UI Logic
+│       ├── AchievementsViewModel.kt  # Observes habits+completions Flow, runs EvaluateAchievementsUseCase, persists unlock/progress deltas reactively
+│       ├── AchievementsViewModelFactory.kt  # Factory for AchievementsViewModel creation
 │       ├── HabitViewModel.kt  # Business logic & state
 │       ├── HabitViewModelFactory.kt  # ViewModel creation
 │       ├── HistoryViewModel.kt  # History logic & state

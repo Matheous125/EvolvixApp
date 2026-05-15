@@ -42,4 +42,14 @@ interface AchievementDao {
     /** Returns all rows that have been unlocked (non-null [unlockedAt]). */
     @Query("SELECT * FROM achievements WHERE unlockedAt IS NOT NULL ORDER BY unlockedAt DESC")
     fun getUnlocked(): Flow<List<AchievementEntity>>
+
+    /**
+     * One-shot snapshot of every achievement row, used inside [persistDeltas] to
+     * batch-load existing state before the evaluation loop.
+     *
+     * Loading all rows at once (O(1) query) and building a lookup map avoids issuing
+     * one [findByKey] call per definition (O(50) queries) on every Flow emission.
+     */
+    @Query("SELECT * FROM achievements")
+    suspend fun getAllAchievementsOnce(): List<AchievementEntity>
 }

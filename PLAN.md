@@ -104,8 +104,8 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **Domain:** New `domain/usecase/EvaluateAchievementsUseCase.kt` — pure function `(habits, completions) -> Set<UnlockedAchievement>` (Pattern: **Strategy + Pure Function**).
 
 ### 4.2 Achievement reactivity & retraction
-- [ ] **ViewModel:** New `AchievementsViewModel.kt` in `ui/viewmodel/` — observes habits+completions Flow, runs evaluator, persists deltas.
-- [ ] **ViewModel:** Retraction — re-running evaluator after history edits revokes rows where requirement no longer holds (Pattern: **Observer + idempotent reducer**).
+- [x] **ViewModel:** New `AchievementsViewModel.kt` in `ui/viewmodel/` — observes habits+completions Flow, runs evaluator, persists deltas.
+- [x] **ViewModel:** Retraction — re-running evaluator after history edits revokes rows where requirement no longer holds (Pattern: **Observer + idempotent reducer**).
 
 ### 4.3 Achievement UI
 - [ ] **View:** New `ui/screens/AchievementsScreen.kt` — total points header, "Latest" section, collapsible category groups, progress bars on locked items.
