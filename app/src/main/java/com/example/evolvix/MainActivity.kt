@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -29,7 +30,10 @@ import androidx.navigation.compose.rememberNavController
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.navigation.HabitNavGraph
 import com.example.evolvix.navigation.Screen
+import com.example.evolvix.ui.components.AchievementBanner
 import com.example.evolvix.ui.theme.HabitTracker3Theme
+import com.example.evolvix.ui.viewmodel.AchievementsViewModel
+import com.example.evolvix.ui.viewmodel.AchievementsViewModelFactory
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
 
@@ -55,6 +59,9 @@ class MainActivity : ComponentActivity() {
  * The [HabitViewModel] is created here at Activity scope so that both this composable
  * and [MainScreen] share the same instance — allowing [MainActivity] to observe
  * [HabitViewModel.reorderMode] and hide the FAB during drag-and-drop reorder.
+ * [AchievementsViewModel] is also created here at Activity scope so that [AchievementsScreen]
+ * and [AchievementBanner] share the same instance and the same [AchievementsViewModel.newlyUnlocked]
+ * SharedFlow — ensuring the banner fires regardless of which screen the user is on.
  * (Pattern: shared ViewModel via Activity-scoped [viewModel()])
  */
 @Composable
@@ -65,6 +72,13 @@ fun AppContent() {
         factory = HabitViewModelFactory(
             application = context.applicationContext as android.app.Application,
             habitDao = AppDatabase.getDatabase(context).habitDao()
+        )
+    )
+    // Activity-scoped ViewModel — shared with AchievementsScreen and AchievementBanner.
+    val achievementsViewModel: AchievementsViewModel = viewModel(
+        factory = AchievementsViewModelFactory(
+            habitDao = AppDatabase.getDatabase(context).habitDao(),
+            achievementDao = AppDatabase.getDatabase(context).achievementDao()
         )
     )
     val reorderMode by habitViewModel.reorderMode.collectAsState()
@@ -85,6 +99,7 @@ fun AppContent() {
     val items = listOf("Achievements", "Habits", "Statistics")
     val icons = listOf(Icons.Filled.EmojiEvents, Icons.Filled.Home, Icons.Filled.BarChart)
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
@@ -131,9 +146,14 @@ fun AppContent() {
         HabitNavGraph(
             navController = navController,
             modifier = Modifier.padding(innerPadding),
-            habitViewModel = habitViewModel
+            habitViewModel = habitViewModel,
+            achievementsViewModel = achievementsViewModel
         )
     }
+    // AchievementBanner overlays the entire app — shown on any screen when an
+    // achievement is unlocked. Placed after Scaffold in the Box so it draws on top.
+    AchievementBanner(viewModel = achievementsViewModel)
+    } // end Box
 }
 
 @Preview(showBackground = true)

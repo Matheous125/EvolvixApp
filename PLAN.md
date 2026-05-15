@@ -110,7 +110,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 4.3 Achievement UI
 - [x] **View:** New `ui/screens/AchievementsScreen.kt` — total points header, "Latest" section, collapsible category groups, progress bars on locked items.
 - [ ] **View:** New `ui/components/AchievementBanner.kt` — top-anchored sliding `Snackbar`-like Composable triggered by `SharedFlow<AchievementUnlocked>` (Pattern: **Event Bus via Flow**).
-- [ ] **Navigation:** Add `Screen.Achievements`; reorder `BottomNavigationBar` to `[Achievements, Habits, Statistics]` in `NavGraph.kt`.
+- [x] **Navigation:** Add `Screen.Achievements`; reorder `BottomNavigationBar` to `[Achievements, Habits, Statistics]` in `NavGraph.kt`.
 
 ### 4.4 Main screen visual rewards
 - [ ] **View:** `ProgressItem.kt` — milestone mini-celebrations at 25/50/75% (only when target makes them mathematically distinct), confetti on 100% (lightweight Compose animation).

@@ -14,16 +14,12 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.AchievementEntity
 import com.example.evolvix.domain.model.AchievementDefinition
 import com.example.evolvix.domain.model.AchievementGroup
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
-import com.example.evolvix.ui.viewmodel.AchievementsViewModelFactory
 
 /** Maps an [AchievementGroup] enum value to a human-readable display label. */
 private fun AchievementGroup.displayName(): String = when (this) {
@@ -50,23 +46,17 @@ private fun AchievementGroup.displayName(): String = when (this) {
  * [AchievementsViewModel.achievements] (a `StateFlow<List<AchievementEntity>>`).
  * The Composable is a pure function of that state; no business logic lives here.
  *
+ * @param viewModel Activity-scoped [AchievementsViewModel] passed from [AppContent] so that
+ *   both [AchievementsScreen] and [AchievementBanner] share the same instance and the same
+ *   [AchievementsViewModel.newlyUnlocked] SharedFlow.
  * @param modifier Optional [Modifier] forwarded to the root [Scaffold].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AchievementsScreen(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val db = AppDatabase.getDatabase(context)
-
-    // AchievementsViewModel uses a custom factory because it has constructor parameters.
-    // (Pattern: Factory — standard ViewModelProvider.Factory contract)
-    val viewModel: AchievementsViewModel = viewModel(
-        factory = AchievementsViewModelFactory(
-            habitDao = db.habitDao(),
-            achievementDao = db.achievementDao()
-        )
-    )
-
+fun AchievementsScreen(
+    viewModel: AchievementsViewModel,
+    modifier: Modifier = Modifier
+) {
     // Collect the StateFlow — recomposition fires whenever the DB emits a new list.
     val entities by viewModel.achievements.collectAsState()
 

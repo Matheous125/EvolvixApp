@@ -9,6 +9,7 @@ import com.example.evolvix.ui.screens.*
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import android.util.Log
+import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 
 /**
@@ -19,12 +20,15 @@ import com.example.evolvix.ui.viewmodel.HabitViewModel
  * @param modifier Optional modifier for the navigation host
  * @param habitViewModel Activity-scoped ViewModel passed down from [AppContent] so that
  *   [MainScreen] and [MainActivity] share the same instance.
+ * @param achievementsViewModel Activity-scoped ViewModel shared with [AchievementsScreen] and
+ *   [AchievementBanner] so both read the same [AchievementsViewModel.newlyUnlocked] SharedFlow.
  */
 @Composable
 fun HabitNavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier,
-    habitViewModel: HabitViewModel
+    habitViewModel: HabitViewModel,
+    achievementsViewModel: AchievementsViewModel
 ) {
     NavHost(
         navController = navController,
@@ -122,7 +126,7 @@ fun HabitNavGraph(
 
         // Achievements screen — displays all 50 achievements grouped by category.
         composable(route = Screen.Achievements.route) {
-            AchievementsScreen()
+            AchievementsScreen(viewModel = achievementsViewModel)
         }
     }
 }

@@ -40,6 +40,7 @@ app/src/main/java/com/example/evolvix
 │
 ├── ui/                     # The "View" Layer (Jetpack Compose)
 │   ├── components/         # Reusable Compose widgets
+│       ├── AchievementBanner.kt   # Top-anchored sliding banner triggered by AchievementsViewModel.newlyUnlocked SharedFlow; overlays all screens via AppContent Box
 │       ├── HabitContextMenu.kt    # Wraps [content] in a long-press–activated context menu for a single habit row
 │       ├── PauseBottomSheet.kt    # Modal bottom sheet with date picker for habit pausing
 │   │   └── ProgressItem.kt # Animated progress bar row (title + x/y)
