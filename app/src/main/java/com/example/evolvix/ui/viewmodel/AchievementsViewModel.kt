@@ -143,9 +143,10 @@ class AchievementsViewModel(
                     achievementDao.insert(AchievementEntity(key = def.key, progress = progress))
                 }
                 existing.unlockedAt != null -> {
-                    // Retraction: was unlocked, requirement no longer holds.
-                    // Clear unlockedAt and refresh progress in a single update.
-                    achievementDao.update(existing.copy(unlockedAt = null, progress = progress))
+                    // Achievements are permanent once fully unlocked — do not retract.
+                    // This covers both habit deletion (CASCADE wipes completions) and
+                    // manual history edits. The unlock timestamp is preserved as-is.
+                    // Only in-progress rows (unlockedAt == null) still reset their bar.
                 }
                 existing.progress != progress -> {
                     // Not yet earned but progress value changed — update the bar only.

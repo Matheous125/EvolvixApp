@@ -127,7 +127,13 @@ fun AchievementsScreen(modifier: Modifier = Modifier) {
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(title = { Text("Achievements") })
+            TopAppBar(
+                title = { Text("Achievements") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                ),
+                windowInsets = WindowInsets(0)
+            )
         }
     ) { paddingValues ->
         LazyColumn(
@@ -172,6 +178,9 @@ fun AchievementsScreen(modifier: Modifier = Modifier) {
             // ── Category group sections ──────────────────────────────────────
             for ((group, defs) in groupedDefs) {
                 val expanded = groupExpanded[group] ?: true
+                // Unlocked achievements are sorted to the top of each group so the
+                // user immediately sees what they've earned before the locked items.
+                val sortedDefs = defs.sortedByDescending { entityByKey[it.key]?.unlockedAt != null }
 
                 item(key = "group_header_${group.name}") {
                     SectionHeader(
@@ -183,7 +192,7 @@ fun AchievementsScreen(modifier: Modifier = Modifier) {
 
                 if (expanded) {
                     items(
-                        items = defs,
+                        items = sortedDefs,
                         key = { "group_${it.key}" }
                     ) { def ->
                         AchievementRow(
