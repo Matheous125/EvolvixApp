@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -74,14 +75,15 @@ fun AppContent() {
 
     // Determine the selected item based on the current route
     val selectedItem = when (currentRoute) {
-        Screen.Habits.route -> 0
-        Screen.Statistics.route -> 1
-        else -> 0 // Default to Habits screen if route is unknown (or AddNewHabit)
+        Screen.Achievements.route -> 0
+        Screen.Habits.route       -> 1
+        Screen.Statistics.route   -> 2
+        else -> 1 // Default to Habits for sub-screens (AddHabit, EditHabit, History)
     }
 
-    // Navigation items configuration
-    val items = listOf("Habits", "Statistics")
-    val icons = listOf(Icons.Filled.Home, Icons.Filled.BarChart)
+    // Navigation items configuration — order: Achievements | Habits | Statistics
+    val items = listOf("Achievements", "Habits", "Statistics")
+    val icons = listOf(Icons.Filled.EmojiEvents, Icons.Filled.Home, Icons.Filled.BarChart)
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -94,9 +96,10 @@ fun AppContent() {
                         selected = selectedItem == index,
                         onClick = {
                             val destinationScreen = when (index) {
-                                0 -> Screen.Habits
-                                1 -> Screen.Statistics
-                                else -> Screen.Habits // Default or handle error
+                                0 -> Screen.Achievements
+                                1 -> Screen.Habits
+                                2 -> Screen.Statistics
+                                else -> Screen.Habits
                             }
 
                             if (currentRoute != destinationScreen.route) {

@@ -108,7 +108,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **ViewModel:** Retraction — re-running evaluator after history edits revokes rows where requirement no longer holds (Pattern: **Observer + idempotent reducer**).
 
 ### 4.3 Achievement UI
-- [ ] **View:** New `ui/screens/AchievementsScreen.kt` — total points header, "Latest" section, collapsible category groups, progress bars on locked items.
+- [x] **View:** New `ui/screens/AchievementsScreen.kt` — total points header, "Latest" section, collapsible category groups, progress bars on locked items.
 - [ ] **View:** New `ui/components/AchievementBanner.kt` — top-anchored sliding `Snackbar`-like Composable triggered by `SharedFlow<AchievementUnlocked>` (Pattern: **Event Bus via Flow**).
 - [ ] **Navigation:** Add `Screen.Achievements`; reorder `BottomNavigationBar` to `[Achievements, Habits, Statistics]` in `NavGraph.kt`.
 

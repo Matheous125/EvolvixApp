@@ -44,6 +44,7 @@ app/src/main/java/com/example/evolvix
 │       ├── PauseBottomSheet.kt    # Modal bottom sheet with date picker for habit pausing
 │   │   └── ProgressItem.kt # Animated progress bar row (title + x/y)
 │   ├── screens/            # Main UI screens (e.g., HomeScreen.kt)
+│   │   ├── AchievementsScreen.kt  # Achievement list with colapsible groups
 │   │   ├── AddNewHabitScreen.kt  # Create habit form
 │   │   ├── EditHabitScreen.kt  # Edit habit details form
 │   │   ├── HistoryScreen.kt  # Brows, edit, add habit history

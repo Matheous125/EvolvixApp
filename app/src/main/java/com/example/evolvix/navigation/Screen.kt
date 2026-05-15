@@ -28,6 +28,9 @@ sealed class Screen(val route: String) {
         }
     }
 
+    /** Achievements screen — displays earned and locked achievements with progress. */
+    object Achievements : Screen("achievements")
+
     /**
      * History screen — shows all completion records for a single habit,
      * grouped by year and month, with edit/delete and retroactive-add support.

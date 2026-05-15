@@ -119,5 +119,10 @@ fun HabitNavGraph(
                 )
             }
         }
+
+        // Achievements screen — displays all 50 achievements grouped by category.
+        composable(route = Screen.Achievements.route) {
+            AchievementsScreen()
+        }
     }
 }
