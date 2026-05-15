@@ -58,6 +58,15 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
 
     
     /**
+     * Fires once each time a habit's completion count exactly hits its target.
+     * [AppContent] collects this to display [FullScreenConfettiOverlay] over the whole screen.
+     * extraBufferCapacity = 1 prevents suspension if the collector is briefly busy.
+     * (Pattern: Event Bus via SharedFlow — fire-and-forget, no replay)
+     */
+    private val _celebrationEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val celebrationEvent: SharedFlow<Unit> = _celebrationEvent.asSharedFlow()
+
+    /**
      * Exposes form validation errors to the View.
      * Null means no error. The View collects this flow to show inline messages.
      * (Pattern: Observer via StateFlow — Unidirectional Data Flow)
@@ -379,6 +388,10 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                         isTargetReached = isTargetReached
                     )
                     habitDao.insertCompletion(completion)
+
+                    // Emit celebration event so the full-screen confetti overlay fires
+                    // exactly when the user taps the last required completion.
+                    if (isTargetReached) _celebrationEvent.tryEmit(Unit)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

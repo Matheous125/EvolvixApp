@@ -19,8 +19,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,6 +35,7 @@ import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.navigation.HabitNavGraph
 import com.example.evolvix.navigation.Screen
 import com.example.evolvix.ui.components.AchievementBanner
+import com.example.evolvix.ui.components.FullScreenConfettiOverlay
 import com.example.evolvix.ui.theme.HabitTracker3Theme
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.AchievementsViewModelFactory
@@ -82,6 +87,18 @@ fun AppContent() {
         )
     )
     val reorderMode by habitViewModel.reorderMode.collectAsState()
+
+    // Full-screen confetti visibility — set to true by the celebrationEvent collector below.
+    var showCelebration by remember { mutableStateOf(false) }
+
+    // Subscribes to the ViewModel's fire-and-forget SharedFlow. Each emission means a habit
+    // just hit its target for the first time this cycle — trigger the confetti overlay.
+    // (Pattern: Event Bus via SharedFlow — same as AchievementBanner / newlyUnlocked)
+    LaunchedEffect(Unit) {
+        habitViewModel.celebrationEvent.collect {
+            showCelebration = true
+        }
+    }
 
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
@@ -153,6 +170,13 @@ fun AppContent() {
     // AchievementBanner overlays the entire app — shown on any screen when an
     // achievement is unlocked. Placed after Scaffold in the Box so it draws on top.
     AchievementBanner(viewModel = achievementsViewModel)
+
+    // Full-screen confetti fires from the bottom of the screen when any habit reaches
+    // its daily target. Placed last in the Box so it draws above the banner.
+    FullScreenConfettiOverlay(
+        visible   = showCelebration,
+        onFinished = { showCelebration = false },
+    )
     } // end Box
 }
 
