@@ -10,18 +10,21 @@ When creating NEW files, you MUST place them in the correct directory under the 
 app/src/main/java/com/example/evolvix
 ├── data/                   # The "Model" Layer - Data & Persistence
 │   ├── local/              # Room Database
+│   │   ├── AchievementDao.kt  # Data Access Object for achievement persistence
 │   │   ├── AppDatabase.kt  # Room Database setup
 │   │   ├── Converters.kt   # Type converters for Room
 │   │   ├── HabitDao.kt     # Database Access Object for habits + completion queries (CRUD)
 │   │   └── Migration.kt    # Database schema migrations
 │   └── model/              # Database entity classes
+│       ├── AchievementEntity.kt  # Achievement table entity
 │       ├── HabitEntity.kt  # Habit table entity
 │       ├── HabitCompletionEntity.kt  # Habit completion records
 │       └── HabitFrequency.kt  # Habit frequency enum/model
 │
 ├── domain/                 # Domain Layer - Business Logic
 │   ├── model/              # Domain models and state classes
-│   │   ├──  FormError.kt    # Domain model for Form Errors
+│   │   ├── AchievementDefinition.kt    # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
+│   │   ├── FormError.kt    # Domain model for Form Errors
 │   │   ├── HabitData.kt    # Domain model for Habit data
 │   │   ├── HabitUiState.kt # UI state data class
 │   │   ├── SortMode.kt     # Enum defining sort options

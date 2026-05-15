@@ -99,9 +99,9 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 **Goal:** Build the engagement layer on top of the streak engine.
 
 ### 4.1 Achievement domain model
-- [ ] **Model:** New `data/model/AchievementEntity.kt` (id, key, unlockedAt, progress) + `AchievementDao.kt`. Bump DB version.
-- [ ] **Domain:** New `domain/model/AchievementDefinition.kt` — sealed hierarchy of 50 achievements per `ACHIEVEMENTS.MD` (Pattern: **Strategy / Sealed Class polymorphism**).
-- [ ] **Domain:** New `domain/usecase/EvaluateAchievementsUseCase.kt` — pure function `(habits, completions) -> Set<UnlockedAchievement>` (Pattern: **Strategy + Pure Function**).
+- [x] **Model:** New `data/model/AchievementEntity.kt` (id, key, unlockedAt, progress) + `AchievementDao.kt`. Bump DB version.
+- [x] **Domain:** New `domain/model/AchievementDefinition.kt` — sealed hierarchy of 50 achievements per `ACHIEVEMENTS.MD` (Pattern: **Strategy / Sealed Class polymorphism**).
+- [x] **Domain:** New `domain/usecase/EvaluateAchievementsUseCase.kt` — pure function `(habits, completions) -> Set<UnlockedAchievement>` (Pattern: **Strategy + Pure Function**).
 
 ### 4.2 Achievement reactivity & retraction
 - [ ] **ViewModel:** New `AchievementsViewModel.kt` in `ui/viewmodel/` — observes habits+completions Flow, runs evaluator, persists deltas.
