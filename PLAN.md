@@ -120,8 +120,8 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ## PHASE 5 — Statistics Screen Overhaul (Module 5.2)
 **Goal:** Surface the data already collected. No AI yet — placeholders for AI sections.
 
-- [ ] **Domain:** New use cases in `domain/usecase/`: `WeeklyOverviewUseCase`, `LifeBalanceUseCase`, `SparklineUseCase` (Pattern: **Use Case per query**).
-- [ ] **ViewModel:** New `StatisticsViewModel.kt` exposes `overview`, `lifeBalance`, `perHabitStats: StateFlow<…>`.
+- [x] **Domain:** New use cases in `domain/usecase/`: `WeeklyOverviewUseCase`, `LifeBalanceUseCase`, `SparklineUseCase` (Pattern: **Use Case per query**).
+- [x] **ViewModel:** New `StatisticsViewModel.kt` exposes `overview`, `lifeBalance`, `perHabitStats: StateFlow<…>`.
 - [ ] **View:** Refactor `ui/screens/StatisticsScreen.kt` — Global Overview card, Life Balance card, collapsed/expanded habit cards with sparkline + bar chart tabs (7D/30D/3M/ALL).
 - [ ] **View:** New `ui/components/Sparkline.kt` and `ui/components/BarChart.kt` (Canvas-based, no third-party chart lib needed).
 

@@ -23,16 +23,23 @@ app/src/main/java/com/example/evolvix
 │
 ├── domain/                 # Domain Layer - Business Logic
 │   ├── model/              # Domain models and state classes
-│   │   ├── AchievementDefinition.kt    # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
-│   │   ├── FormError.kt    # Domain model for Form Errors
-│   │   ├── HabitData.kt    # Domain model for Habit data
-│   │   ├── HabitUiState.kt # UI state data class
-│   │   ├── SortMode.kt     # Enum defining sort options
-│   │   └── StreakResult.kt # Domain model holding the computed streak metrics for a single habit
+│   │   ├── AchievementDefinition.kt  # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
+│   │   ├── FormError.kt              # Domain model for inline form validation errors (e.g. duplicate habit name)
+│   │   ├── HabitData.kt              # Lightweight domain model for a habit; decouples business logic from HabitEntity
+│   │   ├── HabitUiState.kt           # Composite UI state data class consumed by HabitViewModel and the main habit list screen
+│   │   ├── LifeBalanceEntry.kt       # Per-category completion rate + habit count; output of LifeBalanceUseCase
+│   │   ├── PerHabitStats.kt          # Bundles streak, 30-day sparkline, and completion rate for one habit; output of StatisticsViewModel.perHabitStats
+│   │   ├── SortMode.kt               # Enum defining the 7 sort/group modes for the habit list
+│   │   ├── SparklinePoint.kt         # Single chart data point (date + reached flag); output of SparklineUseCase
+│   │   ├── StreakResult.kt           # Holds current + best streak counts for a single habit; output of CalculateStreakUseCase
+│   │   └── WeeklyOverview.kt         # 7-day aggregated summary (DaySummary list + week rate); output of WeeklyOverviewUseCase
 │   └── usecase/
-│       ├──CalculateStreakUseCase.kt # Interactor responsible for computing streak metrics from a flat list of completion records.
-│       EvaluateAchievementsUseCase.kt # Interactor responsible for evaluating which of the 50 achievements the user has earned
-│   │   └──ExportHistoryUseCase.kt # Interactor responsible for serializing a habit's full completion history
+│       ├── CalculateStreakUseCase.kt   # Interactor: computes current + best streak from a flat completion list; pure function, injectable today date for testing
+│       ├── EvaluateAchievementsUseCase.kt # Interactor: pure function (habits, completions) → Set<UnlockedAchievement>; runs all 50 achievement rules (Strategy pattern)
+│       ├── ExportHistoryUseCase.kt    # Interactor: serializes a habit's completion history to JSON via kotlinx.serialization; triggers ACTION_CREATE_DOCUMENT
+│       ├── WeeklyOverviewUseCase.kt   # Interactor: aggregates completions into a 7-day WeeklyOverview (daily counts + week completion rate)
+│       ├── LifeBalanceUseCase.kt      # Interactor: groups habits by category and computes per-category completion rates over a rolling window (default 30 days)
+│       └── SparklineUseCase.kt        # Interactor: produces a List<SparklinePoint> (reached flag per calendar day) for a given habit and date range
 |
 ├── navigation/             # Navigation Configuration
 │   ├── NavGraph.kt         # Compose navigation graph setup
@@ -58,12 +65,14 @@ app/src/main/java/com/example/evolvix
 │   │   ├── Theme.kt  # App theme configuration
 │   │   └── Type.kt  # Typography styles
 │   └── viewmodel/          # The "ViewModel" Layer - UI Logic
-│       ├── AchievementsViewModel.kt  # Observes habits+completions Flow, runs EvaluateAchievementsUseCase, persists unlock/progress deltas reactively
-│       ├── AchievementsViewModelFactory.kt  # Factory for AchievementsViewModel creation
-│       ├── HabitViewModel.kt  # Business logic & state
-│       ├── HabitViewModelFactory.kt  # ViewModel creation
-│       ├── HistoryViewModel.kt  # History logic & state
-│       └── HistoryViewModelFactory.kt  # ViewModel creation
+│       ├── AchievementsViewModel.kt       # Observes habits+completions Flow, runs EvaluateAchievementsUseCase, persists unlock/progress deltas reactively; emits newlyUnlocked SharedFlow for AchievementBanner
+│       ├── AchievementsViewModelFactory.kt # Factory for AchievementsViewModel (injects HabitDao + AchievementDao)
+│       ├── HabitViewModel.kt              # Central ViewModel: habit CRUD, streak recomputation, sort/filter state, pause, over-completion, form validation
+│       ├── HabitViewModelFactory.kt       # Factory for HabitViewModel (injects HabitDao)
+│       ├── HistoryViewModel.kt            # Scoped to a single habit; exposes grouped completions, delete/update/retroactive-insert operations
+│       ├── HistoryViewModelFactory.kt     # Factory for HistoryViewModel (injects HabitDao + habitId)
+│       ├── StatisticsViewModel.kt         # Combines habits+completions Flows and runs WeeklyOverviewUseCase, LifeBalanceUseCase, SparklineUseCase + CalculateStreakUseCase to expose overview, lifeBalance, perHabitStats StateFlows
+│       └── StatisticsViewModelFactory.kt  # Factory for StatisticsViewModel (injects HabitDao)
 │
 └── MainActivity.kt         # Entry point
 ```
