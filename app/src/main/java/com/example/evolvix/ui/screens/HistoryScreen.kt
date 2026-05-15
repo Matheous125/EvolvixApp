@@ -399,6 +399,10 @@ private fun EditCompletionDialog(
     onConfirm: (HabitCompletionEntity) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val todayUtcMillis = LocalDate.now()
+        .atStartOfDay(java.time.ZoneOffset.UTC)
+        .toInstant()
+        .toEpochMilli()
     val datePickerState = rememberDatePickerState(
         // DatePicker stores/reads dates as UTC midnight epoch millis.
         // Use ZoneOffset.UTC here so the calendar date is preserved correctly
@@ -409,7 +413,12 @@ private fun EditCompletionDialog(
             .atStartOfDay(java.time.ZoneOffset.UTC)
             .toInstant()
             .toEpochMilli(),
-        initialDisplayMode = DisplayMode.Picker
+        initialDisplayMode = DisplayMode.Picker,
+        // Prevent selecting future dates.
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= todayUtcMillis
+            override fun isSelectableYear(year: Int) = year <= LocalDate.now().year
+        }
     )
     val timePickerState = rememberTimePickerState(
         initialHour = initial.progressUpdate.hour,
@@ -489,14 +498,20 @@ private fun RetroactiveAddDialog(
     onConfirm: (LocalDateTime, Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val todayUtcMillis = LocalDate.now()
+        .atStartOfDay(java.time.ZoneOffset.UTC)
+        .toInstant()
+        .toEpochMilli()
     val datePickerState = rememberDatePickerState(
         // DatePicker works in UTC midnight epoch millis — use ZoneOffset.UTC so the
         // pre-selected date matches today's calendar date in all timezones.
-        initialSelectedDateMillis = LocalDate.now()
-            .atStartOfDay(java.time.ZoneOffset.UTC)
-            .toInstant()
-            .toEpochMilli(),
-        initialDisplayMode = DisplayMode.Picker
+        initialSelectedDateMillis = todayUtcMillis,
+        initialDisplayMode = DisplayMode.Picker,
+        // Prevent selecting future dates.
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= todayUtcMillis
+            override fun isSelectableYear(year: Int) = year <= LocalDate.now().year
+        }
     )
     val timePickerState = rememberTimePickerState(initialHour = 9, initialMinute = 0)
     var showTimePicker by remember { mutableStateOf(false) }

@@ -86,8 +86,8 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 3.2 Streak engine (pure logic)
 - [x] **Domain:** New `domain/usecase/CalculateStreakUseCase.kt` — returns `StreakResult(current, best)` (Pattern: **Use Case / Interactor**, single-responsibility).
 - [x] **Domain:** New `domain/model/StreakResult.kt`.
-- [ ] **ViewModel:** Recompute streaks reactively by combining `HabitFlow` + `CompletionsFlow` with `combine(...)`.
-- [ ] **Unit Tests (allowed, JUnit only):** Test `CalculateStreakUseCase` with synthetic timestamp lists (per workstyle, only when explicitly requested).
+- [x] **ViewModel:** Recompute streaks reactively by combining `HabitFlow` + `CompletionsFlow` with `combine(...)`.
+- [x] **Unit Tests (allowed, JUnit only):** Test `CalculateStreakUseCase` with synthetic timestamp lists (per workstyle, only when explicitly requested).
 
 ### 3.3 JSON export of history
 - [ ] **Domain:** New `domain/usecase/ExportHistoryUseCase.kt` using `kotlinx.serialization`.
