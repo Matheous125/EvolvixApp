@@ -18,6 +18,8 @@ Evolvix allows users to build and maintain daily habits through a clean, data-dr
 | UI | Jetpack Compose · Material Design 3 |
 | Architecture | MVVM · StateFlow · Coroutines |
 | Persistence | Room (SQLite) |
+| On-device ML | TensorFlow Lite 2.14 (3 trained models) |
+| ML training pipeline | Python 3.10 · Keras · scikit-learn (in `ml-training/`) |
 | Background work | WorkManager |
 | Cloud (planned) | Firebase Auth · Firestore |
 | Build system | Gradle (Kotlin DSL) |
@@ -29,18 +31,25 @@ The project follows a strict **MVVM + Clean Architecture** layering:
 ```
 ui/          — Compose screens and components (View layer)
 ui/viewmodel — ViewModels exposing StateFlow<UiState> (ViewModel layer)
-domain/      — Use cases and domain models (business logic, no Android deps)
+domain/      — Use cases, domain models, and AI predictor interfaces (business logic, no Android deps)
+domain/ai/   — HabitPredictor interface + MathHabitPredictor (math) + TfliteHabitPredictor (ML)
 data/        — Room entities, DAOs, and repositories (data layer)
 navigation/  — Sealed-class route definitions and NavGraph
+ml-training/ — Standalone Python pipeline: data generation, Keras training, TFLite export
 ```
 
-Design patterns used throughout: **Repository**, **Observer** (via Flow), **Use Case / Interactor**, **Strategy**, **Sealed Class state**, **Event Bus** (via SharedFlow).
+Design patterns used throughout: **Repository**, **Observer** (via Flow), **Use Case / Interactor**, **Strategy + Dependency Inversion** (ML predictor swap), **Sealed Class state**, **Event Bus** (via SharedFlow).
 
 ## Current Status
 
-> PHASE 6 — On-Device AI Layer (In progress)
+> **PHASE 6.5 complete — moving to Phase 7 (Notifications & Widgets)**
 
-The core MVVM skeleton is in place: Room schema, DAOs, a `HabitViewModel` exposing `StateFlow<HabitUiState>`, and a sealed-class navigation graph. Active development is following a dependency-driven roadmap from data integrity hardening through gamification, AI analytics, notifications, and finally cloud sync.
+Phases 0–6.5 are fully implemented:
+
+- **Phases 0–4:** Room schema hardening, full CRUD UX, habit history, streak engine, achievements with unlock/retraction, gamification animations.
+- **Phase 5:** Statistics screen with global overview, life-balance chart, per-habit sparklines and bar charts.
+- **Phase 6:** On-device AI analytics layer — success probability, optimal timing, streak recovery, adaptive difficulty, motivation messages, routine precision, resilience score, habit clashing detection, and procrastination index.
+- **Phase 6.5:** Three TFLite on-device ML models trained via a standalone Python pipeline (`ml-training/`): `HabitSuccessClassifier` (binary, ROC-AUC ≥ 0.88), `HabitIconClassifier` (17-class text, top-1 ≥ 0.75), and `ReminderTemplateClassifier` (15-class, top-1 ≥ 0.70). All predictions now run through `TfliteHabitPredictor`, which composes over the math layer and falls back to it gracefully when a model asset is unavailable.
 
 See [`PLAN.md`](PLAN.md) for the full phased roadmap.
 

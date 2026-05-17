@@ -246,44 +246,44 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] Output a Markdown table summarizing all metrics — **paste into thesis ML chapter**.
 
 ### 6.5.6 Android — TFLite integration
-- [ ] **Gradle:** Add to `app/build.gradle.kts`:
+- [x] **Gradle:** Add to `app/build.gradle.kts`:
   ```kotlin
   implementation("org.tensorflow:tensorflow-lite:2.14.0")
   implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
   ```
-- [ ] **Assets:** Copy the following from `ml-training/models/` into `app/src/main/assets/`:
+- [x] **Assets:** Copy the following from `ml-training/models/` into `app/src/main/assets/`:
   - `habit_success_classifier.tflite` + `success_scaler.json`
   - `habit_icon_classifier.tflite` + `icon_vocab.json`
   - `reminder_template_classifier.tflite` + `reminder_scaler.json`
-- [ ] **Domain:** Expand `domain/ai/HabitPredictor.kt` interface with:
+- [x] **Domain:** Expand `domain/ai/HabitPredictor.kt` interface with:
   - `fun predictSuccess(features: HabitFeatures): Float`
   - `fun findOptimalHours(features: HabitFeatures): List<Int>` (returns top 3 hours)
   - `fun classifyIcon(habitName: String): String`
   - `fun selectReminderTemplate(features: ReminderContext): String`
-- [ ] **Domain:** New model `domain/ai/HabitFeatures.kt` and `domain/ai/ReminderContext.kt` — pure data classes matching Python feature vectors.
-- [ ] **Domain:** Replace stub `TfliteHabitPredictor.kt` with full implementation:
-  - [ ] Constructor `(context: Context, mathFallback: MathHabitPredictor)`.
-  - [ ] Load three `Interpreter` instances from assets in `init`.
-  - [ ] Load scaler/vocab JSON files into `FloatArray` / `Map<String, Int>` fields.
-  - [ ] `predictSuccess()` — normalize via scaler, run interpreter, return sigmoid output.
-  - [ ] `findOptimalHours()` — call `predictSuccess()` 24 times (one per hour), return top 3 indices.
-  - [ ] `classifyIcon()` — tokenize via vocab map, run interpreter, return label string from argmax.
-  - [ ] `selectReminderTemplate()` — normalize features, run interpreter, map argmax to template key.
-  - [ ] All math methods (`computeRoutinePrecision`, `computeResilience`, `detectClashes`, `computeProcrastination`) delegate to `mathFallback`.
-- [ ] **DI/Wiring:** In `MainActivity` (or wherever ViewModels are created), inject `TfliteHabitPredictor(applicationContext, MathHabitPredictor())` instead of `MathHabitPredictor()` directly. **No ViewModel code changes** — this is the payoff of Strategy + DI.
+- [x] **Domain:** New model `domain/ai/HabitFeatures.kt` and `domain/ai/ReminderContext.kt` — pure data classes matching Python feature vectors.
+- [x] **Domain:** Replace stub `TfliteHabitPredictor.kt` with full implementation:
+  - [x] Constructor `(context: Context, mathFallback: MathHabitPredictor)`.
+  - [x] Load three `Interpreter` instances from assets in `init`.
+  - [x] Load scaler/vocab JSON files into `FloatArray` / `Map<String, Int>` fields.
+  - [x] `predictSuccess()` — normalize via scaler, run interpreter, return sigmoid output.
+  - [x] `findOptimalHours()` — call `predictSuccess()` 24 times (one per hour), return top 3 indices.
+  - [x] `classifyIcon()` — tokenize via vocab map, run interpreter, return label string from argmax.
+  - [x] `selectReminderTemplate()` — normalize features, run interpreter, map argmax to template key.
+  - [x] All math methods (`computeRoutinePrecision`, `computeResilience`, `detectClashes`, `computeProcrastination`) delegate to `mathFallback`.
+- [x] **DI/Wiring:** In `MainActivity` (or wherever ViewModels are created), inject `TfliteHabitPredictor(applicationContext, MathHabitPredictor())` instead of `MathHabitPredictor()` directly. **No ViewModel code changes** — this is the payoff of Strategy + DI.
 
 ### 6.5.7 Android — validation tests (JUnit, no emulator)
-- [ ] **Test:** `app/src/test/java/.../TfliteHabitPredictorTest.kt`:
-  - [ ] `predictSuccess` returns > 0.7 for "ideal" feature vector (Mon 7AM, 20-day streak, high rate).
-  - [ ] `predictSuccess` returns < 0.3 for "doomed" vector (Sun midnight, 0 streak, low rate).
-  - [ ] `classifyIcon("morning run")` returns `"fitness"`.
-  - [ ] `classifyIcon("meditate 10 min")` returns `"mindfulness"`.
-  - [ ] `findOptimalHours` returns 3 distinct integers in [0, 23].
-- [ ] **Cross-validation test:** Feed the same 20 synthetic feature vectors to both `MathHabitPredictor` and `TfliteHabitPredictor`. Assert their Spearman rank correlation across success probabilities is > 0.7 — proves the ML model learned the same domain logic the math model encodes. **This is the thesis killer test.**
-- [ ] Note: per project rules, do **NOT** write instrumented (`androidTest/`) tests. JVM-only JUnit.
+- [x] **Test:** `app/src/test/java/.../TfliteHabitPredictorTest.kt`:
+  - [x] `predictSuccess` returns > 0.7 for "ideal" feature vector (Mon 7AM, 20-day streak, high rate).
+  - [x] `predictSuccess` returns < 0.3 for "doomed" vector (Sun midnight, 0 streak, low rate).
+  - [x] `classifyIcon("morning run")` returns `"fitness"`.
+  - [x] `classifyIcon("meditate 10 min")` returns `"mindfulness"`.
+  - [x] `findOptimalHours` returns 3 distinct integers in [0, 23].
+- [x] **Cross-validation test:** Feed the same 20 synthetic feature vectors to both `MathHabitPredictor` and `TfliteHabitPredictor`. Assert their Spearman rank correlation across success probabilities is > 0.7 — proves the ML model learned the same domain logic the math model encodes. **This is the thesis killer test.**
+- [x] Note: per project rules, do **NOT** write instrumented (`androidTest/`) tests. JVM-only JUnit.
 
 ### 6.5.8 Rewire Phase 6 UI to ML-backed predictor
-- [ ] Replace `MathHabitPredictor` injection sites with `TfliteHabitPredictor` in:
+- [x] Replace `MathHabitPredictor` injection sites with `TfliteHabitPredictor` in:
   - `StatisticsViewModel` (Success Prediction card, Optimal Timing card)
   - Icon resolution path on Statistics screen (replaces Phase 6.4 Tier-1 keyword map)
 - [ ] Manual emulator verification (per project rules — no UI tests): launch app, confirm Statistics cards show non-zero probabilities and an icon resolves for each habit name.

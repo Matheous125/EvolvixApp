@@ -11,7 +11,6 @@ import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
-import com.example.evolvix.domain.usecase.IconResolverUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
@@ -51,9 +50,6 @@ class StatisticsViewModel(
     private val lifeBalanceUseCase = LifeBalanceUseCase()
     private val sparklineUseCase = SparklineUseCase()
     private val calculateStreakUseCase = CalculateStreakUseCase()
-
-    /** Resolves a display emoji from a habit name when no user override is stored. */
-    private val iconResolverUseCase = IconResolverUseCase()
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -128,9 +124,12 @@ class StatisticsViewModel(
             val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
             val sparkline = sparklineUseCase(habitCompletions, from30d, today)
             val rate = sparkline.count { it.reached }.toFloat() / 30f
-            // User override (iconKey) takes priority; fall back to Tier-1 keyword resolution.
+            // User override (iconKey) takes priority; otherwise the ML-backed predictor
+            // (Phase 6.5.8) classifies the habit name into one of the 17 trained
+            // categories, and the category is mapped to its display emoji. This replaces
+            // the Tier-1 keyword map (IconResolverUseCase) on the Statistics path.
             val resolvedIcon = habit.iconKey?.takeIf { it.isNotBlank() }
-                ?: iconResolverUseCase(habit.name)
+                ?: CATEGORY_EMOJI[predictor.classifyIcon(habit.name)] ?: FALLBACK_ICON_EMOJI
             // Map entity → domain model for the AI predictor (no Android SDK dependency).
             val habitData = HabitData(
                 id = habit.id, name = habit.name, currentCount = habit.currentCount,
@@ -206,5 +205,40 @@ class StatisticsViewModel(
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             DatabaseSeeder.seed(dao)
         }
+    }
+
+    companion object {
+        /**
+         * Emoji shown when the predictor returns the `"other"` category or an unknown label.
+         * Matches the fallback used by [com.example.evolvix.domain.usecase.IconResolverUseCase].
+         */
+        private const val FALLBACK_ICON_EMOJI = "⭐"
+
+        /**
+         * Maps the 17 category labels emitted by [HabitPredictor.classifyIcon] (defined
+         * in `ml-training/generate_icon_data.py`) to a single display emoji each.
+         *
+         * Keeping this map in the ViewModel layer is intentional: emoji selection is a UI
+         * concern, while [HabitPredictor] stays UI-agnostic (it only emits semantic labels).
+         */
+        private val CATEGORY_EMOJI: Map<String, String> = mapOf(
+            "fitness"      to "💪",
+            "health"       to "❤️",
+            "learning"     to "📚",
+            "mindfulness"  to "🧘",
+            "creative"     to "🎨",
+            "social"       to "💬",
+            "productivity" to "📅",
+            "finance"      to "💰",
+            "food"         to "🍎",
+            "sleep"        to "😴",
+            "cleaning"     to "🧹",
+            "nature"       to "🌳",
+            "pet"          to "🐶",
+            "music"        to "🎵",
+            "reading"      to "📖",
+            "writing"      to "✍️",
+            "other"        to FALLBACK_ICON_EMOJI
+        )
     }
 }
