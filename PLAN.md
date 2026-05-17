@@ -210,19 +210,19 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 6.5.3 Model 2 — HabitIconClassifier (text classification)
 **Powers:** Automatic icon resolution on Statistics screen (replaces `IconResolverUseCase` Tier-1 keyword map).
 
-- [ ] **Python — labeled dataset** (`ml-training/generate_icon_data.py`):
-  - [ ] Hand-write ~500 labeled `(habit_name, icon_category)` pairs across the 17 categories: `fitness, health, learning, mindfulness, creative, social, productivity, finance, food, sleep, cleaning, nature, pet, music, reading, writing, other`.
-  - [ ] Augment via simple synonyms (e.g. "run" → "jog", "running", "morning run") to reach ~2,000 examples.
-  - [ ] Output: `ml-training/data/icon_dataset.csv` with columns `name, label`.
-- [ ] **Python — training** (`ml-training/train_icon_model.py`):
-  - [ ] Tokenize names via `tf.keras.layers.TextVectorization` (char n-grams, output_mode='tf-idf', max_tokens=2000).
-  - [ ] Save vectorizer vocabulary to `models/icon_vocab.json` (Android will replicate tokenization).
-  - [ ] Keras model: `TextVectorization → Dense(32, relu) → Dense(17, softmax)`.
-  - [ ] Train with `sparse_categorical_crossentropy`, 30 epochs.
-  - [ ] **Acceptance threshold:** top-1 accuracy ≥ 0.75, top-3 accuracy ≥ 0.92.
-- [ ] **Python — export:**
-  - [ ] Convert to `ml-training/models/habit_icon_classifier.tflite`.
-  - [ ] Persist vocabulary as JSON alongside.
+- [x] **Python — labeled dataset** (`ml-training/generate_icon_data.py`):
+  - [x] Hand-write ~500 labeled `(habit_name, icon_category)` pairs across the 17 categories: `fitness, health, learning, mindfulness, creative, social, productivity, finance, food, sleep, cleaning, nature, pet, music, reading, writing, other`.
+  - [x] Augment via simple synonyms (e.g. "run" → "jog", "running", "morning run") to reach ~2,000 examples.
+  - [x] Output: `ml-training/data/icon_dataset.csv` with columns `name, label`.
+- [x] **Python — training** (`ml-training/train_icon_model.py`):
+  - [x] Tokenize names via `tf.keras.layers.TextVectorization` (char n-grams, output_mode='tf-idf', max_tokens=2000).
+  - [x] Save vectorizer vocabulary to `models/icon_vocab.json` (Android will replicate tokenization).
+  - [x] Keras model: `TextVectorization → Dense(32, relu) → Dense(17, softmax)`.
+  - [x] Train with `sparse_categorical_crossentropy`, 30 epochs.
+  - [x] **Acceptance threshold:** top-1 accuracy ≥ 0.75, top-3 accuracy ≥ 0.92.
+- [x] **Python — export:**
+  - [x] Convert to `ml-training/models/habit_icon_classifier.tflite`.
+  - [x] Persist vocabulary as JSON alongside.
 
 ### 6.5.4 Model 3 — ReminderTemplateClassifier (multi-class classification)
 **Powers:** AI-driven notification text selection (Phase 7), in-app `MotivationMessageUseCase`.
