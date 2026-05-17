@@ -3,6 +3,7 @@ package com.example.evolvix.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.evolvix.data.local.HabitDao
+import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyOverview
@@ -112,4 +113,36 @@ class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
     )
+
+    /**
+     * Week-completion rate for the previous 7-day window (today − 13 .. today − 7).
+     * Used by the Global Overview card to render a trend indicator (▲ / ▼ vs last week).
+     * Range: [0.0, 1.0].
+     * (Pattern: Observer via StateFlow — reuses [WeeklyOverviewUseCase] with a shifted `today`)
+     */
+    val previousWeekRate: StateFlow<Float> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        // Run the same use case shifted 7 days back; only need the aggregate rate.
+        weeklyOverviewUseCase(habits, completions, LocalDate.now().minusDays(7)).weekCompletionRate
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = 0f
+    )
+
+    /**
+     * Raw stream of all [HabitCompletionEntity] records.
+     * Exposed so the Statistics screen can build per-habit bar charts that need raw
+     * per-day completion counts (not just target-reached flags). The bar chart uses
+     * counts because the spec shows the number of completions per day in the y-axis.
+     * (Pattern: Observer via StateFlow — single source of truth shared across cards)
+     */
+    val allCompletions: StateFlow<List<HabitCompletionEntity>> = dao.getAllCompletions()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
 }

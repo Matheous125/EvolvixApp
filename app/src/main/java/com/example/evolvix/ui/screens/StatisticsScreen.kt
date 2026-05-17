@@ -1,604 +1,638 @@
 package com.example.evolvix.ui.screens
 
-import android.app.Application
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingFlat
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.data.local.AppDatabase
-import com.example.evolvix.ui.viewmodel.HabitViewModel
-import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
-import androidx.compose.material.icons.Icons
-import com.example.evolvix.domain.model.HabitUiState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import androidx.compose.material.icons.filled.DateRange
-import java.time.format.DateTimeFormatter.ofPattern
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DisplayMode
-import androidx.compose.material3.rememberDatePickerState
-import java.time.Instant
-import java.time.ZoneId
-import java.time.temporal.ChronoUnit
-import android.content.Context
-import android.os.Environment
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import com.itextpdf.kernel.pdf.PdfDocument
-import com.itextpdf.kernel.pdf.PdfWriter
-import com.itextpdf.layout.Document
-import com.itextpdf.layout.element.Paragraph
-import com.itextpdf.layout.element.Table
-import java.io.File
-import android.widget.Toast
+import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.domain.model.LifeBalanceEntry
+import com.example.evolvix.domain.model.PerHabitStats
+import com.example.evolvix.domain.model.WeeklyOverview
+import com.example.evolvix.ui.components.BarChartDay
+import com.example.evolvix.ui.components.ScrollableBarChart
+import com.example.evolvix.ui.components.Sparkline
+import com.example.evolvix.ui.viewmodel.StatisticsViewModel
+import com.example.evolvix.ui.viewmodel.StatisticsViewModelFactory
+import java.time.LocalDate
+import kotlin.math.roundToInt
 
 /**
- * Statistics screen displaying habit progress and analytics.
- * Features:
- * - Habit selection dropdown
- * - Date range selection
- * - Progress visualization
- * - PDF export functionality
- * - Interactive bar chart
+ * Selectable date ranges for the per-habit bar chart in the expanded card.
+ *
+ * Mirrors STAT-SCREN-SUMMARY.MD: 7D = current week (rolling 7-day window),
+ * 30D = current month, 3M = current + previous two months, ALL = full habit history.
+ *
+ * Each entry exposes a [label] used by the tab UI and a [window] helper that produces
+ * the inclusive (from, to) date pair ending at "today". Using a domain enum here (rather
+ * than raw integers) keeps the chart caller readable and extensible.
+ */
+private enum class ChartRange(val label: String) {
+    SEVEN_DAYS("7D"),
+    THIRTY_DAYS("30D"),
+    THREE_MONTHS("3M"),
+    ALL("ALL");
+
+    /**
+     * Returns the inclusive (from, to) window for this range. ALL is delegated to the
+     * caller's earliest known completion date so the enum stays stateless.
+     */
+    fun window(today: LocalDate, earliest: LocalDate): Pair<LocalDate, LocalDate> = when (this) {
+        SEVEN_DAYS -> today.minusDays(6) to today
+        THIRTY_DAYS -> today.minusDays(29) to today
+        THREE_MONTHS -> today.minusDays(89) to today
+        ALL -> earliest to today
+    }
+}
+
+/**
+ * Statistics screen (Phase 5 of PLAN.md).
+ *
+ * Layout (top to bottom):
+ *  1. Global Overview card — week completion rate + trend vs previous week + progress bar.
+ *  2. Life Balance card — per-category completion bars + AI insight placeholder.
+ *  3. Per-habit cards — collapsed by default; tap to expand. Expanded view shows a
+ *     scrollable bar chart with 7D/30D/3M/ALL tabs plus three AI placeholder blocks.
+ *
+ * The screen is purely declarative: it observes StateFlows from [StatisticsViewModel]
+ * and binds them to Composables. No business logic lives here (Pattern: MVVM).
+ *
+ * AI sections (Smart Insight, Optimal Timing, Behavioral Patterns, Success Prediction,
+ * Life Balance Insight) render static placeholder text because the on-device AI layer
+ * is scheduled for Phase 6 in PLAN.md. The placeholder surfaces match the future real
+ * cards so wiring them up later is a string swap.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatisticsScreen(
     modifier: Modifier = Modifier,
-    habitViewModel: HabitViewModel = viewModel(
-        factory = HabitViewModelFactory(
-            application = LocalContext.current.applicationContext as Application,
-            habitDao = AppDatabase.getDatabase(LocalContext.current).habitDao()
+    viewModel: StatisticsViewModel = viewModel(
+        factory = StatisticsViewModelFactory(
+            dao = AppDatabase.getDatabase(LocalContext.current).habitDao()
         )
     )
 ) {
-    // State management
-    val habits by habitViewModel.allHabits.collectAsState(initial = emptyList())
-    var selectedHabit by remember { mutableStateOf<HabitUiState?>(null) }
-    var expanded by remember { mutableStateOf(false) }
-
-    // Date range state
-    var startDate by remember { mutableStateOf(LocalDateTime.now().minusDays(6)) }
-    var endDate by remember { mutableStateOf(LocalDateTime.now()) }
-
-    // Progress updates state with memoization
-    val selectedHabitProgressUpdates by remember(selectedHabit, startDate, endDate) {
-        selectedHabit?.let { habit ->
-            habitViewModel.getProgressHistory(
-                habitId = habit.id,
-                startDate = startDate,
-                endDate = endDate
-            )
-        } ?: kotlinx.coroutines.flow.flowOf(emptyList())
-    }.collectAsState(initial = emptyList())
-
-
-    // Calculate daily counts
-    val dailyCounts = remember(selectedHabitProgressUpdates, startDate, endDate) {
-        if (selectedHabit != null) {
-            val daysBetween = ChronoUnit.DAYS.between(startDate.toLocalDate(), endDate.toLocalDate()).toInt()
-            (0..daysBetween).map { dayOffset ->
-                val date = endDate.minusDays(dayOffset.toLong())
-                selectedHabitProgressUpdates.count { update ->
-                    update.progressUpdate.toLocalDate() == date.toLocalDate()
-                }.toFloat()
-            }.reversed()
-        } else {
-            emptyList()
-        }
-    }
+    // Observe the Phase-5 StateFlows. Each emission re-renders the affected card.
+    val overview by viewModel.overview.collectAsState()
+    val prevRate by viewModel.previousWeekRate.collectAsState()
+    val lifeBalance by viewModel.lifeBalance.collectAsState()
+    val perHabit by viewModel.perHabitStats.collectAsState()
+    val allCompletions by viewModel.allCompletions.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Habit Statistics") },
+                title = { Text("Statistics") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 ),
-                windowInsets = WindowInsets(0),
-                actions = {
-                    selectedHabit?.let { habit ->
-                        val context = LocalContext.current
-                        IconButton(
-                            onClick = {
-                                exportStatsToPdf(
-                                    context = context,
-                                    habit = habit,
-                                    progressUpdates = dailyCounts.map { it.toInt() },
-                                    startDate = startDate,
-                                    endDate = endDate
-                                )
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Print,
-                                contentDescription = "Export to PDF"
-                            )
-                        }
-                    }
-                }
+                windowInsets = WindowInsets(0)
             )
         }
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
+                .padding(paddingValues),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Habit Selector Dropdown — ExposedDropdownMenuBox handles anchor and width natively
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = selectedHabit?.name ?: "Select a habit",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Habit") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+            item {
+                // Top summary is a single collapsible group so the user can hide it once they
+                // scroll into the per-habit cards. Default state: expanded.
+                SummaryGroupCard(
+                    overview = overview,
+                    previousWeekRate = prevRate,
+                    lifeBalance = lifeBalance
                 )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    habits.forEach { habit ->
-                        DropdownMenuItem(
-                            text = { Text(habit.name) },
-                            onClick = {
-                                selectedHabit = habit
-                                expanded = false
-                            }
-                        )
-                    }
-                }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Statistics Cards
-            selectedHabit?.let { habit ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Target Reaches Card
-                    OutlinedCard(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Target Reaches",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Text(
-                                text = habit.totalTargetReaches.toString(),
-                                style = MaterialTheme.typography.headlineMedium
-                            )
-                        }
+            if (perHabit.isEmpty()) {
+                item { EmptyHabitsHint() }
+            } else {
+                items(perHabit, key = { it.habit.id }) { stats ->
+                    // Pre-filter the per-habit completion list once per emission of allCompletions
+                    // so the expanded chart doesn't refilter on every tab change.
+                    val perHabitCompletions = remember(allCompletions, stats.habit.id) {
+                        allCompletions.filter { it.habitId == stats.habit.id }
                     }
-
-                    // Progress Updates Card
-                    OutlinedCard(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "Progress Updates",
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            Text(
-                                text = habit.totalProgressUpdates.toString(),
-                                style = MaterialTheme.typography.headlineMedium
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                //DateRangeSelector
-                DateRangeSelector(
-                    startDate = startDate,
-                    endDate = endDate,
-                    onStartDateSelected = { startDate = it },
-                    onEndDateSelected = { endDate = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Show chart only when a habit is selected
-                selectedHabit?.let { selected ->
-                    ProgressUpdateChart(
-                        selectedHabit = selected,
-                        startDate = startDate,
-                        endDate = endDate,
-                        dailyCounts = dailyCounts,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    )
+                    HabitStatsCard(stats = stats, completionsForHabit = perHabitCompletions)
                 }
             }
         }
     }
 }
 
-@Composable
-private fun ProgressUpdateChart(
-    selectedHabit: HabitUiState?,
-    startDate: LocalDateTime,
-    endDate: LocalDateTime,
-    dailyCounts: List<Float>,
-    modifier: Modifier = Modifier
-) {
+/* -------------------------------------------------------------------------------------
+ *  SUMMARY GROUP CARD (collapsible: Overview + Life Balance)
+ * ------------------------------------------------------------------------------------- */
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(300.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
+/**
+ * Combined collapsible card containing the Global Overview and Life Balance sections.
+ *
+ * The user can collapse the whole summary group to focus on per-habit cards below.
+ * The collapsed state shows only the header bar ("📊 Overview" + week % chip) so the
+ * key metric remains visible even when the body is hidden.
+ */
+@Composable
+private fun SummaryGroupCard(
+    overview: WeeklyOverview,
+    previousWeekRate: Float,
+    lifeBalance: List<LifeBalanceEntry>
+) {
+    // Local UI state — expansion is purely a View concern, so it stays out of the VM.
+    var expanded by remember { mutableStateOf(true) }
+    val pct = (overview.weekCompletionRate * 100).roundToInt()
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // ---- Header row: title + week % badge + expand toggle ----
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "📊 Overview",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "This Week: $pct%",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = if (expanded) "Collapse summary" else "Expand summary"
+                    )
+                }
+            }
+
+            // ---- Body: visible only when expanded ----
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+                GlobalOverviewBody(overview = overview, previousWeekRate = previousWeekRate)
+                Spacer(Modifier.height(16.dp))
+                LifeBalanceBody(entries = lifeBalance)
+            }
+        }
+    }
+}
+
+/**
+ * Body of the Global Overview section (formerly its own card).
+ *
+ * Renders the current 7-day completion rate, a delta vs the previous 7-day rate
+ * (▲ +5% / ▼ -3% / ▬ 0%), a horizontal progress bar, and a "X/Y habits completed today"
+ * subline. Note: completion = `isTargetReached` on the day. Logging progress that does
+ * NOT reach the daily target does not move this percentage — by design, the screen
+ * tracks days where the habit's full goal was met.
+ */
+@Composable
+private fun GlobalOverviewBody(overview: WeeklyOverview, previousWeekRate: Float) {
+    val rate = overview.weekCompletionRate
+    val delta = rate - previousWeekRate
+    val pct = (rate * 100).roundToInt()
+    val deltaPct = (delta * 100).roundToInt()
+
+    // Pick icon + color based on trend sign so the indicator reads at a glance.
+    val (trendIcon, trendColor) = when {
+        deltaPct > 0 -> Icons.AutoMirrored.Filled.TrendingUp to MaterialTheme.colorScheme.primary
+        deltaPct < 0 -> Icons.AutoMirrored.Filled.TrendingDown to MaterialTheme.colorScheme.error
+        else -> Icons.AutoMirrored.Filled.TrendingFlat to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val trendText = when {
+        deltaPct > 0 -> "+$deltaPct%"
+        deltaPct < 0 -> "$deltaPct%"
+        else -> "0%"
+    }
+
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Progress Updates (${startDate.format(ofPattern("MMM dd"))} - ${endDate.format(ofPattern("MMM dd"))})",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
+                text = "This Week: $pct%",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
             )
-            
-            BarChart(
-                values = dailyCounts,
-                color = selectedHabit?.let { habit ->
-                    runCatching { Color(android.graphics.Color.parseColor(habit.colorHex)) }
-                        .getOrElse { MaterialTheme.colorScheme.primary }
-                } ?: MaterialTheme.colorScheme.primary,
-                startDate = startDate,
-                endDate = endDate,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
+            Icon(
+                imageVector = trendIcon,
+                contentDescription = "Trend vs last week",
+                tint = trendColor,
+                modifier = Modifier.size(20.dp)
             )
+            Spacer(Modifier.width(4.dp))
+            Text(text = trendText, style = MaterialTheme.typography.labelLarge, color = trendColor)
         }
-    }
-}
-
-@Composable
-private fun BarChart(
-    values: List<Float>,
-    color: Color,
-    startDate: LocalDateTime,
-    endDate: LocalDateTime,
-    modifier: Modifier = Modifier
-) {
-    val borderColor = color
-    val density = LocalDensity.current
-    val strokeWidth = with(density) { 1.dp.toPx() }
-    val maxValue = (values.maxOrNull() ?: 1f).let { max ->
-        if (max <= 4) 4f else (max + (4 - max % 4))
-    }
-    val dateFormatter = ofPattern("dd.MM")
-    val thresholds = (0..4).map { i -> 
-        (maxValue * (4 - i) / 4f)
-    }
-    
-
-    Column(
-        modifier = modifier
-    ) {
-        // Y-axis labels and chart
-        Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Y-axis labels
-            Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .fillMaxHeight()
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxHeight(),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    thresholds.forEach { threshold ->
-                        Text(
-                            text = threshold.toInt().toString(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(end = 4.dp)
-                        )
-                    }
-                }
-        }
-
-            // Chart with bars
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .drawBehind {
-                        // draw X-Axis
-                        drawLine(
-                            color = borderColor,
-                            start = Offset(0f, size.height),
-                            end = Offset(size.width, size.height),
-                            strokeWidth = strokeWidth
-                        )
-                        // draw Y-Axis
-                        drawLine(
-                            color = borderColor,
-                            start = Offset(0f, 0f),
-                            end = Offset(0f, size.height),
-                            strokeWidth = strokeWidth
-                        )
-                        // draw horizontal grid lines
-                        thresholds.forEach { threshold ->
-                            val y = size.height * (1 - threshold / maxValue)
-                            drawLine(
-                                color = borderColor.copy(alpha = 0.2f),
-                                start = Offset(0f, y),
-                                end = Offset(size.width, y),
-                                strokeWidth = strokeWidth
-                            )
-                        }
-                    },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                values.forEach { value ->
-                    Bar(
-                        value = value,
-                        color = color,
-                        maxValue = maxValue
-                    )
-                }
-            }
-        }
-
-        // X-axis date labels
-        Row(
+        Spacer(Modifier.height(8.dp))
+        // Linear progress bar — visual analog of the percentage above.
+        LinearProgressIndicator(
+            progress = { rate.coerceIn(0f, 1f) },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 48.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            val daysBetween = ChronoUnit.DAYS.between(startDate, endDate).toInt()
-            (daysBetween downTo 0).forEach { day ->
-                Text(
-                    text = endDate.minusDays(day.toLong()).format(dateFormatter),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "${overview.todayCompletedHabits}/${overview.totalActiveHabits} habits completed today",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
-@Composable
-private fun RowScope.Bar(
-    value: Float,
-    color: Color,
-    maxValue: Float
-) {
-    val fraction = if (maxValue > 0) value / maxValue else 0f
+/* -------------------------------------------------------------------------------------
+ *  LIFE BALANCE BODY
+ * ------------------------------------------------------------------------------------- */
 
-    Spacer(
-        modifier = Modifier
-            .padding(horizontal = 5.dp)
-            .fillMaxHeight(fraction)
-            .weight(1f)
-            .background(
-                color = color,
-                shape = RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+/**
+ * Per-category completion-rate widget body. One bar per category sourced from
+ * [LifeBalanceEntry] data, plus an AI-insight placeholder block (real text will be
+ * supplied by Phase 6's MotivationMessageUseCase).
+ *
+ * Rendered inside [SummaryGroupCard] so it shares the parent's collapse state.
+ */
+@Composable
+private fun LifeBalanceBody(entries: List<LifeBalanceEntry>) {
+    Column {
+        Text(
+            text = "⚖️ Life Balance (Last 30 days)",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(8.dp))
+
+        if (entries.isEmpty()) {
+            Text(
+                text = "Assign categories to your habits to see balance.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-    )
+        } else {
+            entries.forEach { entry ->
+                CategoryRow(entry)
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+        AiPlaceholderBox(
+            title = "💡 AI Insight",
+            body = "AI-powered balance recommendations will appear here once the on-device AI layer is enabled (Phase 6)."
+        )
+    }
 }
 
-
+/**
+ * Single category row inside [LifeBalanceCard]: label + progress bar + percentage text.
+ */
 @Composable
-private fun DateRangeSelector(
-    startDate: LocalDateTime,
-    endDate: LocalDateTime,
-    onStartDateSelected: (LocalDateTime) -> Unit,
-    onEndDateSelected: (LocalDateTime) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var showStartDatePicker by remember { mutableStateOf(false) }
-    var showEndDatePicker by remember { mutableStateOf(false) }
-
-    // Show date picker dialogs when needed
-    if (showStartDatePicker) {
-        HabitDatePickerDialog(
-            selectedDate = startDate,
-            onDateSelected = onStartDateSelected,
-            onDismiss = { showStartDatePicker = false }
+private fun CategoryRow(entry: LifeBalanceEntry) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = entry.category,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.width(96.dp)
         )
-    }
-
-    if (showEndDatePicker) {
-        HabitDatePickerDialog(
-            selectedDate = endDate,
-            onDateSelected = onEndDateSelected,
-            onDismiss = { showEndDatePicker = false }
-        )
-    }
-
-    OutlinedCard(
-        modifier = modifier.fillMaxWidth()
-    ) {
-        Row(
+        LinearProgressIndicator(
+            progress = { entry.completionRate.coerceIn(0f, 1f) },
             modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Start Date
-            Column {
-                Text(
-                    "From",
-                    style = MaterialTheme.typography.labelMedium
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { showStartDatePicker = true }
-                ) {
-                    Icon(
-                        Icons.Default.DateRange,
-                        contentDescription = "Select start date",
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        startDate.format(ofPattern("MMM dd, yyyy")),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-
-            // End Date
-            Column {
-                Text(
-                    "To",
-                    style = MaterialTheme.typography.labelMedium
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { showEndDatePicker = true }
-                ) {
-                    Icon(
-                        Icons.Default.DateRange,
-                        contentDescription = "Select end date",
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        endDate.format(ofPattern("MMM dd, yyyy")),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-        }
+                .weight(1f)
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "${(entry.completionRate * 100).roundToInt()}%",
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.width(40.dp)
+        )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/* -------------------------------------------------------------------------------------
+ *  PER-HABIT CARD (collapsed / expanded)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * Card for a single habit. Collapsed by default; the user taps the toggle to expand.
+ * Holds its own [expanded] state because expansion is purely a View concern.
+ *
+ * @param stats Aggregated stats from the ViewModel (streak, 30-day sparkline, rate).
+ * @param completionsForHabit Raw completion rows for this habit — required by the
+ *   expanded bar chart, which needs raw counts per day, not just target-reached flags.
+ */
 @Composable
-private fun HabitDatePickerDialog(
-    selectedDate: LocalDateTime,
-    onDateSelected: (LocalDateTime) -> Unit,
-    onDismiss: () -> Unit
+private fun HabitStatsCard(
+    stats: PerHabitStats,
+    completionsForHabit: List<HabitCompletionEntity>
 ) {
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = selectedDate
-            .atZone(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli(),
-        initialDisplayMode = DisplayMode.Picker
-    )
+    var expanded by remember { mutableStateOf(false) }
+    val habitColor = remember(stats.habit.colorHex) {
+        runCatching { Color(android.graphics.Color.parseColor(stats.habit.colorHex)) }
+            .getOrDefault(Color(0xFF4CAF50))
+    }
 
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = {
-                datePickerState.selectedDateMillis?.let { millis ->
-                    val newDate = LocalDateTime.ofInstant(
-                        Instant.ofEpochMilli(millis),
-                        ZoneId.systemDefault()
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // ---- Header row: icon · name · AI-prediction placeholder · expand toggle ----
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Prefer the habit's assigned emoji (iconKey). If none is set, fall back to
+                // a colored Star until Phase 6's IconResolverUseCase auto-assigns an emoji.
+                val iconKey = stats.habit.iconKey
+                if (!iconKey.isNullOrBlank()) {
+                    Text(
+                        text = iconKey,
+                        style = MaterialTheme.typography.titleMedium
                     )
-                    onDateSelected(newDate)
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Star,
+                        contentDescription = null,
+                        tint = habitColor,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
-                onDismiss()
-            }) {
-                Text("OK")
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stats.habit.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                // AI Success Prediction placeholder — Phase 6 will replace the static "--%".
+                AssistChip(
+                    onClick = { /* no-op until AI lands */ },
+                    label = { Text("🎯 --%") },
+                    colors = AssistChipDefaults.assistChipColors()
+                )
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = if (expanded) "Collapse" else "Expand"
+                    )
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+
+            // ---- Category chips — helps identify habits at a glance ----
+            if (stats.habit.categories.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    stats.habit.categories.take(3).forEach { cat ->
+                        Text(
+                            text = "🏷️ $cat",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // ---- Three stat boxes: current streak / best streak / completion rate ----
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatBox(
+                    emoji = "🔥",
+                    value = "${stats.streak.current}",
+                    label = "Current",
+                    modifier = Modifier.weight(1f)
+                )
+                StatBox(
+                    emoji = "🏆",
+                    value = "${stats.streak.best}",
+                    label = "Best",
+                    modifier = Modifier.weight(1f)
+                )
+                StatBox(
+                    emoji = "📊",
+                    value = "${(stats.completionRate30d * 100).roundToInt()}%",
+                    label = "Total",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // ---- 7-day sparkline (visible in both collapsed and expanded views) ----
+            Text(
+                text = "📈 Trend (Last 7 days)",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            Sparkline(
+                // The 30-day sparkline already carries the most recent week as its tail.
+                reachedFlags = stats.sparkline30d.takeLast(7).map { it.reached },
+                color = habitColor
+            )
+
+            // ---- Expanded sections ----
+            if (expanded) {
+                Spacer(Modifier.height(16.dp))
+                ExpandedSection(completions = completionsForHabit, color = habitColor)
             }
         }
-    ) {
-        DatePicker(state = datePickerState)
     }
 }
 
-private fun exportStatsToPdf(
-    context: Context,
-    habit: HabitUiState,
-    progressUpdates: List<Int>,
-    startDate: LocalDateTime,
-    endDate: LocalDateTime
-) {
-    try {
-        val filename = "habit_stats_${habit.name}_${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))}.pdf"
-        val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val file = File(path, filename)
-        
-        PdfWriter(file).use { writer ->
-            val pdf = PdfDocument(writer)
-            val document = Document(pdf)
-
-            // Add title
-            document.add(Paragraph("Habit Statistics: ${habit.name}"))
-            document.add(Paragraph("Period: ${startDate.format(ofPattern("MMM dd, yyyy"))} - ${endDate.format(ofPattern("MMM dd, yyyy"))}"))
-            
-            // Add summary stats
-            document.add(Paragraph("Total Progress Updates: ${habit.totalProgressUpdates}"))
-            document.add(Paragraph("Total Target Reaches: ${habit.totalTargetReaches}"))
-            
-            // Add daily progress table
-            val table = Table(2)
-            table.addCell("Date")
-            table.addCell("Updates")
-            
-            val daysBetween = ChronoUnit.DAYS.between(startDate, endDate).toInt()
-            (daysBetween downTo 0).forEach { day ->
-                val date = endDate.minusDays(day.toLong())
-                table.addCell(date.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")))
-                table.addCell(progressUpdates[daysBetween - day].toString())
-            }
-            
-            document.add(table)
-            document.close()
-            Toast.makeText(
-            context,
-            "Statistics exported to Downloads folder",
-            Toast.LENGTH_LONG
-            ).show()
+/**
+ * Single statistics tile rendered inside [HabitStatsCard]'s three-up row.
+ */
+@Composable
+private fun StatBox(emoji: String, value: String, label: String, modifier: Modifier = Modifier) {
+    OutlinedCard(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "$emoji $value",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-    } catch (e: Exception) {
-        // Show error toast if export fails
-        Toast.makeText(
-            context,
-            "Failed to export statistics: ${e.message}",
-            Toast.LENGTH_LONG
-        ).show()
-        e.printStackTrace()
+    }
+}
+
+/**
+ * Expanded-card content: range-tab selector → bar chart → completion summary,
+ * followed by three AI placeholder blocks (Smart Insight, Optimal Timing, Behavioral
+ * Patterns). All AI sections are static text until Phase 6 wires the ML use cases.
+ */
+@Composable
+private fun ExpandedSection(completions: List<HabitCompletionEntity>, color: Color) {
+    var range by remember { mutableStateOf(ChartRange.SEVEN_DAYS) }
+
+    val today = remember { LocalDate.now() }
+    // ALL needs the earliest completion date; if there are none, fall back to today.
+    val earliest = remember(completions) {
+        completions.minOfOrNull { it.progressUpdate.toLocalDate() } ?: today
+    }
+    val (from, to) = remember(range, earliest) { range.window(today, earliest) }
+
+    // Build BarChartDay list: one entry per calendar day in [from..to] with raw count.
+    val days: List<BarChartDay> = remember(completions, from, to) {
+        val countsByDate = completions
+            .groupingBy { it.progressUpdate.toLocalDate() }
+            .eachCount()
+        val list = mutableListOf<BarChartDay>()
+        var d = from
+        while (!d.isAfter(to)) {
+            list.add(BarChartDay(date = d, count = countsByDate[d] ?: 0))
+            d = d.plusDays(1)
+        }
+        list
+    }
+
+    Column {
+        // ---- Range tabs (7D / 30D / 3M / ALL) ----
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ChartRange.values().forEach { option ->
+                FilterChip(
+                    selected = option == range,
+                    onClick = { range = option },
+                    label = { Text(option.label) }
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        // ---- Chart ----
+        ScrollableBarChart(days = days, color = color, modifier = Modifier.fillMaxWidth())
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "📊 ${days.sumOf { it.count }} completions in this range",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.height(16.dp))
+        AiPlaceholderBox(
+            title = "✨ AI Smart Insight",
+            body = "Personalized recommendations will appear here once the on-device AI layer is enabled (Phase 6)."
+        )
+        Spacer(Modifier.height(12.dp))
+        AiPlaceholderBox(
+            title = "🕒 Optimal Timing",
+            body = "Time-of-day success probability will be computed by OptimalTimeUseCase (Phase 6)."
+        )
+        Spacer(Modifier.height(12.dp))
+        AiPlaceholderBox(
+            title = "🧠 Behavioral Patterns",
+            body = "Category rank, habit stack, routine strength, resilience and best/toughest day metrics arrive in Phase 6."
+        )
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  PLACEHOLDERS & EMPTY STATES
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * Generic styled box used for all AI-driven sections until the AI layer ships in Phase 6.
+ * Kept visually distinct from real data cards by using [MaterialTheme.colorScheme.surfaceVariant]
+ * so it's obvious that the content is intentionally a stub.
+ */
+@Composable
+private fun AiPlaceholderBox(title: String, body: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp)
+    ) {
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * Friendly hint shown when the user has no habits yet — keeps the screen from feeling
+ * broken before any data exists.
+ */
+@Composable
+private fun EmptyHabitsHint() {
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "No habits yet", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Create your first habit to start seeing statistics.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
