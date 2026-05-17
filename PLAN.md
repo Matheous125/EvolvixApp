@@ -227,23 +227,23 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 6.5.4 Model 3 — ReminderTemplateClassifier (multi-class classification)
 **Powers:** AI-driven notification text selection (Phase 7), in-app `MotivationMessageUseCase`.
 
-- [ ] **Python — synthetic data** (`ml-training/generate_reminder_data.py`):
-  - [ ] Features: `currentStreak`, `completionRateLast7Days`, `daysSinceLastCompletion`, `dayOfWeek`, `hourOfDay`, `isAtRisk (0/1)`, `targetReachedToday (0/1)`.
-  - [ ] Label = index into ~15 template categories (`cheer_streak_milestone`, `gentle_nudge_at_risk`, `celebrate_consistency`, `recovery_encouragement`, `morning_optimistic`, `evening_reflection`, `comeback_after_break`, `weekend_warrior`, `first_week_support`, `cold_start`, `streak_save`, `target_smashed`, `category_balance`, `pace_yourself`, `quiet_encouragement`).
-  - [ ] Generate 10,000 rows with rule-based label assignment + 10% noise.
-- [ ] **Python — training** (`ml-training/train_reminder_model.py`):
-  - [ ] Same StandardScaler approach as Model 1; save `models/reminder_scaler.json`.
-  - [ ] Keras model: `Dense(24, relu) → Dense(15, softmax)`.
-  - [ ] **Acceptance threshold:** top-1 accuracy ≥ 0.70 (multi-class on 15 labels is harder; AUC is per-class).
-- [ ] **Python — export:** `ml-training/models/reminder_template_classifier.tflite`.
+- [x] **Python — synthetic data** (`ml-training/generate_reminder_data.py`):
+  - [x] Features: `currentStreak`, `completionRateLast7Days`, `daysSinceLastCompletion`, `dayOfWeek`, `hourOfDay`, `isAtRisk (0/1)`, `targetReachedToday (0/1)`.
+  - [x] Label = index into ~15 template categories (`cheer_streak_milestone`, `gentle_nudge_at_risk`, `celebrate_consistency`, `recovery_encouragement`, `morning_optimistic`, `evening_reflection`, `comeback_after_break`, `weekend_warrior`, `first_week_support`, `cold_start`, `streak_save`, `target_smashed`, `category_balance`, `pace_yourself`, `quiet_encouragement`).
+  - [x] Generate 10,000 rows with rule-based label assignment + 10% noise.
+- [x] **Python — training** (`ml-training/train_reminder_model.py`):
+  - [x] Same StandardScaler approach as Model 1; save `models/reminder_scaler.json`.
+  - [x] Keras model: `Dense(24, relu) → Dense(15, softmax)`.
+  - [x] **Acceptance threshold:** top-1 accuracy ≥ 0.70 (multi-class on 15 labels is harder; AUC is per-class).
+- [x] **Python — export:** `ml-training/models/reminder_template_classifier.tflite`.
 
 ### 6.5.5 Thesis evaluation report (`ml-training/evaluate_models.py`)
-- [ ] Produce per-model:
-  - [ ] Confusion matrix (PNG saved to `ml-training/data/plots/`).
-  - [ ] ROC curve for Model 1 (binary).
-  - [ ] Classification report (precision/recall/F1 per class) for Models 2 & 3.
-  - [ ] Calibration plot for Model 1 (predicted vs actual probability).
-- [ ] Output a Markdown table summarizing all metrics — **paste into thesis ML chapter**.
+- [x] Produce per-model:
+  - [x] Confusion matrix (PNG saved to `ml-training/data/plots/`).
+  - [x] ROC curve for Model 1 (binary).
+  - [x] Classification report (precision/recall/F1 per class) for Models 2 & 3.
+  - [x] Calibration plot for Model 1 (predicted vs actual probability).
+- [x] Output a Markdown table summarizing all metrics — **paste into thesis ML chapter**.
 
 ### 6.5.6 Android — TFLite integration
 - [ ] **Gradle:** Add to `app/build.gradle.kts`:
