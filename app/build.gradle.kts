@@ -17,6 +17,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Restrict native ABIs to arm64-v8a only.
+        // The x86_64 build of libtensorflowlite_jni.so is not aligned to 16 KB page
+        // boundaries (required by Android 15+ / Google Play from Nov 2025). Real Android
+        // devices are exclusively ARM64. For emulator testing, create an arm64-v8a AVD
+        // in Android Studio: Device Manager → Create → choose an arm64-v8a system image.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
@@ -78,4 +87,21 @@ dependencies {
     // AndroidX emoji picker — displayed in a ModalBottomSheet in EditHabitScreen.
     // The selected emoji is stored as a plain Unicode String in HabitEntity.iconKey.
     implementation("androidx.emoji2:emoji2-emojipicker:1.5.0")
+
+    // TensorFlow Lite — on-device ML runtime for Phase 6.5 (HabitSuccess /
+    // HabitIcon / ReminderTemplate classifiers). Used exclusively by
+    // [TfliteHabitPredictor]; the rest of the app never imports tflite types.
+    // LiteRT 1.0.1 is the official rebrand of TensorFlow Lite by Google.
+    // It is the first on-device ML runtime with LOAD segments aligned at 16 KB boundaries,
+    // satisfying the Android 15+ (API 35) Play Store requirement from November 2025.
+    // The Java/Kotlin Interpreter API is unchanged — only the Maven artifact changed.
+    implementation("com.google.ai.edge.litert:litert:1.0.1")
+}
+
+// Prevent AGP from compressing .tflite assets — tflite loaders mmap the raw bytes
+// directly out of the APK and cannot read them if they are compressed.
+android {
+    androidResources {
+        noCompress.add("tflite")
+    }
 }

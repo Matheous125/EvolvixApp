@@ -22,6 +22,79 @@ import kotlin.math.sqrt
  */
 class MathHabitPredictor : HabitPredictor {
 
+    // ── Phase 6.5 — TFLite interface (rule-based fallback) ───────────────────
+
+    /**
+     * Rule-based fallback for [predictSuccess]. Mirrors the deterministic biases that
+     * `generate_success_data.py` bakes into the synthetic training labels so callers
+     * see qualitatively similar probabilities even when no TFLite model is loaded.
+     * Result is clamped to [0.05, 0.95] (same envelope as [successProbability]).
+     */
+    override fun predictSuccess(features: HabitFeatures): Float {
+        var p = 0.5f
+        // Morning bias (mirrors training data rule).
+        if (features.hourOfDay in 6..10) p += 0.25f
+        // Long-streak bonus.
+        if (features.currentStreak > 7) p += 0.20f
+        // Low recent rate penalty.
+        if (features.completionRateLast7Days < 0.3f) p -= 0.30f
+        // Mature-habit bonus.
+        if (features.habitAge > 30) p += 0.10f
+        // Weekend evening penalty.
+        if ((features.dayOfWeek == 6 || features.dayOfWeek == 7) && features.hourOfDay >= 18) {
+            p -= 0.15f
+        }
+        return p.coerceIn(0.05f, 0.95f)
+    }
+
+    /**
+     * Rule-based fallback for [findOptimalHours]: scores [predictSuccess] across all
+     * 24 hours and returns the 3 hours with the highest score (deterministic tie-break
+     * on lower hour index because [Iterable.sortedByDescending] is stable).
+     */
+    override fun findOptimalHours(features: HabitFeatures): List<Int> =
+        (0..23)
+            .map { h -> h to predictSuccess(features.copy(hourOfDay = h)) }
+            .sortedByDescending { it.second }
+            .take(3)
+            .map { it.first }
+
+    /**
+     * Rule-based fallback for [classifyIcon]. Reuses the substring-matching keyword
+     * heuristic that the existing [com.example.evolvix.domain.usecase.IconResolverUseCase]
+     * applies; on no match returns the 17th category `"other"` (matching the Python
+     * label set in `generate_icon_data.py`).
+     */
+    override fun classifyIcon(habitName: String): String {
+        val lower = habitName.lowercase()
+        for ((keywords, label) in ICON_LABEL_KEYWORDS) {
+            if (keywords.any { lower.contains(it) }) return label
+        }
+        return "other"
+    }
+
+    /**
+     * Rule-based fallback for [selectReminderTemplate]. Picks one of the 15 template
+     * keys in priority order, mirroring the rules used to generate Model 3's training
+     * data so the fallback is qualitatively consistent with the ML model.
+     */
+    override fun selectReminderTemplate(features: ReminderContext): String {
+        if (features.targetReachedToday) return "target_smashed"
+        if (features.currentStreak == 0 && features.daysSinceLastCompletion >= 7) return "cold_start"
+        if (features.daysSinceLastCompletion >= 3) return "comeback_after_break"
+        if (features.isAtRisk) return "gentle_nudge_at_risk"
+        if (features.currentStreak >= 30) return "cheer_streak_milestone"
+        if (features.currentStreak in 1..6) return "first_week_support"
+        if (features.completionRateLast7Days >= 0.85f) return "celebrate_consistency"
+        if (features.completionRateLast7Days <= 0.30f) return "recovery_encouragement"
+        if (features.dayOfWeek == 6 || features.dayOfWeek == 7) return "weekend_warrior"
+        if (features.hourOfDay in 6..10) return "morning_optimistic"
+        if (features.hourOfDay in 19..22) return "evening_reflection"
+        if (features.currentStreak >= 7) return "streak_save"
+        if (features.completionRateLast7Days in 0.30f..0.60f) return "pace_yourself"
+        return "quiet_encouragement"
+    }
+
     // ── Phase 6.2 — Predictive features ──────────────────────────────────────
 
     /**
@@ -475,5 +548,31 @@ class MathHabitPredictor : HabitPredictor {
 
         /** Minimum number of periods in the 14-day window before [suggestTargetDelta] gives advice. */
         private const val MIN_TARGET_SAMPLE = 5
+
+        /**
+         * Keyword → ML icon-category label mapping. Kept private to this class because
+         * it is intentionally narrower than [com.example.evolvix.domain.usecase.IconResolverUseCase]'s
+         * emoji map: here we emit the 17 LABEL strings used by Model 2
+         * (`generate_icon_data.py`) so the fallback output is interchangeable with the
+         * TFLite classifier's output.
+         */
+        private val ICON_LABEL_KEYWORDS: List<Pair<List<String>, String>> = listOf(
+            listOf("meditat", "mindful", "breath", "gratitude", "pray", "yoga") to "mindfulness",
+            listOf("sleep", "nap", "bedtime") to "sleep",
+            listOf("run", "jog", "gym", "workout", "exercise", "push", "squat", "cycling", "bike", "swim", "lift", "cardio", "fitness") to "fitness",
+            listOf("drink water", "hydrat", "vitamin", "medicine", "floss", "brush teeth", "stretch", "posture", "doctor") to "health",
+            listOf("read", "book", "chapter", "article", "novel") to "reading",
+            listOf("writ", "journal", "diary", "blog", "essay") to "writing",
+            listOf("study", "learn", "course", "lesson", "language", "duolingo") to "learning",
+            listOf("draw", "paint", "sketch", "design", "photo", "art") to "creative",
+            listOf("call mom", "call dad", "friend", "family", "social", "text") to "social",
+            listOf("plan", "task", "todo", "email", "inbox", "review") to "productivity",
+            listOf("budget", "expense", "save", "invest", "finance", "money") to "finance",
+            listOf("cook", "meal", "breakfast", "lunch", "dinner", "fruit", "veg") to "food",
+            listOf("clean", "tidy", "dishes", "laundry", "vacuum") to "cleaning",
+            listOf("walk", "garden", "plant", "outdoor", "nature", "hike") to "nature",
+            listOf("dog", "cat", "pet", "feed pet") to "pet",
+            listOf("guitar", "piano", "sing", "music", "practice instrument") to "music"
+        )
     }
 }

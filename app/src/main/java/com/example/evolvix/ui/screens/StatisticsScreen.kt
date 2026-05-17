@@ -118,7 +118,10 @@ fun StatisticsScreen(
     modifier: Modifier = Modifier,
     viewModel: StatisticsViewModel = viewModel(
         factory = StatisticsViewModelFactory(
-            dao = AppDatabase.getDatabase(LocalContext.current).habitDao()
+            dao = AppDatabase.getDatabase(LocalContext.current).habitDao(),
+            // Phase 6.5.6: inject the TFLite-backed predictor via the process-wide
+            // singleton so all ViewModels share one Interpreter instance.
+            predictor = com.example.evolvix.domain.ai.AiContainer.predictor(LocalContext.current)
         )
     )
 ) {

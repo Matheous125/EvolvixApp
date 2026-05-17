@@ -1,0 +1,46 @@
+{
+  "feature_columns": [
+    "currentStreak",
+    "completionRateLast7Days",
+    "daysSinceLastCompletion",
+    "dayOfWeek",
+    "hourOfDay",
+    "isAtRisk",
+    "targetReachedToday"
+  ],
+  "label_names": [
+    "cheer_streak_milestone",
+    "gentle_nudge_at_risk",
+    "celebrate_consistency",
+    "recovery_encouragement",
+    "morning_optimistic",
+    "evening_reflection",
+    "comeback_after_break",
+    "weekend_warrior",
+    "first_week_support",
+    "cold_start",
+    "streak_save",
+    "target_smashed",
+    "category_balance",
+    "pace_yourself",
+    "quiet_encouragement"
+  ],
+  "mean": [
+    10.8874375,
+    0.5008450337639923,
+    1.55925,
+    4.0253125,
+    11.488,
+    0.43725,
+    0.2524375
+  ],
+  "scale": [
+    13.459031064069793,
+    0.28881591411988555,
+    1.978064568587173,
+    1.9887927939692083,
+    6.890707946212811,
+    0.49604680978721144,
+    0.43441087531701345
+  ]
+}

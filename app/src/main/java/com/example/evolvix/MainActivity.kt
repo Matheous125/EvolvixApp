@@ -32,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.evolvix.data.local.AppDatabase
+import com.example.evolvix.domain.ai.AiContainer
 import com.example.evolvix.navigation.HabitNavGraph
 import com.example.evolvix.navigation.Screen
 import com.example.evolvix.ui.components.AchievementBanner
@@ -50,6 +51,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Phase 6.5.6 — pre-warm the TFLite-backed predictor so the three Interpreter
+        // instances and JSON normalization tables load once during activity startup,
+        // not lazily on the first Statistics-screen recomposition. This is the wiring
+        // point referenced by PLAN.md §6.5.6: TfliteHabitPredictor(applicationContext,
+        // MathHabitPredictor()) is constructed exactly here (inside AiContainer).
+        AiContainer.predictor(applicationContext)
         setContent {
             HabitTracker3Theme {
                 AppContent()

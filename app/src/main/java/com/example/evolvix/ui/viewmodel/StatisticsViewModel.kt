@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.evolvix.data.local.DatabaseSeeder
 import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.data.model.HabitCompletionEntity
-import com.example.evolvix.domain.ai.MathHabitPredictor
+import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
@@ -35,8 +35,15 @@ import java.time.LocalDate
  *  result is a distinct [StateFlow] driven by the same upstream pair)
  *
  * @property dao Room DAO used as the single source of truth for habits and completions.
+ * @property predictor [HabitPredictor] strategy used for all predictive / passive-analytics
+ *                     fields on [perHabitStats]. Injected so Phase 6.5.6 can swap in
+ *                     [com.example.evolvix.domain.ai.TfliteHabitPredictor] without modifying
+ *                     any ViewModel logic (Strategy + Dependency Inversion pattern).
  */
-class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
+class StatisticsViewModel(
+    private val dao: HabitDao,
+    private val predictor: HabitPredictor
+) : ViewModel() {
 
     // Pure-function interactors — stateless, safe to reuse across Flow emissions.
     // (Pattern: Use Case / Interactor — each encapsulates exactly one query type)
@@ -47,13 +54,6 @@ class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
 
     /** Resolves a display emoji from a habit name when no user override is stored. */
     private val iconResolverUseCase = IconResolverUseCase()
-
-    /**
-     * Rule-based / statistical AI predictor (Phase 6, Stage 1).
-     * Injected here so [TfliteHabitPredictor] can replace it in Phase 6.5 without
-     * touching any ViewModel code (Strategy + Dependency Inversion pattern).
-     */
-    private val predictor = MathHabitPredictor()
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,

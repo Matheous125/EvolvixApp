@@ -19,6 +19,43 @@ import com.example.evolvix.domain.model.HabitData
  */
 interface HabitPredictor {
 
+    // ── Phase 6.5 — TFLite ML interface ──────────────────────────────────────
+
+    /**
+     * Returns the probability (0.0 … 1.0) that the user will successfully complete the
+     * habit, given a pre-computed [HabitFeatures] vector.
+     *
+     * Backed by `habit_success_classifier.tflite` in [TfliteHabitPredictor];
+     * [MathHabitPredictor] provides a rule-based fallback so the interface remains
+     * implementable without TFLite (Strategy + Dependency Inversion).
+     */
+    fun predictSuccess(features: HabitFeatures): Float
+
+    /**
+     * Returns the top 3 hours of the day (0–23) at which the user is most likely to
+     * complete the habit, computed by scoring [predictSuccess] across all 24 hours and
+     * keeping the highest-scoring slots.
+     */
+    fun findOptimalHours(features: HabitFeatures): List<Int>
+
+    /**
+     * Classifies [habitName] into one of the 17 icon categories defined in
+     * `ml-training/generate_icon_data.py` (`fitness`, `health`, `learning`, …, `other`).
+     *
+     * Backed by `habit_icon_classifier.tflite` in [TfliteHabitPredictor];
+     * [MathHabitPredictor] returns a default category as fallback.
+     */
+    fun classifyIcon(habitName: String): String
+
+    /**
+     * Selects a notification / motivation template key (one of 15 categories defined in
+     * `ml-training/generate_reminder_data.py`) given a [ReminderContext].
+     *
+     * The returned key is resolvable in `strings.xml` so the View layer can honor
+     * Polish/English plurals at render time.
+     */
+    fun selectReminderTemplate(features: ReminderContext): String
+
     // ── Phase 6.2 — Predictive features ──────────────────────────────────────
 
     /**
