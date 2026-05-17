@@ -141,13 +141,13 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] `HabitRecommendationUseCase` — co-occurrence rules from habit names/categories.
 - [x] `StreakRecoveryUseCase` — detects high-risk patterns (e.g., missing Sundays).
 - [x] `AdaptiveDifficultyUseCase` — suggests target up/down based on rolling completion rate.
-- [ ] `MotivationMessageUseCase` — context-aware string templates with `<plurals>`.
+- [x] `MotivationMessageUseCase` — context-aware string templates with `<plurals>`.
 
 ### 6.3 Passive analytics
-- [ ] `RoutinePrecisionUseCase` (stddev of timestamps).
-- [ ] `ResilienceScoreUseCase` (avg recovery days).
-- [ ] `HabitClashingUseCase` (Pearson correlation across habits).
-- [ ] `ProcrastinationIndexUseCase` (skewness within deadline cycle).
+- [x] `RoutinePrecisionUseCase` (stddev of timestamps).
+- [x] `ResilienceScoreUseCase` (avg recovery days).
+- [x] `HabitClashingUseCase` (Pearson correlation across habits).
+- [x] `ProcrastinationIndexUseCase` (skewness within deadline cycle).
 
 ### 6.4 AI icon selection
 - [ ] **Domain:** `IconResolverUseCase` — Tier 1 keyword map (covers ~70%); Tier 2 stub for ML.
