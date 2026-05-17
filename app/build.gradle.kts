@@ -45,6 +45,12 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // Robolectric (used by TfliteHabitPredictorTest in Phase 6.5.7) needs access
+    // to the merged Android resources & assets from the unit-test JVM classpath.
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -96,6 +102,17 @@ dependencies {
     // satisfying the Android 15+ (API 35) Play Store requirement from November 2025.
     // The Java/Kotlin Interpreter API is unchanged — only the Maven artifact changed.
     implementation("com.google.ai.edge.litert:litert:1.0.1")
+
+    // Robolectric — provides an Android-faked JVM runtime for `TfliteHabitPredictorTest`
+    // (Phase 6.5.7). Gives the test a real `Context` so `TfliteHabitPredictor` can be
+    // constructed on the JVM without an emulator. The TFLite native libraries in the
+    // `litert` AAR target Android ABIs and will not load on a desktop JVM, so the
+    // predictor gracefully falls back to [MathHabitPredictor] inside the test — the
+    // tests assert the *contract* of `TfliteHabitPredictor`, which holds under either
+    // backend (Strategy + Liskov substitution).
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    // `ApplicationProvider` lives in androidx.test:core; required by Robolectric tests.
+    testImplementation("androidx.test:core:1.5.0")
 }
 
 // Prevent AGP from compressing .tflite assets — tflite loaders mmap the raw bytes

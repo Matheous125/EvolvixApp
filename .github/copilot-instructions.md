@@ -29,7 +29,7 @@ The test: Every changed line should trace directly to the user's request.
 ## 4. Goal-Driven Execution & Academic Testing
 **Define success criteria. Balance academic rigor with token efficiency.**
 - **STRICT RESTRICTION:** Do NOT write Android UI Tests (Espresso/Compose UI testing) or Room Database instrumentation tests. Rely on manual UI verification via the Android Emulator.
-- **Unit Tests:** Proactively write standard Unit Tests (JUnit) for any pure business logic you produce or modify: UseCases, ViewModels, AI/math functions, streak calculations. Add them in the same response as the implementation — do not wait to be asked. Place tests in `app/src/test/java/…` alongside the class under test.
+- **Unit Tests:** suggest writing standard Unit Tests (JUnit) for any pure business logic you produce or modify: UseCases, ViewModels, AI/math functions, streak calculations.
 - For multi-step tasks, state a brief plan:
   1. [Step] → verify: [check]
   2. [Step] → verify: [check]
