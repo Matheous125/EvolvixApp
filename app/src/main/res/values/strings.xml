@@ -1,3 +1,14 @@
 <resources>
     <string name="app_name">Evolvix</string>
+
+    <!-- Motivation message strings resolved by MathHabitPredictor (Phase 6) -->
+    <string name="motivation_cold_start">Just getting started — every great habit begins with a single step!</string>
+    <string name="motivation_streak_milestone">Incredible streak! You\'re building a lasting habit. Keep going!</string>
+    <string name="motivation_gentle_nudge">Take it easy today. Consistency over perfection — you\'ve got this.</string>
+    <string name="motivation_celebrate_consistency">You\'re crushing it! Exceptional consistency this week.</string>
+    <string name="motivation_recovery_encouragement">Don\'t give up — every day is a fresh start. You can bounce back!</string>
+    <string name="motivation_morning_optimistic">Good morning! A perfect time to check this off your list.</string>
+    <string name="motivation_evening_reflection">Wrap up the day on a high note — one more win to go!</string>
+    <string name="motivation_weekend_warrior">Weekend energy! Make this habit count today.</string>
+    <string name="motivation_quiet_encouragement">Steady progress beats occasional perfection. Keep at it.</string>
 </resources>

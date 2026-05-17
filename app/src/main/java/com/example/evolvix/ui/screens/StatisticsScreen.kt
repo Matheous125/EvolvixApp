@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingFlat
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -48,9 +49,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.model.LifeBalanceEntry
@@ -130,6 +133,16 @@ fun StatisticsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Statistics") },
+                actions = {
+                    // Dev-only seed button: inserts 5 test habits (IDs 901–905).
+                    // Safe to tap multiple times — re-seeds cleanly.
+                    IconButton(onClick = { viewModel.seedDatabase() }) {
+                        Icon(
+                            imageVector = Icons.Filled.Science,
+                            contentDescription = "Seed test data"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 ),
@@ -397,10 +410,10 @@ private fun HabitStatsCard(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
-                // AI Success Prediction placeholder — Phase 6 will replace the static "--%".
+                // Success probability from MathHabitPredictor for today's day and hour.
                 AssistChip(
-                    onClick = { /* no-op until AI lands */ },
-                    label = { Text("🎯 --%") },
+                    onClick = { },
+                    label = { Text("🎯 ${(stats.successProbabilityToday * 100).roundToInt()}%") },
                     colors = AssistChipDefaults.assistChipColors()
                 )
                 IconButton(onClick = { expanded = !expanded }) {
@@ -467,7 +480,7 @@ private fun HabitStatsCard(
             // ---- Expanded sections ----
             if (expanded) {
                 Spacer(Modifier.height(16.dp))
-                ExpandedSection(completions = completionsForHabit, color = habitColor)
+                ExpandedSection(stats = stats, completions = completionsForHabit, color = habitColor)
             }
         }
     }
@@ -501,11 +514,11 @@ private fun StatBox(emoji: String, value: String, label: String, modifier: Modif
 
 /**
  * Expanded-card content: range-tab selector → bar chart → completion summary,
- * followed by three AI placeholder blocks (Smart Insight, Optimal Timing, Behavioral
- * Patterns). All AI sections are static text until Phase 6 wires the ML use cases.
+ * followed by three AI cards (Smart Insight, Optimal Timing, Behavioral Patterns)
+ * backed by [MathHabitPredictor] data surfaced through [PerHabitStats].
  */
 @Composable
-private fun ExpandedSection(completions: List<HabitCompletionEntity>, color: Color) {
+private fun ExpandedSection(stats: PerHabitStats, completions: List<HabitCompletionEntity>, color: Color) {
     var range by remember { mutableStateOf(ChartRange.SEVEN_DAYS) }
 
     val today = remember { LocalDate.now() }
@@ -553,20 +566,162 @@ private fun ExpandedSection(completions: List<HabitCompletionEntity>, color: Col
         )
 
         Spacer(Modifier.height(16.dp))
-        AiPlaceholderBox(
-            title = "✨ AI Smart Insight",
-            body = "Personalized recommendations will appear here once the on-device AI layer is enabled (Phase 6)."
-        )
+        SmartInsightCard(stats = stats)
         Spacer(Modifier.height(12.dp))
-        AiPlaceholderBox(
-            title = "🕒 Optimal Timing",
-            body = "Time-of-day success probability will be computed by OptimalTimeUseCase (Phase 6)."
-        )
+        OptimalTimingCard(optimalHours = stats.optimalHours)
         Spacer(Modifier.height(12.dp))
-        AiPlaceholderBox(
-            title = "🧠 Behavioral Patterns",
-            body = "Category rank, habit stack, routine strength, resilience and best/toughest day metrics arrive in Phase 6."
+        BehavioralPatternsCard(
+            relatedHabitNames = stats.relatedHabitNames,
+            routinePrecision = stats.routinePrecision,
+            resilience = stats.resilience
         )
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  AI CARDS (Phase 6 — MathHabitPredictor)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * Maps a motivation message key (returned by [MathHabitPredictor.motivationMessageKey])
+ * to the corresponding string resource ID so [stringResource] can resolve the text.
+ * Using a `when` here keeps the mapping explicit and avoids [Resources.getIdentifier]
+ * reflection, which is both slower and lint-unsafe.
+ */
+private fun motivationKeyToRes(key: String): Int = when (key) {
+    "motivation_streak_milestone"      -> R.string.motivation_streak_milestone
+    "motivation_gentle_nudge"          -> R.string.motivation_gentle_nudge
+    "motivation_celebrate_consistency" -> R.string.motivation_celebrate_consistency
+    "motivation_recovery_encouragement"-> R.string.motivation_recovery_encouragement
+    "motivation_morning_optimistic"    -> R.string.motivation_morning_optimistic
+    "motivation_evening_reflection"    -> R.string.motivation_evening_reflection
+    "motivation_weekend_warrior"       -> R.string.motivation_weekend_warrior
+    "motivation_cold_start"            -> R.string.motivation_cold_start
+    else                               -> R.string.motivation_quiet_encouragement
+}
+
+/** Formats a 0–23 hour int to a human-readable 12-hour string (e.g. 14 → "2:00 PM"). */
+private fun formatHour(hour: Int): String {
+    val suffix = if (hour < 12) "AM" else "PM"
+    val h = when {
+        hour == 0  -> 12
+        hour > 12  -> hour - 12
+        else       -> hour
+    }
+    return "$h:00 $suffix"
+}
+
+/**
+ * Styled container for real AI-backed content. Uses [MaterialTheme.colorScheme.surfaceContainer]
+ * (slightly different from the placeholder's [surfaceVariant]) so users can distinguish
+ * live data from stubs at a glance.
+ */
+@Composable
+private fun AiDataCard(title: String, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(12.dp)
+    ) {
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(6.dp))
+            content()
+        }
+    }
+}
+
+/**
+ * `✨ AI Smart Insight` card — shows the motivation message, streak-risk warning, and
+ * an adaptive difficulty suggestion, all derived from [MathHabitPredictor].
+ */
+@Composable
+private fun SmartInsightCard(stats: PerHabitStats) {
+    AiDataCard(title = "✨ AI Smart Insight") {
+        Text(
+            text = stringResource(motivationKeyToRes(stats.motivationMessageKey)),
+            style = MaterialTheme.typography.bodySmall
+        )
+        if (stats.isStreakAtRisk) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "⚠️ Streak at risk — you tend to miss this habit on a recurring day. Stay alert!",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        val targetText = when {
+            stats.targetDelta > 0 -> "📈 You're consistently hitting the target — consider raising it by 1."
+            stats.targetDelta < 0 -> "📉 This habit may be too demanding right now — try reducing the target by 1."
+            else                  -> "✅ Your target is well-calibrated for your current pace."
+        }
+        Text(text = targetText, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+/**
+ * `🕒 Optimal Timing` card — shows the top hours of the day at which the user historically
+ * completes the habit, ranked by [MathHabitPredictor.optimalHours].
+ */
+@Composable
+private fun OptimalTimingCard(optimalHours: List<Int>) {
+    AiDataCard(title = "🕒 Optimal Timing") {
+        if (optimalHours.isEmpty()) {
+            Text(
+                text = "Not enough data yet. A few more completions will reveal your best times.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Text(
+                text = "Best times: ${optimalHours.joinToString(" · ") { formatHour(it) }}",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Based on your successful completion history.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/**
+ * `🧠 Behavioral Patterns` card — surfaces co-occurring habits, routine consistency
+ * (std-dev in minutes), and resilience (average recovery gap), all from [MathHabitPredictor].
+ */
+@Composable
+private fun BehavioralPatternsCard(
+    relatedHabitNames: List<String>,
+    routinePrecision: Double?,
+    resilience: Double?
+) {
+    AiDataCard(title = "🧠 Behavioral Patterns") {
+        if (relatedHabitNames.isNotEmpty()) {
+            Text(
+                text = "Often done together: ${relatedHabitNames.take(3).joinToString(", ")}",
+                style = MaterialTheme.typography.bodySmall
+            )
+            Spacer(Modifier.height(4.dp))
+        }
+        val precisionText = routinePrecision?.let {
+            "Routine window: ±${it.roundToInt()} min"
+        } ?: "No consistent completion time detected yet."
+        Text(text = precisionText, style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(4.dp))
+        val resilienceText = resilience?.let {
+            "Recovery speed: ~${it.roundToInt()} period(s) after a gap"
+        } ?: "No recovery events recorded yet."
+        Text(text = resilienceText, style = MaterialTheme.typography.bodySmall)
     }
 }
 

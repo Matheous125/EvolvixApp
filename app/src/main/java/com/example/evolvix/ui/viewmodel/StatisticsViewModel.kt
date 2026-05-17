@@ -2,8 +2,11 @@ package com.example.evolvix.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.evolvix.data.local.DatabaseSeeder
 import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.domain.ai.MathHabitPredictor
+import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyOverview
@@ -12,10 +15,12 @@ import com.example.evolvix.domain.usecase.IconResolverUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
+import java.time.LocalDateTime
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
@@ -42,6 +47,13 @@ class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
 
     /** Resolves a display emoji from a habit name when no user override is stored. */
     private val iconResolverUseCase = IconResolverUseCase()
+
+    /**
+     * Rule-based / statistical AI predictor (Phase 6, Stage 1).
+     * Injected here so [TfliteHabitPredictor] can replace it in Phase 6.5 without
+     * touching any ViewModel code (Strategy + Dependency Inversion pattern).
+     */
+    private val predictor = MathHabitPredictor()
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -100,6 +112,17 @@ class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
         val today = LocalDate.now()
         val from30d = today.minusDays(29) // 30 inclusive days: today − 29 .. today
 
+        // Build domain-model list once per emission — needed by predictor.relatedHabits().
+        val allHabitData: List<HabitData> = habits.map { h ->
+            HabitData(
+                id = h.id, name = h.name, currentCount = h.currentCount,
+                frequency = h.frequency, target = h.target,
+                totalProgressUpdates = h.totalProgressUpdates,
+                totalTargetReaches = h.totalTargetReaches, lastResetDate = h.lastResetDate
+            )
+        }
+        val now = LocalDateTime.now()
+
         habits.map { habit ->
             val habitCompletions = completions.filter { it.habitId == habit.id }
             val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
@@ -108,12 +131,31 @@ class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
             // User override (iconKey) takes priority; fall back to Tier-1 keyword resolution.
             val resolvedIcon = habit.iconKey?.takeIf { it.isNotBlank() }
                 ?: iconResolverUseCase(habit.name)
+            // Map entity → domain model for the AI predictor (no Android SDK dependency).
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
             PerHabitStats(
                 habit = habit,
                 streak = streak,
                 sparkline30d = sparkline,
                 completionRate30d = rate.coerceIn(0f, 1f),
-                resolvedIconEmoji = resolvedIcon
+                resolvedIconEmoji = resolvedIcon,
+                successProbabilityToday = predictor.successProbability(
+                    habitData, habitCompletions, now.dayOfWeek.value, now.hour
+                ),
+                optimalHours = predictor.optimalHours(habitData, habitCompletions),
+                relatedHabitNames = predictor.relatedHabits(habitData, allHabitData, completions),
+                isStreakAtRisk = predictor.isStreakAtRisk(habitData, habitCompletions),
+                targetDelta = predictor.suggestTargetDelta(habitData, habitCompletions),
+                motivationMessageKey = predictor.motivationMessageKey(
+                    habitData, habitCompletions, streak.current, now.dayOfWeek.value
+                ),
+                routinePrecision = predictor.computeRoutinePrecision(habitCompletions),
+                resilience = predictor.computeResilience(habitData, habitCompletions)
             )
         }
     }.stateIn(
@@ -153,4 +195,16 @@ class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
+
+    /**
+     * Inserts 5 seed habits (IDs 901–905) with realistic completion histories.
+     * Safe to call repeatedly — the REPLACE strategy cascade-deletes old completions
+     * for those IDs before inserting fresh ones.
+     * For development use only; remove before release.
+     */
+    fun seedDatabase() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            DatabaseSeeder.seed(dao)
+        }
+    }
 }

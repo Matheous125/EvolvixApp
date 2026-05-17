@@ -154,7 +154,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **ViewModel:** Resolve icon when rendering `StatisticsScreen`; persist user override from `EditHabitScreen` icon picker.
 
 ### 6.5 Wire AI (math layer) into Statistics
-- [ ] **View:** Fill the placeholders from Phase 5: `🎯 Success Prediction`, `🕒 Optimal Timing`, `🧠 Behavioral Patterns`, `✨ Smart Insight` cards — backed by `MathHabitPredictor` at this stage.
+- [x] **View:** Fill the placeholders from Phase 5: `🎯 Success Prediction`, `🕒 Optimal Timing`, `🧠 Behavioral Patterns`, `✨ Smart Insight` cards — backed by `MathHabitPredictor` at this stage.
 
 ---
 
