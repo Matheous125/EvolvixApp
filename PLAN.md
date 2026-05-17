@@ -164,10 +164,10 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 > **Architecture note:** `TfliteHabitPredictor` *contains* a `MathHabitPredictor` instance and only overrides the three ML methods (`predictSuccess`, `findOptimalHours`, `classifyIcon`, `selectReminderTemplate`). All Tier-B statistical analytics (clashing, resilience, routine precision, procrastination) remain pure Kotlin math and are delegated through. This is **composition over inheritance** — defensible Liskov substitution.
 
 ### 6.5.1 Python training project setup (outside Android module)
-- [ ] Create top-level folder `ml-training/` (sibling of `app/`) — **excluded from `.gitignore` builds**, included in source control.
-- [ ] Add `ml-training/requirements.txt` with: `tensorflow==2.14.0`, `pandas`, `numpy`, `scikit-learn`, `matplotlib`.
-- [ ] Add `ml-training/README.md` documenting how to set up a Python 3.10 venv and run each training script. **(This is the only external doc file allowed — it is required to defend the ML pipeline reproducibility in the thesis.)**
-- [ ] Folder structure inside `ml-training/`:
+- [x] Create top-level folder `ml-training/` (sibling of `app/`) — **excluded from `.gitignore` builds**, included in source control.
+- [x] Add `ml-training/requirements.txt` with: `tensorflow==2.14.0`, `pandas`, `numpy`, `scikit-learn`, `matplotlib`.
+- [x] Add `ml-training/README.md` documenting how to set up a Python 3.10 venv and run each training script. **(This is the only external doc file allowed — it is required to defend the ML pipeline reproducibility in the thesis.)**
+- [x] Folder structure inside `ml-training/`:
   ```
   ml-training/
     requirements.txt
@@ -186,26 +186,26 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 6.5.2 Model 1 — HabitSuccessClassifier (binary classification)
 **Powers:** `🎯 Success Prediction` card, `🕒 Optimal Timing` card, smart notification scheduling (Phase 7).
 
-- [ ] **Python — data generation** (`ml-training/generate_success_data.py`):
-  - [ ] Generate 30,000 synthetic rows with features: `dayOfWeek (1-7)`, `hourOfDay (0-23)`, `currentStreak (0-200)`, `completionRateLast7Days (0.0-1.0)`, `habitAge (1-730 days)`, `hoursSinceLastCompletion (0-336)`, `targetCount (1-20)`.
-  - [ ] Bake behavioral rules into label probabilities (not deterministic):
+- [x] **Python — data generation** (`ml-training/generate_success_data.py`):
+  - [x] Generate 30,000 synthetic rows with features: `dayOfWeek (1-7)`, `hourOfDay (0-23)`, `currentStreak (0-200)`, `completionRateLast7Days (0.0-1.0)`, `habitAge (1-730 days)`, `hoursSinceLastCompletion (0-336)`, `targetCount (1-20)`.
+  - [x] Bake behavioral rules into label probabilities (not deterministic):
     - Mornings (6–10 AM) → +0.25 base probability
     - `currentStreak > 7` → +0.20
     - `completionRateLast7Days < 0.3` → −0.30
     - `habitAge > 30` → +0.10
     - Weekend evenings → −0.15
     - Then sample label ∈ {0,1} from the resulting probability (adds realistic noise).
-  - [ ] Output: `ml-training/data/success_dataset.csv`.
-- [ ] **Python — training** (`ml-training/train_success_model.py`):
-  - [ ] 80/20 train/test split via `sklearn.model_selection.train_test_split`.
-  - [ ] Fit `StandardScaler` on training features; **save `mean` and `scale` to `models/success_scaler.json`** (Android must apply identical normalization at inference).
-  - [ ] Keras model: `Dense(32, relu) → Dropout(0.2) → Dense(16, relu) → Dense(1, sigmoid)`.
-  - [ ] Compile: `optimizer=adam`, `loss=binary_crossentropy`, `metrics=[accuracy, AUC]`.
-  - [ ] Train 50 epochs, validation_split=0.1.
-  - [ ] **Acceptance threshold:** test accuracy ≥ 0.82 AND ROC-AUC ≥ 0.88. If not met, increase dataset size to 50k and re-run.
-- [ ] **Python — export:**
-  - [ ] `tf.lite.TFLiteConverter.from_keras_model(model)` with `Optimize.DEFAULT` (quantization).
-  - [ ] Write to `ml-training/models/habit_success_classifier.tflite`.
+  - [x] Output: `ml-training/data/success_dataset.csv`.
+- [x] **Python — training** (`ml-training/train_success_model.py`):
+  - [x] 80/20 train/test split via `sklearn.model_selection.train_test_split`.
+  - [x] Fit `StandardScaler` on training features; **save `mean` and `scale` to `models/success_scaler.json`** (Android must apply identical normalization at inference).
+  - [x] Keras model: `Dense(32, relu) → Dropout(0.2) → Dense(16, relu) → Dense(1, sigmoid)`.
+  - [x] Compile: `optimizer=adam`, `loss=binary_crossentropy`, `metrics=[accuracy, AUC]`.
+  - [x] Train 50 epochs, validation_split=0.1.
+  - [x] **Acceptance threshold:** test accuracy ≥ 0.82 AND ROC-AUC ≥ 0.88. If not met, increase dataset size to 50k and re-run.
+- [x] **Python — export:**
+  - [x] `tf.lite.TFLiteConverter.from_keras_model(model)` with `Optimize.DEFAULT` (quantization).
+  - [x] Write to `ml-training/models/habit_success_classifier.tflite`.
 
 ### 6.5.3 Model 2 — HabitIconClassifier (text classification)
 **Powers:** Automatic icon resolution on Statistics screen (replaces `IconResolverUseCase` Tier-1 keyword map).

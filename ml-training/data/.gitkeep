@@ -1,0 +1,3 @@
+# Generated datasets and evaluation plots are written here at runtime.
+# Tracked in source control via this .gitkeep so the folder layout matches
+# PLAN.md §6.5.1, but the contents themselves are gitignored.

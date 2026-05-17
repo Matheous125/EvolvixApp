@@ -69,6 +69,16 @@ desktop.ini
 keystore.properties
 
 # ============================================================
+# ml-training/ (Python ML pipeline — Phase 6.5)
+# ============================================================
+# Folder itself is tracked, but generated data and the virtualenv are not.
+ml-training/.venv/
+ml-training/data/*
+!ml-training/data/.gitkeep
+ml-training/**/__pycache__/
+ml-training/**/*.pyc
+
+# ============================================================
 # Miscellaneous
 # ============================================================
 WORK-INSTRUCTIONS.MD

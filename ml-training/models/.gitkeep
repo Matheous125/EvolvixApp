@@ -1,0 +1,4 @@
+# Trained .tflite files + scaler/vocab JSON sidecars are written here by the
+# train_*_model.py scripts. These artifacts ARE committed to source control
+# (unlike data/), so the Android app can be rebuilt without re-running the
+# Python training pipeline.
