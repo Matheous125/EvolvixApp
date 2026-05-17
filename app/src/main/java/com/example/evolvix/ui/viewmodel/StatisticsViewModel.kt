@@ -8,6 +8,7 @@ import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
+import com.example.evolvix.domain.usecase.IconResolverUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
@@ -38,6 +39,9 @@ class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
     private val lifeBalanceUseCase = LifeBalanceUseCase()
     private val sparklineUseCase = SparklineUseCase()
     private val calculateStreakUseCase = CalculateStreakUseCase()
+
+    /** Resolves a display emoji from a habit name when no user override is stored. */
+    private val iconResolverUseCase = IconResolverUseCase()
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -101,11 +105,15 @@ class StatisticsViewModel(private val dao: HabitDao) : ViewModel() {
             val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
             val sparkline = sparklineUseCase(habitCompletions, from30d, today)
             val rate = sparkline.count { it.reached }.toFloat() / 30f
+            // User override (iconKey) takes priority; fall back to Tier-1 keyword resolution.
+            val resolvedIcon = habit.iconKey?.takeIf { it.isNotBlank() }
+                ?: iconResolverUseCase(habit.name)
             PerHabitStats(
                 habit = habit,
                 streak = streak,
                 sparkline30d = sparkline,
-                completionRate30d = rate.coerceIn(0f, 1f)
+                completionRate30d = rate.coerceIn(0f, 1f),
+                resolvedIconEmoji = resolvedIcon
             )
         }
     }.stateIn(

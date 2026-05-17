@@ -22,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitFrequency
 import com.example.evolvix.domain.model.FormError
+import com.example.evolvix.domain.usecase.IconResolverUseCase
 import com.example.evolvix.ui.theme.HabitColorScheme
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
@@ -153,7 +154,10 @@ fun EditHabitScreen(
             selectedFrequency = habit.frequency
             selectedColor = HabitColorScheme.fromHex(habit.colorHex)
             selectedCategories = habit.categories.toSet()
-            selectedIconKey = habit.iconKey
+            // Pre-populate picker with stored override, or auto-resolve from name so
+            // the user sees the algorithm's suggestion and can accept or change it.
+            selectedIconKey = habit.iconKey?.takeIf { it.isNotBlank() }
+                ?: IconResolverUseCase()(habit.name)
             reminderEnabled = habit.reminderEnabled
             // Restore any custom categories saved with this habit
             customCategories = habit.categories.filter { it !in ALL_CATEGORIES }

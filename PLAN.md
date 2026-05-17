@@ -151,7 +151,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 
 ### 6.4 AI icon selection
 - [x] **Domain:** `IconResolverUseCase` — Tier 1 keyword map (covers ~70%); Tier 2 stub for ML.
-- [ ] **ViewModel:** Resolve icon when rendering `StatisticsScreen`; persist user override from `EditHabitScreen` icon picker.
+- [x] **ViewModel:** Resolve icon when rendering `StatisticsScreen`; persist user override from `EditHabitScreen` icon picker.
 
 ### 6.5 Wire AI (math layer) into Statistics
 - [ ] **View:** Fill the placeholders from Phase 5: `🎯 Success Prediction`, `🕒 Optimal Timing`, `🧠 Behavioral Patterns`, `✨ Smart Insight` cards — backed by `MathHabitPredictor` at this stage.

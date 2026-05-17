@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingFlat
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
@@ -385,22 +384,12 @@ private fun HabitStatsCard(
         Column(modifier = Modifier.padding(16.dp)) {
             // ---- Header row: icon · name · AI-prediction placeholder · expand toggle ----
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Prefer the habit's assigned emoji (iconKey). If none is set, fall back to
-                // a colored Star until Phase 6's IconResolverUseCase auto-assigns an emoji.
-                val iconKey = stats.habit.iconKey
-                if (!iconKey.isNullOrBlank()) {
-                    Text(
-                        text = iconKey,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = null,
-                        tint = habitColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                // resolvedIconEmoji is always non-null: user override takes priority,
+                // then IconResolverUseCase auto-resolves from the habit name (Phase 6.4).
+                Text(
+                    text = stats.resolvedIconEmoji,
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = stats.habit.name,
