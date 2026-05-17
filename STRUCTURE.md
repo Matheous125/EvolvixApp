@@ -43,7 +43,8 @@ app/src/main/java/com/example/evolvix
 │       ├── ExportHistoryUseCase.kt    # Interactor: serializes a habit's completion history to JSON via kotlinx.serialization; triggers ACTION_CREATE_DOCUMENT
 │       ├── WeeklyOverviewUseCase.kt   # Interactor: aggregates completions into a 7-day WeeklyOverview (daily counts + week completion rate)
 │       ├── LifeBalanceUseCase.kt      # Interactor: groups habits by category and computes per-category completion rates over a rolling window (default 30 days)
-│       └── SparklineUseCase.kt        # Interactor: produces a List<SparklinePoint> (reached flag per calendar day) for a given habit and date range
+        ├── SparklineUseCase.kt        # Interactor: produces a List<SparklinePoint> (reached flag per calendar day) for a given habit and date range
+        └── IconResolverUseCase.kt     # Interactor: resolves an emoji icon from a habit name; Tier 1 = keyword map (~70% coverage), Tier 2 = stub for Phase 6.5 TFLite classifier
 |
 ├── navigation/             # Navigation Configuration
 │   ├── NavGraph.kt         # Compose navigation graph setup

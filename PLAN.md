@@ -150,7 +150,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] `ProcrastinationIndexUseCase` (skewness within deadline cycle).
 
 ### 6.4 AI icon selection
-- [ ] **Domain:** `IconResolverUseCase` — Tier 1 keyword map (covers ~70%); Tier 2 stub for ML.
+- [x] **Domain:** `IconResolverUseCase` — Tier 1 keyword map (covers ~70%); Tier 2 stub for ML.
 - [ ] **ViewModel:** Resolve icon when rendering `StatisticsScreen`; persist user override from `EditHabitScreen` icon picker.
 
 ### 6.5 Wire AI (math layer) into Statistics
