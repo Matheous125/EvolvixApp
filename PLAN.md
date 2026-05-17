@@ -122,8 +122,8 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 
 - [x] **Domain:** New use cases in `domain/usecase/`: `WeeklyOverviewUseCase`, `LifeBalanceUseCase`, `SparklineUseCase` (Pattern: **Use Case per query**).
 - [x] **ViewModel:** New `StatisticsViewModel.kt` exposes `overview`, `lifeBalance`, `perHabitStats: StateFlow<…>`.
-- [ ] **View:** Refactor `ui/screens/StatisticsScreen.kt` — Global Overview card, Life Balance card, collapsed/expanded habit cards with sparkline + bar chart tabs (7D/30D/3M/ALL).
-- [ ] **View:** New `ui/components/Sparkline.kt` and `ui/components/BarChart.kt` (Canvas-based, no third-party chart lib needed).
+- [x] **View:** Refactor `ui/screens/StatisticsScreen.kt` — Global Overview card, Life Balance card, collapsed/expanded habit cards with sparkline + bar chart tabs (7D/30D/3M/ALL).
+- [x] **View:** New `ui/components/Sparkline.kt` and `ui/components/BarChart.kt` (Canvas-based, no third-party chart lib needed).
 
 ---
 
@@ -131,8 +131,8 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 **Goal:** Stage 1 = pure Kotlin math. Architected so a `.tflite` model can be swapped in later (Pattern: **Strategy + Dependency Inversion**).
 
 ### 6.1 AI infrastructure
-- [ ] **Domain:** New package `domain/ai/` with interface `HabitPredictor` (abstraction).
-- [ ] **Domain:** Implementation `MathHabitPredictor` (rule-based / statistical).
+- [x] **Domain:** New package `domain/ai/` with interface `HabitPredictor` (abstraction).
+- [x] **Domain:** Implementation `MathHabitPredictor` (rule-based / statistical).
 - [ ] **Domain:** Stub `TfliteHabitPredictor` for future swap.
 
 ### 6.2 Predictive features
@@ -153,8 +153,140 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [ ] **Domain:** `IconResolverUseCase` — Tier 1 keyword map (covers ~70%); Tier 2 stub for ML.
 - [ ] **ViewModel:** Resolve icon when rendering `StatisticsScreen`; persist user override from `EditHabitScreen` icon picker.
 
-### 6.5 Wire AI into Statistics
-- [ ] **View:** Fill the placeholders from Phase 5: `🎯 Success Prediction`, `🕒 Optimal Timing`, `🧠 Behavioral Patterns`, `✨ Smart Insight` cards.
+### 6.5 Wire AI (math layer) into Statistics
+- [ ] **View:** Fill the placeholders from Phase 5: `🎯 Success Prediction`, `🕒 Optimal Timing`, `🧠 Behavioral Patterns`, `✨ Smart Insight` cards — backed by `MathHabitPredictor` at this stage.
+
+---
+
+## PHASE 6.5 — On-Device Machine Learning Models (Stage 2 — TFLite)
+**Goal:** Replace the rule-based / statistical predictions from Phase 6 with three genuine on-device ML models (TensorFlow Lite). Achieved through the **Strategy + Dependency Inversion** abstraction already in place — only `TfliteHabitPredictor` changes, no ViewModel refactors. This phase contains the full ML pipeline (data generation → training → export → integration → validation) and is required for the thesis ML chapter.
+
+> **Architecture note:** `TfliteHabitPredictor` *contains* a `MathHabitPredictor` instance and only overrides the three ML methods (`predictSuccess`, `findOptimalHours`, `classifyIcon`, `selectReminderTemplate`). All Tier-B statistical analytics (clashing, resilience, routine precision, procrastination) remain pure Kotlin math and are delegated through. This is **composition over inheritance** — defensible Liskov substitution.
+
+### 6.5.1 Python training project setup (outside Android module)
+- [ ] Create top-level folder `ml-training/` (sibling of `app/`) — **excluded from `.gitignore` builds**, included in source control.
+- [ ] Add `ml-training/requirements.txt` with: `tensorflow==2.14.0`, `pandas`, `numpy`, `scikit-learn`, `matplotlib`.
+- [ ] Add `ml-training/README.md` documenting how to set up a Python 3.10 venv and run each training script. **(This is the only external doc file allowed — it is required to defend the ML pipeline reproducibility in the thesis.)**
+- [ ] Folder structure inside `ml-training/`:
+  ```
+  ml-training/
+    requirements.txt
+    README.md
+    data/                          ← generated CSVs go here (gitignored output)
+    models/                        ← exported .tflite files (committed)
+    generate_success_data.py
+    generate_icon_data.py
+    generate_reminder_data.py
+    train_success_model.py
+    train_icon_model.py
+    train_reminder_model.py
+    evaluate_models.py             ← produces thesis metrics tables + plots
+  ```
+
+### 6.5.2 Model 1 — HabitSuccessClassifier (binary classification)
+**Powers:** `🎯 Success Prediction` card, `🕒 Optimal Timing` card, smart notification scheduling (Phase 7).
+
+- [ ] **Python — data generation** (`ml-training/generate_success_data.py`):
+  - [ ] Generate 30,000 synthetic rows with features: `dayOfWeek (1-7)`, `hourOfDay (0-23)`, `currentStreak (0-200)`, `completionRateLast7Days (0.0-1.0)`, `habitAge (1-730 days)`, `hoursSinceLastCompletion (0-336)`, `targetCount (1-20)`.
+  - [ ] Bake behavioral rules into label probabilities (not deterministic):
+    - Mornings (6–10 AM) → +0.25 base probability
+    - `currentStreak > 7` → +0.20
+    - `completionRateLast7Days < 0.3` → −0.30
+    - `habitAge > 30` → +0.10
+    - Weekend evenings → −0.15
+    - Then sample label ∈ {0,1} from the resulting probability (adds realistic noise).
+  - [ ] Output: `ml-training/data/success_dataset.csv`.
+- [ ] **Python — training** (`ml-training/train_success_model.py`):
+  - [ ] 80/20 train/test split via `sklearn.model_selection.train_test_split`.
+  - [ ] Fit `StandardScaler` on training features; **save `mean` and `scale` to `models/success_scaler.json`** (Android must apply identical normalization at inference).
+  - [ ] Keras model: `Dense(32, relu) → Dropout(0.2) → Dense(16, relu) → Dense(1, sigmoid)`.
+  - [ ] Compile: `optimizer=adam`, `loss=binary_crossentropy`, `metrics=[accuracy, AUC]`.
+  - [ ] Train 50 epochs, validation_split=0.1.
+  - [ ] **Acceptance threshold:** test accuracy ≥ 0.82 AND ROC-AUC ≥ 0.88. If not met, increase dataset size to 50k and re-run.
+- [ ] **Python — export:**
+  - [ ] `tf.lite.TFLiteConverter.from_keras_model(model)` with `Optimize.DEFAULT` (quantization).
+  - [ ] Write to `ml-training/models/habit_success_classifier.tflite`.
+
+### 6.5.3 Model 2 — HabitIconClassifier (text classification)
+**Powers:** Automatic icon resolution on Statistics screen (replaces `IconResolverUseCase` Tier-1 keyword map).
+
+- [ ] **Python — labeled dataset** (`ml-training/generate_icon_data.py`):
+  - [ ] Hand-write ~500 labeled `(habit_name, icon_category)` pairs across the 17 categories: `fitness, health, learning, mindfulness, creative, social, productivity, finance, food, sleep, cleaning, nature, pet, music, reading, writing, other`.
+  - [ ] Augment via simple synonyms (e.g. "run" → "jog", "running", "morning run") to reach ~2,000 examples.
+  - [ ] Output: `ml-training/data/icon_dataset.csv` with columns `name, label`.
+- [ ] **Python — training** (`ml-training/train_icon_model.py`):
+  - [ ] Tokenize names via `tf.keras.layers.TextVectorization` (char n-grams, output_mode='tf-idf', max_tokens=2000).
+  - [ ] Save vectorizer vocabulary to `models/icon_vocab.json` (Android will replicate tokenization).
+  - [ ] Keras model: `TextVectorization → Dense(32, relu) → Dense(17, softmax)`.
+  - [ ] Train with `sparse_categorical_crossentropy`, 30 epochs.
+  - [ ] **Acceptance threshold:** top-1 accuracy ≥ 0.75, top-3 accuracy ≥ 0.92.
+- [ ] **Python — export:**
+  - [ ] Convert to `ml-training/models/habit_icon_classifier.tflite`.
+  - [ ] Persist vocabulary as JSON alongside.
+
+### 6.5.4 Model 3 — ReminderTemplateClassifier (multi-class classification)
+**Powers:** AI-driven notification text selection (Phase 7), in-app `MotivationMessageUseCase`.
+
+- [ ] **Python — synthetic data** (`ml-training/generate_reminder_data.py`):
+  - [ ] Features: `currentStreak`, `completionRateLast7Days`, `daysSinceLastCompletion`, `dayOfWeek`, `hourOfDay`, `isAtRisk (0/1)`, `targetReachedToday (0/1)`.
+  - [ ] Label = index into ~15 template categories (`cheer_streak_milestone`, `gentle_nudge_at_risk`, `celebrate_consistency`, `recovery_encouragement`, `morning_optimistic`, `evening_reflection`, `comeback_after_break`, `weekend_warrior`, `first_week_support`, `cold_start`, `streak_save`, `target_smashed`, `category_balance`, `pace_yourself`, `quiet_encouragement`).
+  - [ ] Generate 10,000 rows with rule-based label assignment + 10% noise.
+- [ ] **Python — training** (`ml-training/train_reminder_model.py`):
+  - [ ] Same StandardScaler approach as Model 1; save `models/reminder_scaler.json`.
+  - [ ] Keras model: `Dense(24, relu) → Dense(15, softmax)`.
+  - [ ] **Acceptance threshold:** top-1 accuracy ≥ 0.70 (multi-class on 15 labels is harder; AUC is per-class).
+- [ ] **Python — export:** `ml-training/models/reminder_template_classifier.tflite`.
+
+### 6.5.5 Thesis evaluation report (`ml-training/evaluate_models.py`)
+- [ ] Produce per-model:
+  - [ ] Confusion matrix (PNG saved to `ml-training/data/plots/`).
+  - [ ] ROC curve for Model 1 (binary).
+  - [ ] Classification report (precision/recall/F1 per class) for Models 2 & 3.
+  - [ ] Calibration plot for Model 1 (predicted vs actual probability).
+- [ ] Output a Markdown table summarizing all metrics — **paste into thesis ML chapter**.
+
+### 6.5.6 Android — TFLite integration
+- [ ] **Gradle:** Add to `app/build.gradle.kts`:
+  ```kotlin
+  implementation("org.tensorflow:tensorflow-lite:2.14.0")
+  implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+  ```
+- [ ] **Assets:** Copy the following from `ml-training/models/` into `app/src/main/assets/`:
+  - `habit_success_classifier.tflite` + `success_scaler.json`
+  - `habit_icon_classifier.tflite` + `icon_vocab.json`
+  - `reminder_template_classifier.tflite` + `reminder_scaler.json`
+- [ ] **Domain:** Expand `domain/ai/HabitPredictor.kt` interface with:
+  - `fun predictSuccess(features: HabitFeatures): Float`
+  - `fun findOptimalHours(features: HabitFeatures): List<Int>` (returns top 3 hours)
+  - `fun classifyIcon(habitName: String): String`
+  - `fun selectReminderTemplate(features: ReminderContext): String`
+- [ ] **Domain:** New model `domain/ai/HabitFeatures.kt` and `domain/ai/ReminderContext.kt` — pure data classes matching Python feature vectors.
+- [ ] **Domain:** Replace stub `TfliteHabitPredictor.kt` with full implementation:
+  - [ ] Constructor `(context: Context, mathFallback: MathHabitPredictor)`.
+  - [ ] Load three `Interpreter` instances from assets in `init`.
+  - [ ] Load scaler/vocab JSON files into `FloatArray` / `Map<String, Int>` fields.
+  - [ ] `predictSuccess()` — normalize via scaler, run interpreter, return sigmoid output.
+  - [ ] `findOptimalHours()` — call `predictSuccess()` 24 times (one per hour), return top 3 indices.
+  - [ ] `classifyIcon()` — tokenize via vocab map, run interpreter, return label string from argmax.
+  - [ ] `selectReminderTemplate()` — normalize features, run interpreter, map argmax to template key.
+  - [ ] All math methods (`computeRoutinePrecision`, `computeResilience`, `detectClashes`, `computeProcrastination`) delegate to `mathFallback`.
+- [ ] **DI/Wiring:** In `MainActivity` (or wherever ViewModels are created), inject `TfliteHabitPredictor(applicationContext, MathHabitPredictor())` instead of `MathHabitPredictor()` directly. **No ViewModel code changes** — this is the payoff of Strategy + DI.
+
+### 6.5.7 Android — validation tests (JUnit, no emulator)
+- [ ] **Test:** `app/src/test/java/.../TfliteHabitPredictorTest.kt`:
+  - [ ] `predictSuccess` returns > 0.7 for "ideal" feature vector (Mon 7AM, 20-day streak, high rate).
+  - [ ] `predictSuccess` returns < 0.3 for "doomed" vector (Sun midnight, 0 streak, low rate).
+  - [ ] `classifyIcon("morning run")` returns `"fitness"`.
+  - [ ] `classifyIcon("meditate 10 min")` returns `"mindfulness"`.
+  - [ ] `findOptimalHours` returns 3 distinct integers in [0, 23].
+- [ ] **Cross-validation test:** Feed the same 20 synthetic feature vectors to both `MathHabitPredictor` and `TfliteHabitPredictor`. Assert their Spearman rank correlation across success probabilities is > 0.7 — proves the ML model learned the same domain logic the math model encodes. **This is the thesis killer test.**
+- [ ] Note: per project rules, do **NOT** write instrumented (`androidTest/`) tests. JVM-only JUnit.
+
+### 6.5.8 Rewire Phase 6 UI to ML-backed predictor
+- [ ] Replace `MathHabitPredictor` injection sites with `TfliteHabitPredictor` in:
+  - `StatisticsViewModel` (Success Prediction card, Optimal Timing card)
+  - Icon resolution path on Statistics screen (replaces Phase 6.4 Tier-1 keyword map)
+- [ ] Manual emulator verification (per project rules — no UI tests): launch app, confirm Statistics cards show non-zero probabilities and an icon resolves for each habit name.
 
 ---
 
@@ -163,8 +295,8 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 
 ### 7.1 Reminders
 - [ ] **Model:** Add `reminderTime: Long?` to `HabitEntity`. Bump DB version.
-- [ ] **Domain:** `ScheduleReminderUseCase` using `WorkManager` (Pattern: **Command pattern via WorkRequest**).
-- [ ] **System:** New `notifications/HabitReminderWorker.kt` outside MVVM packages — posts `NotificationCompat` with action buttons (Done / Skip / Snooze).
+- [ ] **Domain:** `ScheduleReminderUseCase` using `WorkManager` (Pattern: **Command pattern via WorkRequest**). Uses `HabitPredictor.findOptimalHours()` to choose the best slot when `reminderTime` is null (smart scheduling).
+- [ ] **System:** New `notifications/HabitReminderWorker.kt` outside MVVM packages — posts `NotificationCompat` with action buttons (Done / Skip / Snooze). Notification text is selected via `HabitPredictor.selectReminderTemplate()` and resolved through `strings.xml` (so Polish/English plurals are honored).
 - [ ] **System:** `notifications/HabitActionReceiver.kt` (`BroadcastReceiver`) writes completion via Repository.
 
 ### 7.2 Daily summary
@@ -227,6 +359,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 | Screen routes | **Sealed Class** state | `navigation/Screen.kt` |
 | Business logic isolation | **Use Case / Interactor** | `domain/usecase/` |
 | Pluggable AI / Auth | **Strategy + DI** | `domain/ai/`, `domain/auth/` |
+| ML model lifecycle | External Python pipeline → TFLite asset | `ml-training/` (Python) + `app/src/main/assets/` (binaries) |
 | Achievement rules | **Strategy** over sealed hierarchy | `domain/model/AchievementDefinition.kt` |
 | One-shot UI events | **Event via SharedFlow** | ViewModels |
 | Background work | **Command** via `WorkRequest` | `notifications/`, `domain/sync/` |
@@ -243,8 +376,9 @@ P0 Audit
         └─► P3 History+Streaks ──┐
                                  ├─► P4 Achievements
                                  ├─► P5 Statistics
-                                 │     └─► P6 AI layer
-                                 │           └─► P7 Notifications & Widgets
+                                 │     └─► P6 AI layer (math, Stage 1)
+                                 │           └─► P6.5 ML models (TFLite, Stage 2)
+                                 │                 └─► P7 Notifications & Widgets
                                  └─► P8 Global UX/Theming/Locale
                                        └─► P9 Auth UI (fake repo)
                                              └─► P10 Firebase Sync

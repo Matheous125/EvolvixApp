@@ -38,7 +38,7 @@ Design patterns used throughout: **Repository**, **Observer** (via Flow), **Use 
 
 ## Current Status
 
-> PHASE 5 — Statistics Screen Overhaul (In progress)
+> PHASE 6 — On-Device AI Layer (In progress)
 
 The core MVVM skeleton is in place: Room schema, DAOs, a `HabitViewModel` exposing `StateFlow<HabitUiState>`, and a sealed-class navigation graph. Active development is following a dependency-driven roadmap from data integrity hardening through gamification, AI analytics, notifications, and finally cloud sync.
 

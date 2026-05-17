@@ -22,6 +22,10 @@ app/src/main/java/com/example/evolvix
 │       └── HabitFrequency.kt  # Habit frequency enum/model
 │
 ├── domain/                 # Domain Layer - Business Logic
+│   ├── ai/                 # AI / analytics abstraction (Strategy + DI pattern)
+│   │   ├── HabitPredictor.kt      # Interface defining all predictive (6.2) and passive-analytics (6.3) contracts; expanded in Phase 6.5 with TFLite methods
+│   │   ├── MathHabitPredictor.kt  # Rule-based / statistical implementation of HabitPredictor; pure Kotlin, no Android SDK, fully unit-testable
+│   │   └── TfliteHabitPredictor.kt # Stub implementation delegating to MathHabitPredictor; Phase 6.5 will override ML methods with TFLite interpreters (Strategy swap, no ViewModel changes)
 │   ├── model/              # Domain models and state classes
 │   │   ├── AchievementDefinition.kt  # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
 │   │   ├── FormError.kt              # Domain model for inline form validation errors (e.g. duplicate habit name)
