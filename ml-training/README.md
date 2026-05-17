@@ -37,7 +37,7 @@ ml-training/
 
 ## One-time setup (Python 3.10)
 
-TensorFlow 2.14 requires Python 3.10. Newer Python versions will fail to
+TensorFlow 2.14 requires Python 3.10 or 3.11. Newer Python versions will fail to
 resolve the `tensorflow==2.14.0` wheel.
 
 ### Windows (PowerShell)

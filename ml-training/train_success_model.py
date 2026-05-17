@@ -123,12 +123,25 @@ def _train_once(rows: int) -> tuple[tf.keras.Model, StandardScaler, float, float
     x_test_scaled = scaler.transform(x_test).astype(np.float32)
 
     model = _build_model(n_features=x_train_scaled.shape[1])
+
+    # Restore best validation-AUC weights across the 50 epochs.
+    early_stop = tf.keras.callbacks.EarlyStopping(
+        monitor="val_auc",
+        patience=8,
+        mode="max",
+        restore_best_weights=True,
+    )
+
+    pos_rate = float(y_train.mean())
+    print(f"Training set positive rate: {pos_rate:.3f}")
+
     model.fit(
         x_train_scaled,
         y_train,
         epochs=50,
         batch_size=128,
         validation_split=0.1,
+        callbacks=[early_stop],
         verbose=2,
     )
 
@@ -173,6 +186,12 @@ def _export_tflite(model: tf.keras.Model) -> Path:
 
 
 def main() -> None:
+    # Delete any stale CSV so the generator rebuilds with the new distributions.
+    stale = gen.output_path()
+    if stale.exists():
+        stale.unlink()
+        print("Deleted stale dataset — regenerating with updated distributions.")
+
     print(f"--- Training attempt 1 (rows={INITIAL_ROWS:,}) ---")
     model, scaler, accuracy, auc = _train_once(INITIAL_ROWS)
 
