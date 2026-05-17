@@ -133,14 +133,14 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 6.1 AI infrastructure
 - [x] **Domain:** New package `domain/ai/` with interface `HabitPredictor` (abstraction).
 - [x] **Domain:** Implementation `MathHabitPredictor` (rule-based / statistical).
-- [ ] **Domain:** Stub `TfliteHabitPredictor` for future swap.
+- [x] **Domain:** Stub `TfliteHabitPredictor` for future swap.
 
 ### 6.2 Predictive features
-- [ ] `SuccessProbabilityUseCase` — features: day, hour, streak, recent week, age.
-- [ ] `OptimalTimeUseCase` — bins completions by hour, ranks slots.
-- [ ] `HabitRecommendationUseCase` — co-occurrence rules from habit names/categories.
-- [ ] `StreakRecoveryUseCase` — detects high-risk patterns (e.g., missing Sundays).
-- [ ] `AdaptiveDifficultyUseCase` — suggests target up/down based on rolling completion rate.
+- [x] `SuccessProbabilityUseCase` — features: day, hour, streak, recent week, age.
+- [x] `OptimalTimeUseCase` — bins completions by hour, ranks slots.
+- [x] `HabitRecommendationUseCase` — co-occurrence rules from habit names/categories.
+- [x] `StreakRecoveryUseCase` — detects high-risk patterns (e.g., missing Sundays).
+- [x] `AdaptiveDifficultyUseCase` — suggests target up/down based on rolling completion rate.
 - [ ] `MotivationMessageUseCase` — context-aware string templates with `<plurals>`.
 
 ### 6.3 Passive analytics
