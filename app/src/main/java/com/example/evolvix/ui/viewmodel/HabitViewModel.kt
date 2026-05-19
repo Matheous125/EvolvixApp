@@ -13,6 +13,7 @@ import com.example.evolvix.domain.model.FormError
 import com.example.evolvix.domain.model.HabitUiState
 import com.example.evolvix.domain.model.SortMode
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
+import com.example.evolvix.domain.usecase.ScheduleReminderUseCase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -35,6 +36,10 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     // Instantiated once here and reused on every combine emission.
     // (Pattern: Use Case / Interactor — single-responsibility streak computation)
     private val calculateStreakUseCase = CalculateStreakUseCase()
+
+    // Phase 7.1 — reminder scheduler. Holds an applicationContext-bound WorkManager;
+    // safe to keep as a ViewModel field because it is stateless apart from that handle.
+    private val scheduleReminderUseCase = ScheduleReminderUseCase(application.applicationContext)
 
     // SharedPreferences used exclusively for lightweight UI preferences (sort order).
     // Habit data lives in Room; only presentation state is stored here.
@@ -339,24 +344,29 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     // ─────────────────────────────────────────────────────────────────────────
 
     fun addHabit(habit: HabitUiState) {        viewModelScope.launch {
-            habitDao.insertHabit(
-                HabitEntity(
-                    id = habit.id,
-                    name = habit.name,
-                    currentCount = habit.currentCount,
-                    target = habit.target,
-                    frequency = habit.frequency,
-                    // Persist the "every N" multiplier so FREQ_ASC/FREQ_DESC sorting works
-                    frequencyN = habit.frequencyN.coerceAtLeast(1),
-                    colorHex = habit.colorHex,
-                    totalProgressUpdates = habit.totalProgressUpdates,
-                    totalTargetReaches = habit.totalTargetReaches,
-                    lastResetDate = habit.lastResetDate,
-                    // selectedCategories carries the form's chosen categories on submission
-                    categories = habit.selectedCategories.toList(),
-                    reminderEnabled = habit.reminderEnabled
-                )
+            val entity = HabitEntity(
+                id = habit.id,
+                name = habit.name,
+                currentCount = habit.currentCount,
+                target = habit.target,
+                frequency = habit.frequency,
+                // Persist the "every N" multiplier so FREQ_ASC/FREQ_DESC sorting works
+                frequencyN = habit.frequencyN.coerceAtLeast(1),
+                colorHex = habit.colorHex,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches,
+                lastResetDate = habit.lastResetDate,
+                // selectedCategories carries the form's chosen categories on submission
+                categories = habit.selectedCategories.toList(),
+                reminderEnabled = habit.reminderEnabled,
+                reminderTime = habit.reminderTime
             )
+            habitDao.insertHabit(entity)
+            // Phase 7.1 — schedule the first reminder slot after the row is committed.
+            // The use case re-reads the entity by name to obtain the auto-generated id,
+            // because Room's insertHabit() does not return it through this DAO.
+            val saved = habitDao.findByNameIgnoreCase(habit.name)
+            if (saved != null) scheduleReminderUseCase.schedule(saved)
         }
     }
 
@@ -422,6 +432,7 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
         categories: List<String> = emptyList(),
         iconKey: String? = null,
         reminderEnabled: Boolean = false,
+        reminderTime: Long? = null,
         onSuccess: () -> Unit,
         onError: () -> Unit
     ) {
@@ -436,9 +447,12 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                     colorHex = colorHex,
                     categories = categories,
                     iconKey = iconKey,
-                    reminderEnabled = reminderEnabled
+                    reminderEnabled = reminderEnabled,
+                    reminderTime = reminderTime
                 )
                 habitDao.updateHabit(updatedHabit)
+                // Phase 7.1 — (re)schedule the reminder for the new slot or cancel if disabled.
+                scheduleReminderUseCase.schedule(updatedHabit)
                 onSuccess()
             } catch (_: Exception) {
                 onError()
@@ -453,6 +467,7 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     ) {
         viewModelScope.launch {
             try {
+                scheduleReminderUseCase.cancel(habitId)
                 habitDao.deleteHabit(habitId)
                 onSuccess()
             } catch (e: Exception) {
@@ -472,6 +487,8 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
         viewModelScope.launch {
             val habit = habitDao.getHabitById(id) ?: return@launch
             habitDao.updateHabit(habit.copy(pausedUntil = until))
+            // Cancel scheduled reminders while the habit is paused; will be re-armed on resume.
+            scheduleReminderUseCase.cancel(id)
         }
     }
 
@@ -481,7 +498,9 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
     fun resumeHabit(id: Int) {
         viewModelScope.launch {
             val habit = habitDao.getHabitById(id) ?: return@launch
-            habitDao.updateHabit(habit.copy(pausedUntil = null))
+            val resumed = habit.copy(pausedUntil = null)
+            habitDao.updateHabit(resumed)
+            scheduleReminderUseCase.schedule(resumed)
         }
     }
 

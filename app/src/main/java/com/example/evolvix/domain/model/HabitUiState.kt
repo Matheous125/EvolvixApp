@@ -90,6 +90,13 @@ data class HabitUiState(
     val reminderEnabled: Boolean = false,
 
     /**
+     * Reminder time encoded as minutes-of-day (0..1439). Null means
+     * "smart slot" — [ScheduleReminderUseCase] picks the hour via the AI predictor.
+     * Maps directly to [HabitEntity.reminderTime].
+     */
+    val reminderTime: Long? = null,
+
+    /**
      * Timestamp (millis since Unix epoch) until which the habit is paused.
      * Null = active; [Long.MAX_VALUE] = paused indefinitely.
      * Mapped from [HabitEntity.pausedUntil] by the ViewModel.

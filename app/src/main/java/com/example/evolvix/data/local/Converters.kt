@@ -1,6 +1,7 @@
 package com.example.evolvix.data.local
 
 import androidx.room.TypeConverter
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import com.example.evolvix.data.model.HabitFrequency
@@ -69,4 +70,11 @@ class Converters {
     fun toStringList(value: String): List<String> {
         return if (value.isBlank()) emptyList() else value.split("|")
     }
+
+    // ── Phase 7.2v2 — LocalDate converters (used by DailySummaryEntity.date) ──
+    @TypeConverter
+    fun fromLocalDate(date: LocalDate?): String? = date?.toString()
+
+    @TypeConverter
+    fun toLocalDate(value: String?): LocalDate? = value?.let { LocalDate.parse(it) }
 }

@@ -286,7 +286,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] Replace `MathHabitPredictor` injection sites with `TfliteHabitPredictor` in:
   - `StatisticsViewModel` (Success Prediction card, Optimal Timing card)
   - Icon resolution path on Statistics screen (replaces Phase 6.4 Tier-1 keyword map)
-- [ ] Manual emulator verification (per project rules — no UI tests): launch app, confirm Statistics cards show non-zero probabilities and an icon resolves for each habit name.
+- [x] Manual emulator verification (per project rules — no UI tests): launch app, confirm Statistics cards show non-zero probabilities and an icon resolves for each habit name.
 
 ---
 
@@ -294,13 +294,13 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 **Goal:** Extend reach beyond the app. Depends on AI for smart timing/text.
 
 ### 7.1 Reminders
-- [ ] **Model:** Add `reminderTime: Long?` to `HabitEntity`. Bump DB version.
-- [ ] **Domain:** `ScheduleReminderUseCase` using `WorkManager` (Pattern: **Command pattern via WorkRequest**). Uses `HabitPredictor.findOptimalHours()` to choose the best slot when `reminderTime` is null (smart scheduling).
-- [ ] **System:** New `notifications/HabitReminderWorker.kt` outside MVVM packages — posts `NotificationCompat` with action buttons (Done / Skip / Snooze). Notification text is selected via `HabitPredictor.selectReminderTemplate()` and resolved through `strings.xml` (so Polish/English plurals are honored).
-- [ ] **System:** `notifications/HabitActionReceiver.kt` (`BroadcastReceiver`) writes completion via Repository.
+- [x] **Model:** Add `reminderTime: Long?` to `HabitEntity`. Bump DB version.
+- [x] **Domain:** `ScheduleReminderUseCase` using `WorkManager` (Pattern: **Command pattern via WorkRequest**). Uses `HabitPredictor.findOptimalHours()` to choose the best slot when `reminderTime` is null (smart scheduling).
+- [x] **System:** New `notifications/HabitReminderWorker.kt` outside MVVM packages — posts `NotificationCompat` with action buttons (Done / Skip / Snooze). Notification text is selected via `HabitPredictor.selectReminderTemplate()` and resolved through `strings.xml` (so Polish/English plurals are honored).
+- [x] **System:** `notifications/HabitActionReceiver.kt` (`BroadcastReceiver`) writes completion via Repository.
 
 ### 7.2 Daily summary
-- [ ] **System:** Periodic `WorkManager` job composing summary text from `WeeklyOverviewUseCase`.
+- [x] **System:** Periodic `WorkManager` job composing summary text from `WeeklyOverviewUseCase`.
 
 ### 7.3 Glance widgets
 - [ ] **System:** New package `widgets/` — `SmallHabitWidget.kt` (single habit) and `MediumHabitListWidget.kt` (scrollable today list) using **Jetpack Glance** (per `IDEAS.MD`).

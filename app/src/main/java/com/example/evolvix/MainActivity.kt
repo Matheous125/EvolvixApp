@@ -1,9 +1,13 @@
 package com.example.evolvix
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -33,8 +37,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.domain.ai.AiContainer
+import com.example.evolvix.domain.usecase.ScheduleReminderUseCase
 import com.example.evolvix.navigation.HabitNavGraph
 import com.example.evolvix.navigation.Screen
+import com.example.evolvix.notifications.DailySummaryWorker
+import com.example.evolvix.notifications.NotificationChannels
 import com.example.evolvix.ui.components.AchievementBanner
 import com.example.evolvix.ui.components.FullScreenConfettiOverlay
 import com.example.evolvix.ui.theme.HabitTracker3Theme
@@ -57,6 +64,28 @@ class MainActivity : ComponentActivity() {
         // point referenced by PLAN.md §6.5.6: TfliteHabitPredictor(applicationContext,
         // MathHabitPredictor()) is constructed exactly here (inside AiContainer).
         AiContainer.predictor(applicationContext)
+
+        // Phase 7 wiring — runs once on every cold start.
+        //  • create notification channels so workers never hit "channel missing"
+        //  • request POST_NOTIFICATIONS on Android 13+ (no-op below)
+        //  • enqueue the periodic DailySummaryWorker (idempotent — KEEP policy)
+        //  • re-arm any per-habit reminders that were enabled before the last restart,
+        //    since WorkManager loses non-persistent OneTimeWorkRequests across reinstalls
+        NotificationChannels.ensureCreated(applicationContext)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 0)
+        }
+        // Re-schedule reminders + enqueue summary on a background dispatcher.
+        // Phase 7.2v2: both calls are now suspend (they hit Room for personalized
+        // timing), so they must run inside a coroutine.
+        lifecycleScope.launch(Dispatchers.IO) {
+            DailySummaryWorker.enqueue(applicationContext)
+            val dao = AppDatabase.getDatabase(applicationContext).habitDao()
+            val scheduler = ScheduleReminderUseCase(applicationContext)
+            dao.getAllHabitsOnce()
+                .filter { it.reminderEnabled }
+                .forEach { scheduler.schedule(it) }
+        }
         setContent {
             HabitTracker3Theme {
                 AppContent()
@@ -111,6 +140,34 @@ fun AppContent() {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
+    // Phase 7.2v2 — handle notification deep-link from DailySummaryWorker. When the
+    // user taps the summary notification, MainActivity is (re)launched with an extra
+    // that routes us to the inbox screen and marks that summary as read. We also
+    // reset the dismiss-streak counter because a tap is the strongest "engaged" signal.
+    val activity = context as? android.app.Activity
+    LaunchedEffect(activity?.intent) {
+        val intent = activity?.intent ?: return@LaunchedEffect
+        val openInbox = intent.getBooleanExtra(
+            com.example.evolvix.notifications.DailySummaryWorker.EXTRA_OPEN_SUMMARY_INBOX, false
+        )
+        if (openInbox) {
+            intent.removeExtra(
+                com.example.evolvix.notifications.DailySummaryWorker.EXTRA_OPEN_SUMMARY_INBOX
+            )
+            com.example.evolvix.notifications.SummaryPreferences
+                .resetDismissStreak(context.applicationContext)
+            val rowId = intent.getIntExtra(
+                com.example.evolvix.notifications.DailySummaryWorker.EXTRA_SUMMARY_ROW_ID, -1
+            )
+            if (rowId > 0) {
+                kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    AppDatabase.getDatabase(context.applicationContext)
+                        .dailySummaryDao().markRead(rowId)
+                }
+            }
+            navController.navigate(Screen.SummaryInbox.route)
+        }
+    }
     // Determine the selected item based on the current route
     val selectedItem = when (currentRoute) {
         Screen.Achievements.route -> 0

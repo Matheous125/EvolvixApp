@@ -44,6 +44,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     // Robolectric (used by TfliteHabitPredictorTest in Phase 6.5.7) needs access
@@ -113,6 +114,17 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.11.1")
     // `ApplicationProvider` lives in androidx.test:core; required by Robolectric tests.
     testImplementation("androidx.test:core:1.5.0")
+
+    // Phase 7.1 — WorkManager is used to schedule one-shot habit reminder
+    // notifications and the periodic daily-summary job. We rely on the Coroutine
+    // worker variant so [HabitReminderWorker] can suspend on DAO calls.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    // Phase 7.3 — Jetpack Glance is the Compose-based AppWidget framework used by
+    // the [SmallHabitWidget] and [MediumHabitListWidget]. The material3 module
+    // gives the widgets access to the same M3 color tokens as the in-app screens.
+    implementation("androidx.glance:glance-appwidget:1.1.0")
+    implementation("androidx.glance:glance-material3:1.1.0")
 }
 
 // Prevent AGP from compressing .tflite assets — tflite loaders mmap the raw bytes

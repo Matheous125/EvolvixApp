@@ -11,4 +11,35 @@
     <string name="motivation_evening_reflection">Wrap up the day on a high note — one more win to go!</string>
     <string name="motivation_weekend_warrior">Weekend energy! Make this habit count today.</string>
     <string name="motivation_quiet_encouragement">Steady progress beats occasional perfection. Keep at it.</string>
+
+    <!-- Phase 7 — Reminder notification action button labels -->
+    <string name="reminder_action_done">Done</string>
+    <string name="reminder_action_skip">Skip</string>
+    <string name="reminder_action_snooze">Snooze 15 min</string>
+
+    <!-- Phase 7 — Reminder notification body templates. The single %1$s placeholder
+         is the habit name; selected by HabitPredictor.selectReminderTemplate(). -->
+    <string name="reminder_streak_milestone">Amazing streak on %1$s — keep the chain alive!</string>
+    <string name="reminder_gentle_nudge">A gentle nudge for %1$s. You\'ve got this.</string>
+    <string name="reminder_celebrate_consistency">Outstanding consistency on %1$s this week!</string>
+    <string name="reminder_recovery">Time to bounce back on %1$s — small steps count.</string>
+    <string name="reminder_morning">Good morning! Perfect time for %1$s.</string>
+    <string name="reminder_evening">Wrap the day with %1$s — one more win.</string>
+    <string name="reminder_comeback">Welcome back to %1$s. Pick up where you left off.</string>
+    <string name="reminder_weekend">Weekend energy — make %1$s count today.</string>
+    <string name="reminder_first_week">Early days for %1$s — keep showing up.</string>
+    <string name="reminder_cold_start">A fresh start on %1$s starts now.</string>
+    <string name="reminder_streak_save">Save your streak on %1$s today.</string>
+    <string name="reminder_target_smashed">Target smashed on %1$s — fantastic!</string>
+    <string name="reminder_category_balance">Balance your routine with %1$s today.</string>
+    <string name="reminder_pace">Pace yourself with %1$s — steady wins.</string>
+    <string name="reminder_quiet">A quiet reminder for %1$s.</string>
+
+    <!-- Phase 7.2 — Daily summary notification -->
+    <string name="daily_summary_title">Your habits today</string>
+    <string name="daily_summary_body">%1$d of %2$d habits completed today — week %3$d%%.</string>
+
+    <!-- Phase 7.3 — Glance widget descriptions -->
+    <string name="widget_small_description">A single habit, one tap to complete.</string>
+    <string name="widget_medium_description">Today\'s habits at a glance.</string>
 </resources>

@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.example.evolvix.data.model.AchievementEntity
+import com.example.evolvix.data.model.DailySummaryEntity
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
 
@@ -14,14 +15,16 @@ import com.example.evolvix.data.model.HabitCompletionEntity
     entities = [
         HabitEntity::class,
         HabitCompletionEntity::class,
-        AchievementEntity::class
+        AchievementEntity::class,
+        DailySummaryEntity::class
     ],
-    version = 13,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
     abstract fun achievementDao(): AchievementDao
+    abstract fun dailySummaryDao(): DailySummaryDao
 
     companion object {
         @Volatile

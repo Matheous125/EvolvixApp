@@ -279,4 +279,74 @@ abstract class HabitDao {
      */
     @Query("SELECT COUNT(*) FROM habit_completions WHERE habitId = :habitId AND progressUpdate >= :cycleStart")
     abstract suspend fun getCompletionCountSince(habitId: Int, cycleStart: LocalDateTime): Int
+
+    // ── Phase 7.2v2 — analytics queries for personalized timing ─────────────
+    //
+    // SQLite stores LocalDateTime via [Converters.dateToTimestamp] as ISO-8601
+    // strings, so `strftime('%H'/'%M', column)` extracts hour-of-day / minute-of-hour
+    // directly. We convert to a single minute-of-day scalar (hour*60 + min) which
+    // both the daily-summary scheduler and the per-habit grace-period scheduler use.
+
+    /**
+     * Average "minute-of-day" of all target-reaching completions of [habitId] since
+     * [since]. Used by `ScheduleReminderUseCase` to pick a personalized reminder time
+     * (typically `avg + 30min`) for daily habits.
+     *
+     * @return Float in [0, 1440), or `null` when there is no qualifying data.
+     */
+    @Query("""
+        SELECT AVG(
+            CAST(strftime('%H', progressUpdate) AS REAL) * 60 +
+            CAST(strftime('%M', progressUpdate) AS REAL)
+        )
+        FROM habit_completions
+        WHERE habitId = :habitId
+          AND isTargetReached = 1
+          AND progressUpdate >= :since
+    """)
+    abstract suspend fun avgTargetReachMinuteForHabit(
+        habitId: Int,
+        since: LocalDateTime
+    ): Float?
+
+    /**
+     * Across ALL habits, the average "last completion minute-of-day" for each
+     * calendar day since [since]. Used by `DailySummaryWorker` to time the daily
+     * summary notification ~30 minutes after the user's habitual last completion.
+     *
+     * The inner aggregation picks the latest completion per day, then the outer
+     * `AVG` produces the user's typical "wind-down" minute.
+     *
+     * @return Float in [0, 1440), or `null` if the user has no completions yet.
+     */
+    @Query("""
+        SELECT AVG(last_minute) FROM (
+            SELECT
+                CAST(strftime('%H', MAX(progressUpdate)) AS REAL) * 60 +
+                CAST(strftime('%M', MAX(progressUpdate)) AS REAL) AS last_minute
+            FROM habit_completions
+            WHERE progressUpdate >= :since
+            GROUP BY date(progressUpdate)
+        )
+    """)
+    abstract suspend fun avgLastCompletionMinuteOverall(since: LocalDateTime): Float?
+
+    /**
+     * Count of (habit × day) target hits today — read by `ComposeDailySummaryUseCase`.
+     */
+    @Query("""
+        SELECT COUNT(DISTINCT habitId)
+        FROM habit_completions
+        WHERE isTargetReached = 1
+          AND date(progressUpdate) = date(:today)
+    """)
+    abstract suspend fun countTargetReachesOnDay(today: LocalDateTime): Int
+
+    /** Count of progressUpdate events for today (any habit, even partial). */
+    @Query("""
+        SELECT COUNT(*)
+        FROM habit_completions
+        WHERE date(progressUpdate) = date(:today)
+    """)
+    abstract suspend fun countProgressUpdatesOnDay(today: LocalDateTime): Int
 }

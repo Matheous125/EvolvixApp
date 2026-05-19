@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Phase 7.1 — POST_NOTIFICATIONS is runtime-only on Android 13+ (API 33). On 29..32 it has no effect. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- WorkManager schedules wake the device only briefly; no SCHEDULE_EXACT_ALARM needed because we use inexact delays. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -23,6 +28,53 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Phase 7.1 — receives Done / Skip / Snooze action taps from habit reminder notifications. -->
+        <receiver
+            android:name=".notifications.HabitActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.evolvix.action.DONE" />
+                <action android:name="com.example.evolvix.action.SKIP" />
+                <action android:name="com.example.evolvix.action.SNOOZE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Phase 7.2 v2 — receives the deleteIntent fired when the user swipes away
+             the daily-summary notification without tapping it. Used to count dismissals
+             and auto-disable the summary after 7 consecutive ignores. -->
+        <receiver
+            android:name=".notifications.SummaryDismissReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.example.evolvix.SUMMARY_DISMISS" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Phase 7.3 — Glance AppWidget providers. exported=true is required so the
+             launcher can list the widgets in its picker. -->
+        <receiver
+            android:name=".widgets.SmallHabitWidgetReceiver"
+            android:exported="true"
+            android:label="Evolvix habit">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_small_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.MediumHabitListWidgetReceiver"
+            android:exported="true"
+            android:label="Evolvix today">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_medium_info" />
+        </receiver>
     </application>
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />

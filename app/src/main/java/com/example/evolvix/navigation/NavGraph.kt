@@ -62,6 +62,9 @@ fun HabitNavGraph(
                 },
                 onNavigateToHistory = { habitId, habitName ->
                     navController.navigate(Screen.History.createRoute(habitId, habitName))
+                },
+                onNavigateToInbox = {
+                    navController.navigate(Screen.SummaryInbox.route)
                 }
             )
         }
@@ -127,6 +130,11 @@ fun HabitNavGraph(
         // Achievements screen — displays all 50 achievements grouped by category.
         composable(route = Screen.Achievements.route) {
             AchievementsScreen(viewModel = achievementsViewModel)
+        }
+
+        // Daily-summary inbox (Phase 7.2 v2)
+        composable(route = Screen.SummaryInbox.route) {
+            SummaryInboxScreen(onNavigateBack = { navController.navigateUp() })
         }
     }
 }

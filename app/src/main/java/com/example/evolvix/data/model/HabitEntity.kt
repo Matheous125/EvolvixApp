@@ -38,6 +38,13 @@ data class HabitEntity(
     val categories: List<String> = emptyList(),
     val iconKey: String? = null,
     val reminderEnabled: Boolean = false,
+    /**
+     * User-chosen reminder time encoded as minutes-of-day (0 .. 1439).
+     * Null means "let the AI pick" — Phase 7.1 `ScheduleReminderUseCase` will then
+     * query [HabitPredictor.findOptimalHours] and schedule the first hour of the
+     * top-ranked slot. When non-null, the value is treated as a fixed daily slot.
+     */
+    val reminderTime: Long? = null,
     /** Timestamp (millis since Unix epoch) until which the habit is paused. Null = active; Long.MAX_VALUE = paused indefinitely. */
     val pausedUntil: Long? = null,
     /** Manual sort position for drag-and-drop ordering; lower value = higher in the list. */

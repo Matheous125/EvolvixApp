@@ -33,6 +33,15 @@ import com.example.evolvix.ui.components.HabitContextMenu
 import com.example.evolvix.ui.components.ProgressItem
 import com.example.evolvix.ui.theme.HabitColorScheme
 import com.example.evolvix.ui.viewmodel.HabitViewModel
+import com.example.evolvix.ui.viewmodel.SummaryInboxViewModel
+import com.example.evolvix.ui.viewmodel.SummaryInboxViewModelFactory
+import com.example.evolvix.BuildConfig
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -107,6 +116,7 @@ fun MainScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
     onNavigateToHistory: (Int, String) -> Unit = { _, _ -> },
+    onNavigateToInbox: () -> Unit = {},
     habitViewModel: HabitViewModel
 ) {
     // Reset daily/weekly/monthly/yearly progress whenever the screen resumes
@@ -131,10 +141,20 @@ fun MainScreen(
     val availableCategories by habitViewModel.availableCategories.collectAsState()
     val searchQuery     by habitViewModel.searchQuery.collectAsState()
 
+    // Phase 7.2v2 — observe daily-summary unread count for the bell-icon badge.
+    // Scoped to MainScreen so the badge re-composes only when this screen is visible.
+    val appCtx = LocalContext.current.applicationContext as android.app.Application
+    val summaryViewModel: SummaryInboxViewModel = viewModel(
+        factory = SummaryInboxViewModelFactory(appCtx)
+    )
+    val summaryUnread by summaryViewModel.unreadCount.collectAsState()
+
     // Local UI state: which category group headers are currently collapsed
     var collapsedGroups by remember { mutableStateOf(emptySet<String>()) }
     // Controls visibility of the sort-order DropdownMenu in the top bar
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    // Controls visibility of the DEBUG-build action menu in the top bar (Phase 7.2v2).
+    var debugMenuExpanded by remember { mutableStateOf(false) }
     // Controls whether the search field is expanded in the chip row
     var searchExpanded by remember { mutableStateOf(false) }
     // Reorder mode is now owned by the ViewModel so MainActivity can also observe it
@@ -316,6 +336,61 @@ fun MainScreen(
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    }
+                    // ── Phase 7.2v2 — daily-summary inbox button with unread badge ──
+                    BadgedBox(
+                        badge = {
+                            if (summaryUnread > 0) {
+                                Badge { Text(summaryUnread.toString()) }
+                            }
+                        }
+                    ) {
+                        IconButton(onClick = onNavigateToInbox) {
+                            Icon(Icons.Filled.Inbox, contentDescription = "Daily summaries")
+                        }
+                    }
+                    // ── Phase 7.2v2 — DEBUG-only quick-test menu ──
+                    if (BuildConfig.DEBUG) {
+                        val debugScope = rememberCoroutineScope()
+                        Box {
+                            IconButton(onClick = { debugMenuExpanded = true }) {
+                                Icon(Icons.Filled.BugReport, contentDescription = "Debug menu")
+                            }
+                            DropdownMenu(
+                                expanded = debugMenuExpanded,
+                                onDismissRequest = { debugMenuExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Test reminder (3 s) — bypass gate") },
+                                    onClick = {
+                                        debugMenuExpanded = false
+                                        val firstId = allHabitsUiState.firstOrNull()?.id
+                                        if (firstId != null) {
+                                            com.example.evolvix.notifications.DebugTriggers
+                                                .fireReminderSoon(appCtx, firstId)
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Seed test habit + real reminder (3 s)") },
+                                    onClick = {
+                                        debugMenuExpanded = false
+                                        debugScope.launch(Dispatchers.IO) {
+                                            com.example.evolvix.notifications.DebugTriggers
+                                                .seedAndFireRealReminder(appCtx)
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Test daily summary (3 s)") },
+                                    onClick = {
+                                        debugMenuExpanded = false
+                                        com.example.evolvix.notifications.DebugTriggers
+                                            .fireDailySummarySoon(appCtx)
+                                    }
+                                )
+                            }
+                        }
                     }
                     } // end of else (normal mode actions)
                 }
