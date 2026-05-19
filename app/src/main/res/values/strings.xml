@@ -38,8 +38,4 @@
     <!-- Phase 7.2 — Daily summary notification -->
     <string name="daily_summary_title">Your habits today</string>
     <string name="daily_summary_body">%1$d of %2$d habits completed today — week %3$d%%.</string>
-
-    <!-- Phase 7.3 — Glance widget descriptions -->
-    <string name="widget_small_description">A single habit, one tap to complete.</string>
-    <string name="widget_medium_description">Today\'s habits at a glance.</string>
 </resources>

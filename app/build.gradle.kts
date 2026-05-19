@@ -119,12 +119,6 @@ dependencies {
     // notifications and the periodic daily-summary job. We rely on the Coroutine
     // worker variant so [HabitReminderWorker] can suspend on DAO calls.
     implementation("androidx.work:work-runtime-ktx:2.9.1")
-
-    // Phase 7.3 — Jetpack Glance is the Compose-based AppWidget framework used by
-    // the [SmallHabitWidget] and [MediumHabitListWidget]. The material3 module
-    // gives the widgets access to the same M3 color tokens as the in-app screens.
-    implementation("androidx.glance:glance-appwidget:1.1.0")
-    implementation("androidx.glance:glance-material3:1.1.0")
 }
 
 // Prevent AGP from compressing .tflite assets — tflite loaders mmap the raw bytes

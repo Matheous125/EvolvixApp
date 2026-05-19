@@ -51,30 +51,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- Phase 7.3 — Glance AppWidget providers. exported=true is required so the
-             launcher can list the widgets in its picker. -->
-        <receiver
-            android:name=".widgets.SmallHabitWidgetReceiver"
-            android:exported="true"
-            android:label="Evolvix habit">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_small_info" />
-        </receiver>
-        <receiver
-            android:name=".widgets.MediumHabitListWidgetReceiver"
-            android:exported="true"
-            android:label="Evolvix today">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_medium_info" />
-        </receiver>
     </application>
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
