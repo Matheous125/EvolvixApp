@@ -32,6 +32,7 @@ import com.example.evolvix.domain.model.SortMode
 import com.example.evolvix.ui.components.HabitContextMenu
 import com.example.evolvix.ui.components.ProgressItem
 import com.example.evolvix.ui.theme.HabitColorScheme
+import com.example.evolvix.ui.theme.LocalIsDarkTheme
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.SummaryInboxViewModel
 import com.example.evolvix.ui.viewmodel.SummaryInboxViewModelFactory
@@ -1162,7 +1163,7 @@ fun MainScreen(
                         colorScheme = HabitColorScheme.fromHex(draggedHabit.colorHex),
                         isOverCompleted = draggedHabit.isOverCompleted,
                         isPaused = draggedHabit.pausedUntil != null,
-                        isSystemInDarkTheme = true,
+                        isSystemInDarkTheme = LocalIsDarkTheme.current,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -1373,7 +1374,7 @@ private fun HabitRow(
             colorScheme = HabitColorScheme.fromHex(habit.colorHex),
             isOverCompleted = habit.isOverCompleted,
             isPaused = habit.pausedUntil != null,
-            isSystemInDarkTheme = true,
+            isSystemInDarkTheme = LocalIsDarkTheme.current,
             modifier = Modifier.fillMaxWidth()
         )
     }

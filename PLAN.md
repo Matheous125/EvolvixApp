@@ -308,7 +308,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 **Goal:** Polish before cloud. Settings depend on most prior modules existing.
 
 - [x] **View:** New `ui/screens/SettingsScreen.kt` — profile header (Name + Rank from achievements), theme selector, language selector, daily summary enabler/disabler (I think just some sort of "switch" will be enough") Help, Feedback (`Intent.ACTION_SENDTO`), Change Password placeholder, Login/Logout placeholder.
-- [ ] **Theme:** Update `ui/theme/Theme.kt` — full Light/Dark/Auto. Status bar icon contrast handled via `WindowCompat`.
+- [x] **Theme:** Update `ui/theme/Theme.kt` — full Light/Dark/Auto. Status bar icon contrast handled via `WindowCompat`.
 - [ ] **Localization:** Add `res/values-pl/strings.xml`. Convert all natural-language builders to `<plurals>` (1 dzień / 2 dni / 5 dni).
 - [ ] **Onboarding:** New `ui/screens/OnboardingScreen.kt` — 3-tab demo with dummy data, shown once via `DataStore` flag (Pattern: **Preferences as Repository**).
 - [ ] **UI hints:** Pulsing FAB / tap-to-complete glow on first launch (Compose `infiniteTransition`).
