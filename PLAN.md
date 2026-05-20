@@ -302,16 +302,12 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ### 7.2 Daily summary
 - [x] **System:** Periodic `WorkManager` job composing summary text from `WeeklyOverviewUseCase`.
 
-### 7.3 Glance widgets
-- [ ] **System:** New package `widgets/` — `SmallHabitWidget.kt` (single habit) and `MediumHabitListWidget.kt` (scrollable today list) using **Jetpack Glance** (per `IDEAS.MD`).
-- [ ] Widget data flows through the same Repository (Pattern: **Single Source of Truth**).
-
 ---
 
 ## PHASE 8 — Global UX, Theming, Localization, Onboarding (Module 6)
 **Goal:** Polish before cloud. Settings depend on most prior modules existing.
 
-- [ ] **View:** New `ui/screens/SettingsScreen.kt` — profile header (Name + Rank from achievements), theme selector, language selector, JSON export, Help, Feedback (`Intent.ACTION_SENDTO`), Change Password placeholder, Login/Logout placeholder.
+- [x] **View:** New `ui/screens/SettingsScreen.kt` — profile header (Name + Rank from achievements), theme selector, language selector, daily summary enabler/disabler (I think just some sort of "switch" will be enough") Help, Feedback (`Intent.ACTION_SENDTO`), Change Password placeholder, Login/Logout placeholder.
 - [ ] **Theme:** Update `ui/theme/Theme.kt` — full Light/Dark/Auto. Status bar icon contrast handled via `WindowCompat`.
 - [ ] **Localization:** Add `res/values-pl/strings.xml`. Convert all natural-language builders to `<plurals>` (1 dzień / 2 dni / 5 dni).
 - [ ] **Onboarding:** New `ui/screens/OnboardingScreen.kt` — 3-tab demo with dummy data, shown once via `DataStore` flag (Pattern: **Preferences as Repository**).

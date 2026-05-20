@@ -102,4 +102,31 @@ object DebugTriggers {
             req
         )
     }
+
+    /**
+     * Simulates 7 consecutive notification dismissals in one tap.
+     *
+     * Sets `dismissStreak = MAX_DISMISS_STREAK` and `disabled = true` directly in
+     * [SummaryPreferences], then cancels the unique work — exactly what
+     * [SummaryDismissReceiver] would do after 7 real swipe-aways.
+     * The [SettingsViewModel] SharedPreferences listener fires automatically and
+     * flips the Daily Summary switch to OFF without any additional steps.
+     */
+    fun simulateAutoDisable(context: Context) {
+        repeat(SummaryPreferences.MAX_DISMISS_STREAK) {
+            SummaryPreferences.incrementDismissStreak(context)
+        }
+        SummaryPreferences.setDisabled(context, true)
+        WorkManager.getInstance(context).cancelUniqueWork(DailySummaryWorker.UNIQUE_NAME)
+    }
+
+    /**
+     * Resets the auto-disable state — the inverse of [simulateAutoDisable].
+     * Clears both the `disabled` flag and the `dismissStreak` counter so the
+     * Settings switch returns to ON and the worker can fire again on the next schedule.
+     */
+    fun resetSummaryDisable(context: Context) {
+        SummaryPreferences.setDisabled(context, false)
+        SummaryPreferences.resetDismissStreak(context)
+    }
 }

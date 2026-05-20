@@ -22,6 +22,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -49,6 +50,9 @@ import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.AchievementsViewModelFactory
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
+import com.example.evolvix.ui.viewmodel.SettingsViewModel
+import com.example.evolvix.ui.viewmodel.SettingsViewModelFactory
+import com.example.evolvix.ui.viewmodel.ThemeMode
 
 /**
  * Main entry point for the application.
@@ -87,9 +91,7 @@ class MainActivity : ComponentActivity() {
                 .forEach { scheduler.schedule(it) }
         }
         setContent {
-            HabitTracker3Theme {
-                AppContent()
-            }
+            AppContent()
         }
     }
 }
@@ -103,11 +105,31 @@ class MainActivity : ComponentActivity() {
  * [AchievementsViewModel] is also created here at Activity scope so that [AchievementsScreen]
  * and [AchievementBanner] share the same instance and the same [AchievementsViewModel.newlyUnlocked]
  * SharedFlow — ensuring the banner fires regardless of which screen the user is on.
+ * [SettingsViewModel] is created here too so [SettingsScreen] and [AppContent] share the
+ * same theme state: the [ThemeMode] StateFlow drives [HabitTracker3Theme] at this level,
+ * meaning a theme change takes effect immediately without restarting the Activity.
  * (Pattern: shared ViewModel via Activity-scoped [viewModel()])
  */
 @Composable
 fun AppContent() {
     val context = LocalContext.current
+
+    // Activity-scoped settings VM — theme preference is read here before the theme wrapper.
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModelFactory(
+            application = context.applicationContext as android.app.Application
+        )
+    )
+    val themeMode by settingsViewModel.themeMode.collectAsState()
+    val isSystemDark = isSystemInDarkTheme()
+    val useDarkTheme = when (themeMode) {
+        ThemeMode.LIGHT  -> false
+        ThemeMode.DARK   -> true
+        ThemeMode.SYSTEM -> isSystemDark
+    }
+
+    HabitTracker3Theme(darkTheme = useDarkTheme) {
+
     // Activity-scoped ViewModel — shared with MainScreen via HabitNavGraph.
     val habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
@@ -225,10 +247,11 @@ fun AppContent() {
         }
     ) { innerPadding ->
         HabitNavGraph(
-            navController = navController,
-            modifier = Modifier.padding(innerPadding),
-            habitViewModel = habitViewModel,
-            achievementsViewModel = achievementsViewModel
+            navController         = navController,
+            modifier              = Modifier.padding(innerPadding),
+            habitViewModel        = habitViewModel,
+            achievementsViewModel = achievementsViewModel,
+            settingsViewModel     = settingsViewModel
         )
     }
     // AchievementBanner overlays the entire app — shown on any screen when an
@@ -242,12 +265,11 @@ fun AppContent() {
         onFinished = { showCelebration = false },
     )
     } // end Box
+    } // end HabitTracker3Theme
 }
 
 @Preview(showBackground = true)
 @Composable
 fun AppPreview() {
-    HabitTracker3Theme {
-        AppContent()
-    }
+    AppContent()
 }

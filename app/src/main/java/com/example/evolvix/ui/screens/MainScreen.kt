@@ -389,6 +389,22 @@ fun MainScreen(
                                             .fireDailySummarySoon(appCtx)
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("Simulate 7 dismissals → auto-disable") },
+                                    onClick = {
+                                        debugMenuExpanded = false
+                                        com.example.evolvix.notifications.DebugTriggers
+                                            .simulateAutoDisable(appCtx)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Reset summary disable flag") },
+                                    onClick = {
+                                        debugMenuExpanded = false
+                                        com.example.evolvix.notifications.DebugTriggers
+                                            .resetSummaryDisable(appCtx)
+                                    }
+                                )
                             }
                         }
                     }

@@ -34,6 +34,9 @@ sealed class Screen(val route: String) {
     /** Daily-summary inbox — paginated history of generated summary cards. */
     object SummaryInbox : Screen("summary_inbox")
 
+    /** Settings screen — theme, language, notifications, account, and support. */
+    object Settings : Screen("settings")
+
     /**
      * History screen — shows all completion records for a single habit,
      * grouped by year and month, with edit/delete and retroactive-add support.

@@ -11,6 +11,7 @@ import androidx.navigation.navArgument
 import android.util.Log
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModel
+import com.example.evolvix.ui.viewmodel.SettingsViewModel
 
 /**
  * Main navigation graph for the application.
@@ -22,13 +23,16 @@ import com.example.evolvix.ui.viewmodel.HabitViewModel
  *   [MainScreen] and [MainActivity] share the same instance.
  * @param achievementsViewModel Activity-scoped ViewModel shared with [AchievementsScreen] and
  *   [AchievementBanner] so both read the same [AchievementsViewModel.newlyUnlocked] SharedFlow.
+ * @param settingsViewModel    Activity-scoped ViewModel that manages theme, language, and
+ *   notification preferences — also shared with [SettingsScreen].
  */
 @Composable
 fun HabitNavGraph(
     navController: NavHostController,
     modifier: Modifier = Modifier,
     habitViewModel: HabitViewModel,
-    achievementsViewModel: AchievementsViewModel
+    achievementsViewModel: AchievementsViewModel,
+    settingsViewModel: SettingsViewModel
 ) {
     NavHost(
         navController = navController,
@@ -47,7 +51,7 @@ fun HabitNavGraph(
                     navController.navigate(Screen.EditHabit.createRoute(habitId))
                 },
                 onNavigateToSettings = {
-                    // Settings screen not yet implemented — placeholder
+                    navController.navigate(Screen.Settings.route)
                 },
                 onNavigateToStatistics = {
                     // Use the same tab-switch pattern as the BottomNav so the
@@ -135,6 +139,15 @@ fun HabitNavGraph(
         // Daily-summary inbox (Phase 7.2 v2)
         composable(route = Screen.SummaryInbox.route) {
             SummaryInboxScreen(onNavigateBack = { navController.navigateUp() })
+        }
+
+        // Settings screen (Phase 8)
+        composable(route = Screen.Settings.route) {
+            SettingsScreen(
+                settingsViewModel   = settingsViewModel,
+                achievementsViewModel = achievementsViewModel,
+                onNavigateBack      = { navController.navigateUp() }
+            )
         }
     }
 }

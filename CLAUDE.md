@@ -29,7 +29,7 @@ The test: Every changed line should trace directly to the user's request.
 ## 4. Goal-Driven Execution & Academic Testing
 **Define success criteria. Balance academic rigor with token efficiency.**
 - **STRICT RESTRICTION:** Do NOT write Android UI Tests (Espresso/Compose UI testing) or Room Database instrumentation tests. Rely on manual UI verification via the Android Emulator.
-- **Unit Tests:** Only write standard Unit Tests (JUnit) for pure business logic (ViewModels, AI Math, Streak Calculations) **when explicitly asked**. 
+- **Unit Tests (Thesis Defense):** If you produce or modify pure business logic (UseCases, ViewModels, AI/math functions, streak calculations), **briefly flag** if a standard Unit Test (JUnit) would be expected by a CS thesis grading panel. **Do not write the test code** unless explicitly asked, to conserve tokens.
 - For multi-step tasks, state a brief plan:
   1. [Step] → verify: [check]
   2. [Step] → verify: [check]
