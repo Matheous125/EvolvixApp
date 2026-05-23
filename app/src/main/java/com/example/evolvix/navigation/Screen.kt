@@ -51,4 +51,11 @@ sealed class Screen(val route: String) {
         fun createRoute(habitId: Int, habitName: String): String =
             "history/$habitId/${java.net.URLEncoder.encode(habitName, "UTF-8")}"
     }
+
+    /**
+     * Onboarding screen — shown once on first launch; marks itself completed via
+     * [OnboardingPreferences] and navigates to [Habits] when "Get Started" is tapped.
+     * (Pattern: Preferences as Repository)
+     */
+    object Onboarding : Screen("onboarding")
 }

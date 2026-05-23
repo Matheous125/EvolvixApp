@@ -10,6 +10,11 @@
     <string name="screen_settings_title">Ustawienia</string>
     <string name="screen_history_title">%1$s — Historia</string>
     <string name="screen_summaries_title">Podsumowania</string>
+    <string name="screen_onboarding_title">Witaj</string>
+
+    <!-- ── Ekran powitalny ── -->
+    <string name="onboarding_pitch">Buduj lepsze nawyki, śledź swój postęp i rozwijaj się każdego dnia.</string>
+    <string name="onboarding_get_started">Zacznij</string>
 
     <!-- ── Przyciski ── -->
     <string name="btn_cancel">Anuluj</string>

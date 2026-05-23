@@ -44,6 +44,8 @@ import com.example.evolvix.navigation.HabitNavGraph
 import com.example.evolvix.navigation.Screen
 import com.example.evolvix.notifications.DailySummaryWorker
 import com.example.evolvix.notifications.NotificationChannels
+import com.example.evolvix.notifications.OnboardingPreferences
+import com.example.evolvix.notifications.SummaryPreferences
 import com.example.evolvix.ui.components.AchievementBanner
 import com.example.evolvix.ui.components.FullScreenConfettiOverlay
 import com.example.evolvix.ui.theme.HabitTracker3Theme
@@ -163,6 +165,14 @@ fun AppContent() {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
+    // Determine the start destination once at composition time.
+    // SharedPreferences is synchronous so no coroutine is needed here.
+    // (Pattern: Preferences as Repository — storage concern stays out of the View)
+    val startDestination = remember {
+        if (OnboardingPreferences.isCompleted(context)) Screen.Habits.route
+        else Screen.Onboarding.route
+    }
+
     // Phase 7.2v2 — handle notification deep-link from DailySummaryWorker. When the
     // user taps the summary notification, MainActivity is (re)launched with an extra
     // that routes us to the inbox screen and marks that summary as read. We also
@@ -211,6 +221,8 @@ fun AppContent() {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
+            // Bottom navigation is not shown on the onboarding screen.
+            if (currentRoute != Screen.Onboarding.route) {
             NavigationBar {
                 navLabels.forEachIndexed { index, label ->
                     NavigationBarItem(
@@ -238,6 +250,7 @@ fun AppContent() {
                     )
                 }
             }
+            } // end onboarding guard
         },
         floatingActionButton = {
             // FAB is visible only on the Habits screen and hidden during reorder mode
@@ -256,7 +269,8 @@ fun AppContent() {
             modifier              = Modifier.padding(innerPadding),
             habitViewModel        = habitViewModel,
             achievementsViewModel = achievementsViewModel,
-            settingsViewModel     = settingsViewModel
+            settingsViewModel     = settingsViewModel,
+            startDestination      = startDestination
         )
     }
     // AchievementBanner overlays the entire app — shown on any screen when an

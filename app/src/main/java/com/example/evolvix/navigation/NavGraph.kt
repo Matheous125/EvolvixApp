@@ -9,6 +9,8 @@ import com.example.evolvix.ui.screens.*
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import android.util.Log
+import androidx.compose.ui.platform.LocalContext
+import com.example.evolvix.notifications.OnboardingPreferences
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.SettingsViewModel
@@ -32,11 +34,14 @@ fun HabitNavGraph(
     modifier: Modifier = Modifier,
     habitViewModel: HabitViewModel,
     achievementsViewModel: AchievementsViewModel,
-    settingsViewModel: SettingsViewModel
+    settingsViewModel: SettingsViewModel,
+    /** Start destination determined once by [AppContent] from [OnboardingPreferences]. */
+    startDestination: String = Screen.Habits.route
 ) {
+    val context = LocalContext.current
     NavHost(
         navController = navController,
-        startDestination = Screen.Habits.route,
+        startDestination = startDestination,
         modifier = modifier
     ) {
 
@@ -147,6 +152,20 @@ fun HabitNavGraph(
                 settingsViewModel   = settingsViewModel,
                 achievementsViewModel = achievementsViewModel,
                 onNavigateBack      = { navController.navigateUp() }
+            )
+        }
+
+        // Onboarding screen — shown once on first launch (Phase 8).
+        // On "Get Started": persist the completion flag and navigate to Habits,
+        // popping the onboarding entry so Back never returns here.
+        composable(route = Screen.Onboarding.route) {
+            OnboardingScreen(
+                onGetStarted = {
+                    OnboardingPreferences.setCompleted(context)
+                    navController.navigate(Screen.Habits.route) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                    }
+                }
             )
         }
     }
