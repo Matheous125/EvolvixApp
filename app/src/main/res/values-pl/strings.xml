@@ -9,7 +9,7 @@
     <string name="screen_achievements_title">Osiągnięcia</string>
     <string name="screen_settings_title">Ustawienia</string>
     <string name="screen_history_title">%1$s — Historia</string>
-    <string name="screen_summaries_title">Dzienne podsumowania</string>
+    <string name="screen_summaries_title">Podsumowania</string>
 
     <!-- ── Przyciski ── -->
     <string name="btn_cancel">Anuluj</string>
@@ -188,6 +188,20 @@
     <string name="rank_master">Mistrz</string>
     <string name="rank_legend">Legenda</string>
 
+    <!-- ── Kategorie nawyków ── -->
+    <string name="category_health">Zdrowie</string>
+    <string name="category_fitness">Fitness</string>
+    <string name="category_learning">Nauka</string>
+    <string name="category_mindfulness">Uważność</string>
+    <string name="category_productivity">Produktywność</string>
+    <string name="category_social">Relacje</string>
+    <string name="category_finance">Finanse</string>
+
+    <!-- ── Pasek nawigacji ── -->
+    <string name="nav_achievements">Osiągnięcia</string>
+    <string name="nav_habits">Nawyki</string>
+    <string name="nav_statistics">Statystyki</string>
+
     <!-- ── Skrzynka odbiorcza ── -->
     <string name="empty_summaries">Brak podsumowań.\nSprawdź jutro.</string>
 
@@ -327,7 +341,7 @@
     <!-- ── Liczba mnoga: nawyki ── -->
     <plurals name="dialog_delete_group_body">
         <item quantity="one">Spowoduje to trwałe usunięcie grupy i %d nawyku wewnątrz niej.</item>
-        <item quantity="few">Spowoduje to trwałe usunięcie grupy i %d nawyki wewnątrz niej.</item>
+        <item quantity="few">Spowoduje to trwałe usunięcie grupy i %d nawyków wewnątrz niej.</item>
         <item quantity="many">Spowoduje to trwałe usunięcie grupy i %d nawyków wewnątrz niej.</item>
         <item quantity="other">Spowoduje to trwałe usunięcie grupy i %d nawyków wewnątrz niej.</item>
     </plurals>

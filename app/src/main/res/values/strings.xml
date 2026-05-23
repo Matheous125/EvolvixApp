@@ -188,6 +188,20 @@
     <string name="rank_master">Master</string>
     <string name="rank_legend">Legend</string>
 
+    <!-- ── Habit categories ── -->
+    <string name="category_health">Health</string>
+    <string name="category_fitness">Fitness</string>
+    <string name="category_learning">Learning</string>
+    <string name="category_mindfulness">Mindfulness</string>
+    <string name="category_productivity">Productivity</string>
+    <string name="category_social">Social</string>
+    <string name="category_finance">Finance</string>
+
+    <!-- ── Navigation bar ── -->
+    <string name="nav_achievements">Achievements</string>
+    <string name="nav_habits">Habits</string>
+    <string name="nav_statistics">Statistics</string>
+
     <!-- ── Summary inbox ── -->
     <string name="empty_summaries">No summaries yet.\nCheck back tomorrow.</string>
 

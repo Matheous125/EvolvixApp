@@ -15,6 +15,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.evolvix.R
 import com.example.evolvix.domain.model.AchievementDefinition
+import com.example.evolvix.ui.screens.descResId
+import com.example.evolvix.ui.screens.titleResId
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import kotlinx.coroutines.delay
 
@@ -98,12 +100,12 @@ fun AchievementBanner(viewModel: AchievementsViewModel) {
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = def.title,
+                            text = stringResource(def.titleResId()),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = def.description,
+                            text = stringResource(def.descResId()),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

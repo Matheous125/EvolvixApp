@@ -575,7 +575,7 @@ fun MainScreen(
                     FilterChip(
                         selected = category in activeFilters,
                         onClick = { habitViewModel.toggleFilter(category) },
-                        label = { Text(category) }
+                        label = { Text(categoryDisplayName(category)) }
                     )
                 }
             }
@@ -611,7 +611,7 @@ fun MainScreen(
                             ) {
                                 // Header row — background comes from the parent Column
                                 CategoryGroupHeader(
-                                    title = group,
+                                    title = categoryDisplayName(group),
                                     isCollapsed = group in collapsedGroups,
                                     onToggle = {
                                         collapsedGroups = if (group in collapsedGroups)

@@ -355,7 +355,7 @@ private fun LifeBalanceBody(entries: List<LifeBalanceEntry>) {
 private fun CategoryRow(entry: LifeBalanceEntry) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = entry.category,
+            text = categoryDisplayName(entry.category),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.width(96.dp)
         )
@@ -435,7 +435,7 @@ private fun HabitStatsCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     stats.habit.categories.take(3).forEach { cat ->
                         Text(
-                            text = "🏷️ $cat",
+                            text = "🏷️ ${categoryDisplayName(cat)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

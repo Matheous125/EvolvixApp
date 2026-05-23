@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -199,7 +200,11 @@ fun AppContent() {
     }
 
     // Navigation items configuration — order: Achievements | Habits | Statistics
-    val items = listOf("Achievements", "Habits", "Statistics")
+    val navLabels = listOf(
+        stringResource(R.string.nav_achievements),
+        stringResource(R.string.nav_habits),
+        stringResource(R.string.nav_statistics)
+    )
     val icons = listOf(Icons.Filled.EmojiEvents, Icons.Filled.Home, Icons.Filled.BarChart)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -207,10 +212,10 @@ fun AppContent() {
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             NavigationBar {
-                items.forEachIndexed { index, item ->
+                navLabels.forEachIndexed { index, label ->
                     NavigationBarItem(
-                        icon = { Icon(icons[index], contentDescription = item) },
-                        label = { Text(item) },
+                        icon = { Icon(icons[index], contentDescription = label) },
+                        label = { Text(label) },
                         selected = selectedItem == index,
                         onClick = {
                             val destinationScreen = when (index) {

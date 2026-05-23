@@ -43,6 +43,22 @@ val ALL_CATEGORIES = listOf(
 )
 
 /**
+ * Maps an English category key (as stored in the database) to its localized display name.
+ * Custom user-created categories are returned as-is.
+ */
+@Composable
+fun categoryDisplayName(key: String): String = when (key) {
+    "Health"        -> stringResource(R.string.category_health)
+    "Fitness"       -> stringResource(R.string.category_fitness)
+    "Learning"      -> stringResource(R.string.category_learning)
+    "Mindfulness"   -> stringResource(R.string.category_mindfulness)
+    "Productivity"  -> stringResource(R.string.category_productivity)
+    "Social"        -> stringResource(R.string.category_social)
+    "Finance"       -> stringResource(R.string.category_finance)
+    else            -> key
+}
+
+/**
  * Horizontal scrollable row of habit template suggestion chips.
  * Tapping a chip dispatches the selected template up via [onTemplateSelected],
  * which pre-fills name, frequency, target and color in the form.
@@ -101,7 +117,7 @@ fun CategoriesSection(
                 FilterChip(
                     selected = category in selectedCategories,
                     onClick = { onToggle(category) },
-                    label = { Text(category) }
+                    label = { Text(categoryDisplayName(category)) }
                 )
             }
             // [+ Add] chip opens a dialog to create a one-off custom category.

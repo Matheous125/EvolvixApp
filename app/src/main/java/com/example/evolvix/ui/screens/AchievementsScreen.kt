@@ -41,7 +41,7 @@ private fun AchievementGroup.titleResId(): Int = when (this) {
  * Keeping this mapping in the UI layer preserves the domain model's Android-free purity.
  */
 @StringRes
-private fun AchievementDefinition.titleResId(): Int = when (key) {
+internal fun AchievementDefinition.titleResId(): Int = when (key) {
     "FIRST_STEP"         -> R.string.achievement_title_first_step
     "ACTION_TAKER"       -> R.string.achievement_title_action_taker
     "DOUBLE_TROUBLE"     -> R.string.achievement_title_double_trouble
@@ -99,7 +99,7 @@ private fun AchievementDefinition.titleResId(): Int = when (key) {
  * Maps an [AchievementDefinition] to its localised description string resource ID.
  */
 @StringRes
-private fun AchievementDefinition.descResId(): Int = when (key) {
+internal fun AchievementDefinition.descResId(): Int = when (key) {
     "FIRST_STEP"         -> R.string.achievement_desc_first_step
     "ACTION_TAKER"       -> R.string.achievement_desc_action_taker
     "DOUBLE_TROUBLE"     -> R.string.achievement_desc_double_trouble
