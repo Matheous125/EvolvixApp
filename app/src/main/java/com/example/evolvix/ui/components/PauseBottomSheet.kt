@@ -21,7 +21,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.evolvix.R
 
 /**
  * A Modal Bottom Sheet (M3) for pausing a habit.
@@ -66,12 +68,12 @@ fun PauseBottomSheet(
                         showDatePicker = false
                     }
                 ) {
-                    Text("OK")
+                    Text(stringResource(R.string.btn_ok))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         ) {
@@ -94,7 +96,7 @@ fun PauseBottomSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Pause habit",
+                text = stringResource(R.string.sheet_pause_habit_title),
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -103,7 +105,7 @@ fun PauseBottomSheet(
                 onClick = { onPauseUntil(Long.MAX_VALUE) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Pause indefinitely")
+                Text(stringResource(R.string.btn_pause_indefinitely))
             }
 
             // Secondary action: open the date picker to choose a resume date
@@ -111,7 +113,7 @@ fun PauseBottomSheet(
                 onClick = { showDatePicker = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Choose end date")
+                Text(stringResource(R.string.btn_choose_end_date))
             }
         }
     }

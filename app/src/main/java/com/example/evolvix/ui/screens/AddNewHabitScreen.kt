@@ -21,9 +21,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitFrequency
 import com.example.evolvix.data.model.HabitTemplate
@@ -52,7 +54,7 @@ private fun TemplatesRow(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Start from a template",
+            text = stringResource(R.string.section_templates),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -90,7 +92,7 @@ fun CategoriesSection(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Categories",
+            text = stringResource(R.string.section_categories),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -105,7 +107,7 @@ fun CategoriesSection(
             // [+ Add] chip opens a dialog to create a one-off custom category.
             AssistChip(
                 onClick = { showAddDialog = true },
-                label = { Text("+ Add") }
+                label = { Text(stringResource(R.string.btn_add_category)) }
             )
         }
     }
@@ -116,12 +118,12 @@ fun CategoriesSection(
                 showAddDialog = false
                 newCategoryInput = ""
             },
-            title = { Text("New Category") },
+            title = { Text(stringResource(R.string.dialog_new_category_title)) },
             text = {
                 OutlinedTextField(
                     value = newCategoryInput,
                     onValueChange = { newCategoryInput = it },
-                    label = { Text("Category name") },
+                    label = { Text(stringResource(R.string.hint_category_name)) },
                     singleLine = true
                 )
             },
@@ -133,13 +135,13 @@ fun CategoriesSection(
                         showAddDialog = false
                         newCategoryInput = ""
                     }
-                ) { Text("Add") }
+                ) { Text(stringResource(R.string.btn_add)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showAddDialog = false
                     newCategoryInput = ""
-                }) { Text("Cancel") }
+                }) { Text(stringResource(R.string.btn_cancel)) }
             }
         )
     }
@@ -161,7 +163,7 @@ fun ColorSelectionGrid(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Color Theme",
+            text = stringResource(R.string.section_color_theme),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -273,7 +275,7 @@ fun AddNewHabitScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Create New Habit") },
+                title = { Text(stringResource(R.string.screen_add_habit_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 ),
@@ -282,7 +284,7 @@ fun AddNewHabitScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Navigate back"
+                            contentDescription = stringResource(R.string.cd_navigate_back)
                         )
                     }
                 }
@@ -323,11 +325,11 @@ fun AddNewHabitScreen(
                     showNameError = it.isEmpty()
                     habitViewModel.clearFormError()
                 },
-                label = { Text("Habit Name") },
+                label = { Text(stringResource(R.string.label_habit_name)) },
                 isError = showNameError || formError is FormError.DuplicateName,
                 supportingText = when {
-                    showNameError -> { { Text("Name cannot be empty") } }
-                    formError is FormError.DuplicateName -> { { Text("A habit with this name already exists") } }
+                    showNameError -> { { Text(stringResource(R.string.error_name_empty)) } }
+                    formError is FormError.DuplicateName -> { { Text(stringResource(R.string.error_name_duplicate)) } }
                     else -> null
                 },
                 modifier = Modifier
@@ -345,7 +347,7 @@ fun AddNewHabitScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Repeat every", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.label_repeat_every), style = MaterialTheme.typography.bodyLarge)
                 // Narrow numeric field for the repetition count (e.g. "3" in "every 3 weeks")
                 OutlinedTextField(
                     value = frequencyNString,
@@ -403,7 +405,7 @@ fun AddNewHabitScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Target:", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.label_target), style = MaterialTheme.typography.bodyLarge)
                     // Narrow numeric field — same validation logic as before
                     OutlinedTextField(
                         value = targetString,
@@ -428,11 +430,11 @@ fun AddNewHabitScreen(
                                 }
                             }
                     )
-                    Text("times", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.label_times), style = MaterialTheme.typography.bodyLarge)
                 }
                 if (showTargetError) {
                     Text(
-                        text = "Target must be greater than 0",
+                        text = stringResource(R.string.error_target_invalid),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp)
@@ -471,9 +473,9 @@ fun AddNewHabitScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = "Smart reminders", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = stringResource(R.string.label_smart_reminders), style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text = "AI will notify you when it's the right moment",
+                        text = stringResource(R.string.subtitle_smart_reminders),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -514,7 +516,7 @@ fun AddNewHabitScreen(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Create Habit")
+                Text(stringResource(R.string.btn_create_habit))
             }
 
             Spacer(modifier = Modifier.height(16.dp))

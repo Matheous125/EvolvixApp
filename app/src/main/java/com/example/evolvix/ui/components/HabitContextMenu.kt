@@ -28,6 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.example.evolvix.R
 import com.example.evolvix.domain.model.HabitUiState
 
 /**
@@ -87,8 +89,10 @@ fun HabitContextMenu(
                 onPauseUntil(until)
                 showPauseSheet = false
                 // Toast confirms the action without requiring the user to stay on screen
-                val msg = if (until == Long.MAX_VALUE) "Habit paused indefinitely"
-                          else "Habit paused until chosen date"
+                val msg = if (until == Long.MAX_VALUE)
+                              context.getString(R.string.toast_paused_indefinitely)
+                          else
+                              context.getString(R.string.toast_paused_until_date)
                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             }
         )
@@ -98,8 +102,8 @@ fun HabitContextMenu(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete habit") },
-            text = { Text("\"${habit.name}\" will be permanently removed.") },
+            title = { Text(stringResource(R.string.dialog_context_delete_title)) },
+            text = { Text(stringResource(R.string.dialog_context_delete_body, habit.name)) },
             confirmButton = {
                 // Error color (red) on the destructive action matches M3 convention
                 // and mirrors the delete dialog in EditHabitScreen
@@ -107,12 +111,12 @@ fun HabitContextMenu(
                     onDelete()
                     showDeleteDialog = false
                 }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.btn_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         )
@@ -140,7 +144,7 @@ fun HabitContextMenu(
         ) {
             // 1. Mark progress — same as a single tap
             DropdownMenuItem(
-                text = { Text("Mark progress") },
+                text = { Text(stringResource(R.string.menu_mark_progress)) },
                 leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
                 onClick = {
                     menuExpanded = false
@@ -150,7 +154,7 @@ fun HabitContextMenu(
 
             // 2. Go to statistics
             DropdownMenuItem(
-                text = { Text("Go to statistics") },
+                text = { Text(stringResource(R.string.menu_go_to_statistics)) },
                 leadingIcon = { Icon(Icons.Filled.BarChart, contentDescription = null) },
                 onClick = {
                     menuExpanded = false
@@ -161,17 +165,17 @@ fun HabitContextMenu(
             // 3. Pause / Resume — label and icon flip based on current pause state
             if (habit.pausedUntil != null) {
                 DropdownMenuItem(
-                    text = { Text("Resume habit") },
+                    text = { Text(stringResource(R.string.menu_resume_habit)) },
                     leadingIcon = { Icon(Icons.Filled.PlayArrow, contentDescription = null) },
                     onClick = {
                         menuExpanded = false
                         onResume()
-                        Toast.makeText(context, "Habit resumed", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.toast_resumed), Toast.LENGTH_SHORT).show()
                     }
                 )
             } else {
                 DropdownMenuItem(
-                    text = { Text("Pause habit") },
+                    text = { Text(stringResource(R.string.menu_pause_habit)) },
                     leadingIcon = { Icon(Icons.Filled.Pause, contentDescription = null) },
                     onClick = {
                         menuExpanded = false
@@ -182,7 +186,7 @@ fun HabitContextMenu(
 
             // 4. View history — stub until Phase 3.1 adds HistoryScreen
             DropdownMenuItem(
-                text = { Text("View history") },
+                text = { Text(stringResource(R.string.menu_view_history)) },
                 leadingIcon = { Icon(Icons.Filled.History, contentDescription = null) },
                 onClick = {
                     menuExpanded = false
@@ -192,7 +196,7 @@ fun HabitContextMenu(
 
             // 5. Edit habit
             DropdownMenuItem(
-                text = { Text("Edit habit") },
+                text = { Text(stringResource(R.string.menu_edit_habit)) },
                 leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
                 onClick = {
                     menuExpanded = false
@@ -202,7 +206,7 @@ fun HabitContextMenu(
 
             // 6. Delete — triggers the confirmation dialog, not an immediate deletion
             DropdownMenuItem(
-                text = { Text("Delete") },
+                text = { Text(stringResource(R.string.btn_delete)) },
                 leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
                 onClick = {
                     menuExpanded = false
@@ -213,7 +217,7 @@ fun HabitContextMenu(
             // 7. Reorder habits — enabled only when MANUAL sort is active.
             // In any other sort mode the item is grayed out to signal it is not applicable.
             DropdownMenuItem(
-                text = { Text("Reorder habits") },
+                text = { Text(stringResource(R.string.menu_reorder_habits)) },
                 leadingIcon = { Icon(Icons.Filled.SwapVert, contentDescription = null) },
                 enabled = isManualSortActive,
                 onClick = {

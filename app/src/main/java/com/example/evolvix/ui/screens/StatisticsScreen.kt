@@ -135,14 +135,14 @@ fun StatisticsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Statistics") },
+                title = { Text(stringResource(R.string.screen_statistics_title)) },
                 actions = {
                     // Dev-only seed button: inserts 5 test habits (IDs 901–905).
                     // Safe to tap multiple times — re-seeds cleanly.
                     IconButton(onClick = { viewModel.seedDatabase() }) {
                         Icon(
                             imageVector = Icons.Filled.Science,
-                            contentDescription = "Seed test data"
+                            contentDescription = stringResource(R.string.cd_seed_test_data)
                         )
                     }
                 },
@@ -212,20 +212,20 @@ private fun SummaryGroupCard(
             // ---- Header row: title + week % badge + expand toggle ----
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "📊 Overview",
+                    text = stringResource(R.string.card_overview_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "This Week: $pct%",
+                    text = stringResource(R.string.label_this_week_pct, pct),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
                 IconButton(onClick = { expanded = !expanded }) {
                     Icon(
                         imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                        contentDescription = if (expanded) "Collapse summary" else "Expand summary"
+                        contentDescription = if (expanded) stringResource(R.string.cd_collapse_summary) else stringResource(R.string.cd_expand_summary)
                     )
                 }
             }
@@ -272,14 +272,14 @@ private fun GlobalOverviewBody(overview: WeeklyOverview, previousWeekRate: Float
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "This Week: $pct%",
+                text = stringResource(R.string.label_this_week_pct, pct),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = trendIcon,
-                contentDescription = "Trend vs last week",
+                contentDescription = stringResource(R.string.label_trend_7d),
                 tint = trendColor,
                 modifier = Modifier.size(20.dp)
             )
@@ -297,7 +297,7 @@ private fun GlobalOverviewBody(overview: WeeklyOverview, previousWeekRate: Float
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "${overview.todayCompletedHabits}/${overview.totalActiveHabits} habits completed today",
+            text = stringResource(R.string.label_today_habits, overview.todayCompletedHabits, overview.totalActiveHabits),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -319,7 +319,7 @@ private fun GlobalOverviewBody(overview: WeeklyOverview, previousWeekRate: Float
 private fun LifeBalanceBody(entries: List<LifeBalanceEntry>) {
     Column {
         Text(
-            text = "⚖️ Life Balance (Last 30 days)",
+            text = stringResource(R.string.card_life_balance_title),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold
         )
@@ -327,7 +327,7 @@ private fun LifeBalanceBody(entries: List<LifeBalanceEntry>) {
 
         if (entries.isEmpty()) {
             Text(
-                text = "Assign categories to your habits to see balance.",
+                text = stringResource(R.string.empty_life_balance),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -340,8 +340,8 @@ private fun LifeBalanceBody(entries: List<LifeBalanceEntry>) {
 
         Spacer(Modifier.height(4.dp))
         AiPlaceholderBox(
-            title = "💡 AI Insight",
-            body = "AI-powered balance recommendations will appear here once the on-device AI layer is enabled (Phase 6)."
+            title = stringResource(R.string.card_ai_insight_title),
+            body = stringResource(R.string.card_ai_insight_placeholder)
         )
     }
 }
@@ -422,7 +422,7 @@ private fun HabitStatsCard(
                 IconButton(onClick = { expanded = !expanded }) {
                     Icon(
                         imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                        contentDescription = if (expanded) "Collapse" else "Expand"
+                contentDescription = if (expanded) stringResource(R.string.cd_collapse) else stringResource(R.string.cd_expand)
                     )
                 }
             }
@@ -448,19 +448,19 @@ private fun HabitStatsCard(
                 StatBox(
                     emoji = "🔥",
                     value = "${stats.streak.current}",
-                    label = "Current",
+                    label = stringResource(R.string.label_stat_current),
                     modifier = Modifier.weight(1f)
                 )
                 StatBox(
                     emoji = "🏆",
                     value = "${stats.streak.best}",
-                    label = "Best",
+                    label = stringResource(R.string.label_stat_best),
                     modifier = Modifier.weight(1f)
                 )
                 StatBox(
                     emoji = "📊",
                     value = "${(stats.completionRate30d * 100).roundToInt()}%",
-                    label = "Total",
+                    label = stringResource(R.string.label_stat_total),
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -469,7 +469,7 @@ private fun HabitStatsCard(
 
             // ---- 7-day sparkline (visible in both collapsed and expanded views) ----
             Text(
-                text = "📈 Trend (Last 7 days)",
+                text = stringResource(R.string.label_trend_7d),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -563,7 +563,7 @@ private fun ExpandedSection(stats: PerHabitStats, completions: List<HabitComplet
 
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "📊 ${days.sumOf { it.count }} completions in this range",
+            text = stringResource(R.string.label_completions_range, days.sumOf { it.count }),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -646,7 +646,7 @@ private fun AiDataCard(title: String, content: @Composable () -> Unit) {
  */
 @Composable
 private fun SmartInsightCard(stats: PerHabitStats) {
-    AiDataCard(title = "✨ AI Smart Insight") {
+    AiDataCard(title = stringResource(R.string.card_smart_insight_title)) {
         Text(
             text = stringResource(motivationKeyToRes(stats.motivationMessageKey)),
             style = MaterialTheme.typography.bodySmall
@@ -654,16 +654,16 @@ private fun SmartInsightCard(stats: PerHabitStats) {
         if (stats.isStreakAtRisk) {
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "⚠️ Streak at risk — you tend to miss this habit on a recurring day. Stay alert!",
+                text = stringResource(R.string.insight_streak_at_risk),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error
             )
         }
         Spacer(Modifier.height(6.dp))
         val targetText = when {
-            stats.targetDelta > 0 -> "📈 You're consistently hitting the target — consider raising it by 1."
-            stats.targetDelta < 0 -> "📉 This habit may be too demanding right now — try reducing the target by 1."
-            else                  -> "✅ Your target is well-calibrated for your current pace."
+            stats.targetDelta > 0 -> stringResource(R.string.insight_raise_target)
+            stats.targetDelta < 0 -> stringResource(R.string.insight_lower_target)
+            else                  -> stringResource(R.string.insight_target_calibrated)
         }
         Text(text = targetText, style = MaterialTheme.typography.bodySmall)
     }
@@ -675,22 +675,22 @@ private fun SmartInsightCard(stats: PerHabitStats) {
  */
 @Composable
 private fun OptimalTimingCard(optimalHours: List<Int>) {
-    AiDataCard(title = "🕒 Optimal Timing") {
+    AiDataCard(title = stringResource(R.string.card_optimal_timing_title)) {
         if (optimalHours.isEmpty()) {
             Text(
-                text = "Not enough data yet. A few more completions will reveal your best times.",
+                text = stringResource(R.string.optimal_no_data),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
             Text(
-                text = "Best times: ${optimalHours.joinToString(" · ") { formatHour(it) }}",
+                text = stringResource(R.string.optimal_best_times, optimalHours.joinToString(" · ") { formatHour(it) }),
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Based on your successful completion history.",
+                text = stringResource(R.string.optimal_based_on_history),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -708,22 +708,22 @@ private fun BehavioralPatternsCard(
     routinePrecision: Double?,
     resilience: Double?
 ) {
-    AiDataCard(title = "🧠 Behavioral Patterns") {
+    AiDataCard(title = stringResource(R.string.card_behavioral_patterns_title)) {
         if (relatedHabitNames.isNotEmpty()) {
             Text(
-                text = "Often done together: ${relatedHabitNames.take(3).joinToString(", ")}",
+                text = stringResource(R.string.patterns_often_together, relatedHabitNames.take(3).joinToString(", ")),
                 style = MaterialTheme.typography.bodySmall
             )
             Spacer(Modifier.height(4.dp))
         }
         val precisionText = routinePrecision?.let {
-            "Routine window: ±${it.roundToInt()} min"
-        } ?: "No consistent completion time detected yet."
+            stringResource(R.string.patterns_routine_window, it.roundToInt())
+        } ?: stringResource(R.string.patterns_no_routine)
         Text(text = precisionText, style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(4.dp))
         val resilienceText = resilience?.let {
-            "Recovery speed: ~${it.roundToInt()} period(s) after a gap"
-        } ?: "No recovery events recorded yet."
+            stringResource(R.string.patterns_recovery_speed, it.roundToInt())
+        } ?: stringResource(R.string.patterns_no_recovery)
         Text(text = resilienceText, style = MaterialTheme.typography.bodySmall)
     }
 }
@@ -773,10 +773,10 @@ private fun EmptyHabitsHint() {
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = "No habits yet", style = MaterialTheme.typography.titleMedium)
+            Text(text = stringResource(R.string.empty_no_habits_title), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Create your first habit to start seeing statistics.",
+                text = stringResource(R.string.empty_no_habits_subtitle),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

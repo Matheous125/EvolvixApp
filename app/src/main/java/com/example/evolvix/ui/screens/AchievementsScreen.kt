@@ -1,5 +1,6 @@
 package com.example.evolvix.ui.screens
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,22 +15,25 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.evolvix.R
 import com.example.evolvix.data.model.AchievementEntity
 import com.example.evolvix.domain.model.AchievementDefinition
 import com.example.evolvix.domain.model.AchievementGroup
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 
-/** Maps an [AchievementGroup] enum value to a human-readable display label. */
-private fun AchievementGroup.displayName(): String = when (this) {
-    AchievementGroup.GETTING_STARTED -> "Getting Started"
-    AchievementGroup.STREAKS         -> "Streaks & Consistency"
-    AchievementGroup.MILESTONES      -> "Lifetime Milestones"
-    AchievementGroup.TIME_OF_DAY     -> "Time of Day"
-    AchievementGroup.WEEKLY          -> "Weekly Warriors"
-    AchievementGroup.ORGANIZATION    -> "Organization & Variety"
-    AchievementGroup.GOD_TIER        -> "God Tier"
+/** Maps an [AchievementGroup] enum value to its string resource ID. */
+@StringRes
+private fun AchievementGroup.titleResId(): Int = when (this) {
+    AchievementGroup.GETTING_STARTED -> R.string.achievement_group_getting_started
+    AchievementGroup.STREAKS         -> R.string.achievement_group_streaks
+    AchievementGroup.MILESTONES      -> R.string.achievement_group_milestones
+    AchievementGroup.TIME_OF_DAY     -> R.string.achievement_group_time_of_day
+    AchievementGroup.WEEKLY          -> R.string.achievement_group_weekly
+    AchievementGroup.ORGANIZATION    -> R.string.achievement_group_organization
+    AchievementGroup.GOD_TIER        -> R.string.achievement_group_god_tier
 }
 
 /**
@@ -118,7 +122,7 @@ fun AchievementsScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Achievements") },
+                title = { Text(stringResource(R.string.screen_achievements_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 ),
@@ -149,7 +153,7 @@ fun AchievementsScreen(
             if (latestItems.isNotEmpty()) {
                 item(key = "latest_header") {
                     SectionHeader(
-                        title = "Latest",
+                        title = stringResource(R.string.section_latest),
                         expanded = latestExpanded,
                         onToggle = { latestExpanded = !latestExpanded }
                     )
@@ -174,7 +178,7 @@ fun AchievementsScreen(
 
                 item(key = "group_header_${group.name}") {
                     SectionHeader(
-                        title = group.displayName(),
+                        title = stringResource(group.titleResId()),
                         expanded = expanded,
                         onToggle = { groupExpanded[group] = !expanded }
                     )
@@ -224,13 +228,13 @@ private fun TotalPointsCard(earned: Int, max: Int) {
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "$earned pts",
+                        text = stringResource(R.string.achievement_pts_earned, earned),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "of $max total points",
+                        text = stringResource(R.string.achievement_pts_of_max, max),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -278,7 +282,7 @@ private fun SectionHeader(
         )
         Icon(
             imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-            contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+            contentDescription = if (expanded) stringResource(R.string.cd_collapse_section, title) else stringResource(R.string.cd_expand_section, title),
             tint = MaterialTheme.colorScheme.primary
         )
     }
@@ -372,7 +376,7 @@ private fun AchievementRow(
                 tonalElevation = if (isUnlocked) 0.dp else 2.dp
             ) {
                 Text(
-                    text = "${definition.points} pts",
+                    text = stringResource(R.string.achievement_pts_badge, definition.points),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = if (isUnlocked)

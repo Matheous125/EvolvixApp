@@ -13,8 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.usecase.ExportHistoryUseCase
@@ -109,12 +111,12 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("$habitName — History") },
+                title = { Text(stringResource(R.string.screen_history_title, habitName)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.cd_navigate_back)
                         )
                     }
                 },
@@ -130,7 +132,7 @@ fun HistoryScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.FileDownload,
-                            contentDescription = "Export history as JSON"
+                            contentDescription = stringResource(R.string.cd_export_json)
                         )
                     }
                 },
@@ -143,7 +145,7 @@ fun HistoryScreen(
         floatingActionButton = {
             // FAB opens the retroactive-add dialog.
             FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Filled.Add, contentDescription = "Add retroactive entry")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.cd_add_retroactive))
             }
         }
     ) { innerPadding ->
@@ -157,7 +159,7 @@ fun HistoryScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No history yet.\nTap + to add a retroactive entry.",
+                    text = stringResource(R.string.empty_history),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -245,18 +247,18 @@ fun HistoryScreen(
     deletingEntry?.let { entry ->
         AlertDialog(
             onDismissRequest = { deletingEntry = null },
-            title = { Text("Delete entry?") },
+            title = { Text(stringResource(R.string.dialog_delete_entry_title)) },
             text = {
-                Text("Remove completion from ${entry.progressUpdate.format(fullDateFormatter)}?")
+                Text(stringResource(R.string.dialog_delete_entry_body, entry.progressUpdate.format(fullDateFormatter)))
             },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteCompletion(entry.id)
                     deletingEntry = null
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.btn_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { deletingEntry = null }) { Text("Cancel") }
+                TextButton(onClick = { deletingEntry = null }) { Text(stringResource(R.string.btn_cancel)) }
             }
         )
     }
@@ -300,7 +302,7 @@ private fun YearHeader(year: Int, collapsed: Boolean, onToggle: () -> Unit) {
             Icon(
                 imageVector = if (collapsed) Icons.Filled.KeyboardArrowDown
                               else Icons.Filled.KeyboardArrowUp,
-                contentDescription = if (collapsed) "Expand year" else "Collapse year"
+                contentDescription = if (collapsed) stringResource(R.string.cd_expand_year) else stringResource(R.string.cd_collapse_year)
             )
         }
     }
@@ -339,7 +341,7 @@ private fun MonthHeader(
             Icon(
                 imageVector = if (collapsed) Icons.Filled.KeyboardArrowDown
                               else Icons.Filled.KeyboardArrowUp,
-                contentDescription = if (collapsed) "Expand month" else "Collapse month"
+                contentDescription = if (collapsed) stringResource(R.string.cd_expand_month) else stringResource(R.string.cd_collapse_month)
             )
         }
     }
@@ -385,7 +387,7 @@ private fun CompletionEntryRow(
             if (entry.isTargetReached) {
                 AssistChip(
                     onClick = {},
-                    label = { Text("Target") },
+                    label = { Text(stringResource(R.string.label_target_reached)) },
                     leadingIcon = {
                         Icon(
                             Icons.Filled.CheckCircle,
@@ -399,14 +401,14 @@ private fun CompletionEntryRow(
 
             // Edit icon
             IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "Edit entry")
+                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.cd_edit_entry))
             }
 
             // Delete icon
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Delete entry",
+                    contentDescription = stringResource(R.string.cd_delete_entry),
                     tint = MaterialTheme.colorScheme.error
                 )
             }
@@ -476,19 +478,19 @@ private fun EditCompletionDialog(
                 TextButton(
                     onClick = { showTimePicker = true },
                     enabled = datePickerState.selectedDateMillis != null
-                ) { Text("Next") }
+                ) { Text(stringResource(R.string.btn_next)) }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
             }
         ) {
             DatePicker(state = datePickerState, showModeToggle = false)
         }
     } else {
-        // ── Step 2: pick a time ───────────────────────────────────────────────
+        // ── Step 2: pick a time ────────────────────────────────────────
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Select time") },
+            title = { Text(stringResource(R.string.dialog_select_time)) },
             text = {
                 // TimeInput respects the system 24h / AM-PM preference automatically.
                 TimeInput(state = timePickerState)
@@ -509,11 +511,11 @@ private fun EditCompletionDialog(
                             )
                         )
                     )
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.btn_save)) }
             },
             dismissButton = {
                 // "Back" returns to the date step rather than closing the whole flow.
-                TextButton(onClick = { showTimePicker = false }) { Text("Back") }
+                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.btn_back)) }
             }
         )
     }
@@ -564,10 +566,10 @@ private fun RetroactiveAddDialog(
                 TextButton(
                     onClick = { showTimePicker = true },
                     enabled = datePickerState.selectedDateMillis != null
-                ) { Text("Next") }
+                ) { Text(stringResource(R.string.btn_next)) }
             },
             dismissButton = {
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
             }
         ) {
             DatePicker(state = datePickerState, showModeToggle = false)
@@ -575,7 +577,7 @@ private fun RetroactiveAddDialog(
     } else {
         AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("Select time") },
+            title = { Text(stringResource(R.string.dialog_select_time)) },
             text = {
                 TimeInput(state = timePickerState)
             },
@@ -591,10 +593,10 @@ private fun RetroactiveAddDialog(
                         LocalDateTime.of(date, LocalTime.of(timePickerState.hour, timePickerState.minute)),
                         false
                     )
-                }) { Text("Add") }
+                }) { Text(stringResource(R.string.btn_add)) }
             },
             dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("Back") }
+                TextButton(onClick = { showTimePicker = false }) { Text(stringResource(R.string.btn_back)) }
             }
         )
     }

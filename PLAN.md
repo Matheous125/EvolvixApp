@@ -310,7 +310,10 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **View:** New `ui/screens/SettingsScreen.kt` — profile header (Name + Rank from achievements), theme selector, language selector, daily summary enabler/disabler (I think just some sort of "switch" will be enough") Help, Feedback (`Intent.ACTION_SENDTO`), Change Password placeholder, Login/Logout placeholder.
 - [x] **Theme:** Update `ui/theme/Theme.kt` — full Light/Dark/Auto. Status bar icon contrast handled via `WindowCompat`.
 - [ ] **Localization:** Add `res/values-pl/strings.xml`. Convert all natural-language builders to `<plurals>` (1 dzień / 2 dni / 5 dni).
-- [ ] **Onboarding:** New `ui/screens/OnboardingScreen.kt` — 3-tab demo with dummy data, shown once via `DataStore` flag (Pattern: **Preferences as Repository**).
+  - [x] Part A — Screens (all Composables)
+  - [ ] Part B — Notifications + Workers + domain strings
+  - [ ] Part C — Achievement definitions + plurals + MotivationMessageUseCase templates
+- [ ] **Onboarding:** New `ui/screens/OnboardingScreen.kt` —  single welcome screen (one pager page, not three) with the app name, a one-sentence pitch, and a "Get Started" button wired to the DataStore flag. (Pattern: **Preferences as Repository**).
 - [ ] **UI hints:** Pulsing FAB / tap-to-complete glow on first launch (Compose `infiniteTransition`).
 - [ ] **Empty states:** Implement copy from `IDEAS.MD §6.4` for Home, Statistics, Achievements.
 

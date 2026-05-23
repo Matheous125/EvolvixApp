@@ -2,6 +2,7 @@ package com.example.evolvix.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,8 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.evolvix.R
 import com.example.evolvix.domain.model.AchievementDefinition
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.SettingsViewModel
@@ -27,17 +30,18 @@ import com.example.evolvix.ui.viewmodel.ThemeMode
 // ── Rank helpers ──────────────────────────────────────────────────────────────
 
 /**
- * Maps a total achievement-points score to a display rank label.
+ * Maps a total achievement-points score to a string resource ID for the rank label.
  * Thresholds are spaced relative to [AchievementDefinition.maxPoints] so that
  * a user who completes the full achievement tree reaches "Legend".
  */
-private fun rankLabel(points: Int): String = when {
-    points < 100  -> "Beginner"
-    points < 300  -> "Apprentice"
-    points < 600  -> "Practitioner"
-    points < 1000 -> "Expert"
-    points < 2000 -> "Master"
-    else          -> "Legend"
+@StringRes
+private fun rankResId(points: Int): Int = when {
+    points < 100  -> R.string.rank_beginner
+    points < 300  -> R.string.rank_apprentice
+    points < 600  -> R.string.rank_practitioner
+    points < 1000 -> R.string.rank_expert
+    points < 2000 -> R.string.rank_master
+    else          -> R.string.rank_legend
 }
 
 /**
@@ -96,7 +100,7 @@ fun SettingsScreen(
             .filter { it.unlockedAt != null }
             .sumOf { entity -> AchievementDefinition.fromKey(entity.key)?.points ?: 0 }
     }
-    val rank = remember(totalPoints) { rankLabel(totalPoints) }
+    val rank = stringResource(remember(totalPoints) { rankResId(totalPoints) })
 
     // Dialog visibility flags
     var showNameDialog     by remember { mutableStateOf(false) }
@@ -131,17 +135,10 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showHelpDialog = false },
             icon             = { Icon(Icons.AutoMirrored.Filled.Help, contentDescription = null) },
-            title            = { Text("Help") },
-            text             = {
-                Text(
-                    "Track your daily habits, earn achievements, and use AI-powered insights " +
-                    "to improve consistency.\n\n" +
-                    "Long-press any habit on the main screen for quick actions. " +
-                    "Tap a habit name in Statistics to see its full history."
-                )
-            },
+            title            = { Text(stringResource(R.string.dialog_help_title)) },
+            text             = { Text(stringResource(R.string.dialog_help_body)) },
             confirmButton    = {
-                TextButton(onClick = { showHelpDialog = false }) { Text("Got it") }
+                TextButton(onClick = { showHelpDialog = false }) { Text(stringResource(R.string.btn_got_it)) }
             }
         )
     }
@@ -151,10 +148,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title  = { Text("Settings") },
+                title  = { Text(stringResource(R.string.screen_settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.cd_navigate_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -187,7 +184,7 @@ fun SettingsScreen(
 
             // ── 2. Appearance ─────────────────────────────────────────────────
             item(key = "section_appearance") {
-                SettingsSectionHeader(title = "Appearance")
+                SettingsSectionHeader(title = stringResource(R.string.section_appearance))
             }
             item(key = "theme_selector") {
                 ThemeSelectorRow(
@@ -198,8 +195,8 @@ fun SettingsScreen(
             item(key = "language_selector") {
                 SettingsListItem(
                     icon        = Icons.Filled.Language,
-                    title       = "Language",
-                    subtitle    = if (languageCode == "pl") "Polski" else "English",
+                    title       = stringResource(R.string.dialog_language_title),
+                    subtitle    = if (languageCode == "pl") stringResource(R.string.language_polish) else stringResource(R.string.language_english),
                     onClick     = { showLanguageDialog = true }
                 )
             }
@@ -207,13 +204,13 @@ fun SettingsScreen(
             // ── 3. Notifications ──────────────────────────────────────────────
             item(key = "section_notifications") {
                 Spacer(Modifier.height(8.dp))
-                SettingsSectionHeader(title = "Notifications")
+                SettingsSectionHeader(title = stringResource(R.string.section_notifications))
             }
             item(key = "daily_summary_switch") {
                 SettingsSwitchRow(
                     icon     = Icons.Filled.Notifications,
-                    title    = "Daily Summary",
-                    subtitle = "Receive a daily habits recap notification",
+                    title    = stringResource(R.string.label_daily_summary),
+                    subtitle = stringResource(R.string.subtitle_daily_summary),
                     checked  = summaryEnabled,
                     onCheckedChange = settingsViewModel::setDailySummaryEnabled
                 )
@@ -222,21 +219,21 @@ fun SettingsScreen(
             // ── 4. Account ────────────────────────────────────────────────────
             item(key = "section_account") {
                 Spacer(Modifier.height(8.dp))
-                SettingsSectionHeader(title = "Account")
+                SettingsSectionHeader(title = stringResource(R.string.section_account))
             }
             item(key = "change_password") {
                 SettingsListItem(
                     icon     = Icons.Filled.Lock,
-                    title    = "Change Password",
-                    subtitle = "Available after signing in (Phase 9)",
+                    title    = stringResource(R.string.menu_change_password),
+                    subtitle = stringResource(R.string.subtitle_change_password),
                     onClick  = { /* Phase 9 placeholder */ }
                 )
             }
             item(key = "login_logout") {
                 SettingsListItem(
                     icon     = Icons.Filled.AccountCircle,
-                    title    = "Login / Logout",
-                    subtitle = "Cloud sync available in a future update",
+                    title    = stringResource(R.string.menu_login_logout),
+                    subtitle = stringResource(R.string.subtitle_login_logout),
                     onClick  = { /* Phase 10 placeholder */ }
                 )
             }
@@ -244,20 +241,20 @@ fun SettingsScreen(
             // ── 5. Support ────────────────────────────────────────────────────
             item(key = "section_support") {
                 Spacer(Modifier.height(8.dp))
-                SettingsSectionHeader(title = "Support")
+                SettingsSectionHeader(title = stringResource(R.string.section_support))
             }
             item(key = "help") {
                 SettingsListItem(
                     icon    = Icons.AutoMirrored.Filled.Help,
-                    title   = "Help",
+                    title   = stringResource(R.string.menu_help),
                     onClick = { showHelpDialog = true }
                 )
             }
             item(key = "feedback") {
                 SettingsListItem(
                     icon    = Icons.AutoMirrored.Filled.Send,
-                    title   = "Feedback",
-                    subtitle = "Send us your thoughts",
+                    title   = stringResource(R.string.menu_feedback),
+                    subtitle = stringResource(R.string.subtitle_feedback),
                     onClick = {
                         // Opens the user's default mail client with a pre-filled recipient.
                         // ACTION_SENDTO with a mailto: URI is the recommended pattern for
@@ -329,7 +326,7 @@ private fun ProfileCard(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text  = "$rank · $totalPoints pts",
+                        text  = stringResource(R.string.label_rank_points, rank, totalPoints),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -338,7 +335,7 @@ private fun ProfileCard(
 
             // Edit name button
             IconButton(onClick = onEditName) {
-                Icon(Icons.Filled.Edit, contentDescription = "Edit name")
+                Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.cd_edit_name))
             }
         }
     }
@@ -367,9 +364,9 @@ private fun ThemeSelectorRow(
     onSelect: (ThemeMode) -> Unit
 ) {
     val options = listOf(
-        ThemeMode.LIGHT  to "Light",
-        ThemeMode.DARK   to "Dark",
-        ThemeMode.SYSTEM to "System"
+        ThemeMode.LIGHT  to stringResource(R.string.theme_light),
+        ThemeMode.DARK   to stringResource(R.string.theme_dark),
+        ThemeMode.SYSTEM to stringResource(R.string.theme_system)
     )
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(
@@ -383,7 +380,7 @@ private fun ThemeSelectorRow(
                 modifier         = Modifier.size(24.dp)
             )
             Spacer(Modifier.width(16.dp))
-            Text("Theme", style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.label_theme), style = MaterialTheme.typography.bodyLarge)
         }
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, (mode, label) ->
@@ -482,21 +479,21 @@ private fun EditNameDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon  = { Icon(Icons.Filled.Edit, contentDescription = null) },
-        title = { Text("Display Name") },
+        title = { Text(stringResource(R.string.dialog_edit_name_title)) },
         text  = {
             OutlinedTextField(
                 value         = value,
                 onValueChange = { if (it.length <= 30) value = it },
-                label         = { Text("Name") },
+                label         = { Text(stringResource(R.string.hint_display_name)) },
                 singleLine    = true,
-                supportingText = { Text("${value.length}/30") }
+                supportingText = { Text(stringResource(R.string.label_name_char_count, value.length)) }
             )
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(value) }) { Text("Save") }
+            TextButton(onClick = { onConfirm(value) }) { Text(stringResource(R.string.btn_save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
         }
     )
 }
@@ -515,7 +512,7 @@ private fun LanguagePickerDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon  = { Icon(Icons.Filled.Language, contentDescription = null) },
-        title = { Text("Language") },
+        title = { Text(stringResource(R.string.dialog_language_title)) },
         text  = {
             Column {
                 languages.forEach { (code, label) ->
@@ -531,16 +528,10 @@ private fun LanguagePickerDialog(
                         Text(label, style = MaterialTheme.typography.bodyLarge)
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Full Polish localization arrives in Phase 8.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_close)) }
         }
     )
 }

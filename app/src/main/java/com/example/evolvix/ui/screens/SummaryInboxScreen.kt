@@ -25,9 +25,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.evolvix.R
 import com.example.evolvix.data.model.DailySummaryEntity
 import com.example.evolvix.ui.viewmodel.SummaryInboxViewModel
 import com.example.evolvix.ui.viewmodel.SummaryInboxViewModelFactory
@@ -58,19 +60,19 @@ fun SummaryInboxScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Daily summaries") },
+                title = { Text(stringResource(R.string.screen_summaries_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.cd_back)
                         )
                     }
                 },
                 actions = {
                     if (unread > 0) {
                         TextButton(onClick = { viewModel.markAllRead() }) {
-                            Text("Mark all read")
+                            Text(stringResource(R.string.btn_mark_all_read))
                         }
                     }
                 },
@@ -138,7 +140,7 @@ private fun EmptyInbox(padding: PaddingValues) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "No summaries yet.\nCheck back tomorrow.",
+            text = stringResource(R.string.empty_summaries),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

@@ -1,0 +1,236 @@
+<resources>
+    <string name="app_name">Evolvix</string>
+
+    <!-- ── Tytuły ekranów ── -->
+    <string name="screen_main_title">Moje nawyki</string>
+    <string name="screen_add_habit_title">Utwórz nowy nawyk</string>
+    <string name="screen_edit_habit_title">Edytuj nawyk</string>
+    <string name="screen_statistics_title">Statystyki</string>
+    <string name="screen_achievements_title">Osiągnięcia</string>
+    <string name="screen_settings_title">Ustawienia</string>
+    <string name="screen_history_title">%1$s — Historia</string>
+    <string name="screen_summaries_title">Dzienne podsumowania</string>
+
+    <!-- ── Przyciski ── -->
+    <string name="btn_cancel">Anuluj</string>
+    <string name="btn_save">Zapisz</string>
+    <string name="btn_delete">Usuń</string>
+    <string name="btn_create">Utwórz</string>
+    <string name="btn_add">Dodaj</string>
+    <string name="btn_done">Gotowe</string>
+    <string name="btn_ok">OK</string>
+    <string name="btn_next">Dalej</string>
+    <string name="btn_back">Wróć</string>
+    <string name="btn_got_it">Rozumiem</string>
+    <string name="btn_close">Zamknij</string>
+    <string name="btn_create_habit">Utwórz nawyk</string>
+    <string name="btn_save_changes">Zapisz zmiany</string>
+    <string name="btn_mark_all_read">Oznacz wszystkie jako przeczytane</string>
+    <string name="btn_new_group">Nowa grupa</string>
+    <string name="btn_clear_filters">Wyczyść</string>
+    <string name="btn_add_category">+ Dodaj</string>
+    <string name="btn_pause_indefinitely">Wstrzymaj bezterminowo</string>
+    <string name="btn_choose_end_date">Wybierz datę końcową</string>
+
+    <!-- ── Opisy dostępności ── -->
+    <string name="cd_navigate_back">Wróć</string>
+    <string name="cd_back">Wróć</string>
+    <string name="cd_sort_order">Kolejność sortowania</string>
+    <string name="cd_settings">Ustawienia</string>
+    <string name="cd_daily_summaries">Dzienne podsumowania</string>
+    <string name="cd_debug_menu">Menu debugowania</string>
+    <string name="cd_search_habits">Szukaj nawyków</string>
+    <string name="cd_close_search">Zamknij wyszukiwanie</string>
+    <string name="cd_clear_filters">Wyczyść filtry</string>
+    <string name="cd_drag_reorder">Przeciągnij, aby zmienić kolejność</string>
+    <string name="cd_export_json">Eksportuj historię jako JSON</string>
+    <string name="cd_add_retroactive">Dodaj wpis wsteczny</string>
+    <string name="cd_edit_entry">Edytuj wpis</string>
+    <string name="cd_delete_entry">Usuń wpis</string>
+    <string name="cd_more_options">Więcej opcji</string>
+    <string name="cd_seed_test_data">Wypełnij testowymi danymi</string>
+    <string name="cd_paused">Wstrzymany</string>
+    <string name="cd_edit_name">Edytuj nazwę</string>
+    <string name="cd_collapse_summary">Zwiń podsumowanie</string>
+    <string name="cd_expand_summary">Rozwiń podsumowanie</string>
+    <string name="cd_collapse">Zwiń</string>
+    <string name="cd_expand">Rozwiń</string>
+    <string name="cd_collapse_section">Zwiń %1$s</string>
+    <string name="cd_expand_section">Rozwiń %1$s</string>
+    <string name="cd_expand_year">Rozwiń rok</string>
+    <string name="cd_collapse_year">Zwiń rok</string>
+    <string name="cd_expand_month">Rozwiń miesiąc</string>
+    <string name="cd_collapse_month">Zwiń miesiąc</string>
+
+    <!-- ── Tryby sortowania ── -->
+    <string name="sort_default">Domyślna</string>
+    <string name="sort_name_asc">Nazwa (A–Z)</string>
+    <string name="sort_name_desc">Nazwa (Z–A)</string>
+    <string name="sort_cadence_asc">Częstotliwość (szybka → wolna)</string>
+    <string name="sort_cadence_desc">Częstotliwość (wolna → szybka)</string>
+    <string name="sort_by_category">Według kategorii</string>
+    <string name="sort_custom">Własna</string>
+
+    <!-- ── Ekran główny ── -->
+    <string name="hint_search">Szukaj…</string>
+    <string name="label_category_other">Inne</string>
+    <string name="dialog_new_group_title">Nowa grupa</string>
+    <string name="hint_group_name">Nazwa grupy</string>
+    <string name="dialog_delete_group_title">Usunąć „%1$s"?</string>
+    <string name="dialog_delete_group_empty">Usunąć tę pustą grupę?</string>
+
+    <!-- ── Dodawanie / edycja nawyku ── -->
+    <string name="label_habit_name">Nazwa nawyku</string>
+    <string name="error_name_empty">Nazwa nie może być pusta</string>
+    <string name="error_name_duplicate">Nawyk o tej nazwie już istnieje</string>
+    <string name="section_templates">Zacznij od szablonu</string>
+    <string name="section_categories">Kategorie</string>
+    <string name="dialog_new_category_title">Nowa kategoria</string>
+    <string name="hint_category_name">Nazwa kategorii</string>
+    <string name="section_color_theme">Motyw kolorów</string>
+    <string name="label_repeat_every">Powtarzaj co</string>
+    <string name="label_target">Cel:</string>
+    <string name="label_times">razy</string>
+    <string name="error_target_invalid">Cel musi być większy niż 0</string>
+    <string name="label_smart_reminders">Inteligentne przypomnienia</string>
+    <string name="subtitle_smart_reminders">AI powiadomi Cię, gdy będzie właściwy moment</string>
+    <string name="section_emoji">Emoji</string>
+    <string name="hint_emoji">Dotknij, aby wybrać emoji</string>
+    <string name="menu_reset_progress">Resetuj postęp</string>
+    <string name="menu_delete">Usuń</string>
+    <string name="dialog_delete_habit_title">Usuń nawyk</string>
+    <string name="dialog_delete_habit_text">Czy na pewno chcesz usunąć ten nawyk? Tej operacji nie można cofnąć.</string>
+    <string name="dialog_error_title">Błąd</string>
+    <string name="error_update_habit">Nie udało się zaktualizować nawyku. Spróbuj ponownie.</string>
+
+    <!-- ── Ekran historii ── -->
+    <string name="empty_history">Brak historii.\nDotknij +, aby dodać wpis wsteczny.</string>
+    <string name="dialog_delete_entry_title">Usunąć wpis?</string>
+    <string name="dialog_delete_entry_body">Usunąć ukończenie z %1$s?</string>
+    <string name="label_target_reached">Cel</string>
+    <string name="dialog_select_time">Wybierz godzinę</string>
+
+    <!-- ── Ekran osiągnięć ── -->
+    <string name="section_latest">Ostatnie</string>
+    <string name="achievement_group_getting_started">Pierwsze kroki</string>
+    <string name="achievement_group_streaks">Passy i konsekwencja</string>
+    <string name="achievement_group_milestones">Kamienie milowe</string>
+    <string name="achievement_group_time_of_day">Pora dnia</string>
+    <string name="achievement_group_weekly">Wojownicy tygodnia</string>
+    <string name="achievement_group_organization">Organizacja i różnorodność</string>
+    <string name="achievement_group_god_tier">Poziom boga</string>
+    <string name="achievement_pts_earned">%1$d pkt</string>
+    <string name="achievement_pts_of_max">z %1$d punktów ogółem</string>
+    <string name="achievement_pts_badge">%1$d pkt</string>
+
+    <!-- ── Ekran statystyk ── -->
+    <string name="card_overview_title">📊 Przegląd</string>
+    <string name="label_this_week_pct">Ten tydzień: %1$d%%</string>
+    <string name="label_today_habits">%1$d/%2$d nawyków ukończonych dziś</string>
+    <string name="card_life_balance_title">⚖️ Balans życiowy (ostatnie 30 dni)</string>
+    <string name="empty_life_balance">Przypisz kategorie do nawyków, aby zobaczyć balans.</string>
+    <string name="card_ai_insight_title">💡 Wgląd AI</string>
+    <string name="card_ai_insight_placeholder">Rekomendacje balansowe oparte na AI pojawią się tutaj po włączeniu modelu on-device (Faza 6).</string>
+    <string name="card_smart_insight_title">✨ Inteligentna analiza AI</string>
+    <string name="card_optimal_timing_title">🕒 Optymalny czas</string>
+    <string name="card_behavioral_patterns_title">🧠 Wzorce zachowań</string>
+    <string name="label_stat_current">Obecna</string>
+    <string name="label_stat_best">Najlepsza</string>
+    <string name="label_stat_total">Razem</string>
+    <string name="label_trend_7d">📈 Trend (ostatnie 7 dni)</string>
+    <string name="label_completions_range">📊 %1$d ukończeń w tym zakresie</string>
+    <string name="insight_streak_at_risk">⚠️ Passa zagrożona — masz tendencję do pomijania tego nawyku w danym dniu. Bądź czujny!</string>
+    <string name="insight_raise_target">📈 Konsekwentnie osiągasz cel — rozważ podniesienie go o 1.</string>
+    <string name="insight_lower_target">📉 Ten nawyk może być teraz zbyt wymagający — spróbuj obniżyć cel o 1.</string>
+    <string name="insight_target_calibrated">✅ Twój cel jest dobrze skalibrowany do obecnego tempa.</string>
+    <string name="optimal_no_data">Za mało danych. Jeszcze kilka ukończeń ujawni Twoje najlepsze pory.</string>
+    <string name="optimal_best_times">Najlepsze pory: %1$s</string>
+    <string name="optimal_based_on_history">Na podstawie historii Twoich ukończeń.</string>
+    <string name="patterns_often_together">Często wykonywane razem: %1$s</string>
+    <string name="patterns_routine_window">Okno rutyny: ±%1$d min</string>
+    <string name="patterns_no_routine">Nie wykryto jeszcze stałej pory wykonywania.</string>
+    <string name="patterns_recovery_speed">Szybkość powrotu: ~%1$d okres(y) po przerwie</string>
+    <string name="patterns_no_recovery">Nie zarejestrowano jeszcze żadnych powrotów.</string>
+    <string name="empty_no_habits_title">Brak nawyków</string>
+    <string name="empty_no_habits_subtitle">Utwórz pierwszy nawyk, aby zobaczyć statystyki.</string>
+
+    <!-- ── Ustawienia ── -->
+    <string name="section_appearance">Wygląd</string>
+    <string name="section_notifications">Powiadomienia</string>
+    <string name="section_account">Konto</string>
+    <string name="section_support">Pomoc</string>
+    <string name="label_theme">Motyw</string>
+    <string name="theme_light">Jasny</string>
+    <string name="theme_dark">Ciemny</string>
+    <string name="theme_system">Systemowy</string>
+    <string name="dialog_language_title">Język</string>
+    <string name="language_english">English</string>
+    <string name="language_polish">Polski</string>
+    <string name="label_daily_summary">Dzienne podsumowanie</string>
+    <string name="subtitle_daily_summary">Otrzymuj codzienne powiadomienie z podsumowaniem nawyków</string>
+    <string name="menu_change_password">Zmień hasło</string>
+    <string name="subtitle_change_password">Dostępne po zalogowaniu (Faza 9)</string>
+    <string name="menu_login_logout">Zaloguj / Wyloguj</string>
+    <string name="subtitle_login_logout">Synchronizacja w chmurze dostępna w przyszłej aktualizacji</string>
+    <string name="menu_help">Pomoc</string>
+    <string name="menu_feedback">Opinia</string>
+    <string name="subtitle_feedback">Podziel się swoją opinią</string>
+    <string name="dialog_help_title">Pomoc</string>
+    <string name="dialog_help_body">Śledź swoje nawyki, zdobywaj osiągnięcia i korzystaj z analizy AI, aby poprawić konsekwencję.\n\nPrzytrzymaj nawyk na ekranie głównym, aby uzyskać szybkie akcje. Dotknij nazwy nawyku w Statystykach, aby zobaczyć jego pełną historię.</string>
+    <string name="dialog_edit_name_title">Nazwa wyświetlana</string>
+    <string name="hint_display_name">Nazwa</string>
+    <string name="label_name_char_count">%1$d/30</string>
+    <string name="label_rank_points">%1$s · %2$d pkt</string>
+    <string name="rank_beginner">Początkujący</string>
+    <string name="rank_apprentice">Adept</string>
+    <string name="rank_practitioner">Praktykant</string>
+    <string name="rank_expert">Ekspert</string>
+    <string name="rank_master">Mistrz</string>
+    <string name="rank_legend">Legenda</string>
+
+    <!-- ── Skrzynka odbiorcza ── -->
+    <string name="empty_summaries">Brak podsumowań.\nSprawdź jutro.</string>
+
+    <!-- ── Menu kontekstowe ── -->
+    <string name="menu_mark_progress">Oznacz postęp</string>
+    <string name="menu_go_to_statistics">Przejdź do statystyk</string>
+    <string name="menu_pause_habit">Wstrzymaj nawyk</string>
+    <string name="menu_resume_habit">Wznów nawyk</string>
+    <string name="menu_view_history">Wyświetl historię</string>
+    <string name="menu_edit_habit">Edytuj nawyk</string>
+    <string name="menu_reorder_habits">Zmień kolejność nawyków</string>
+    <string name="dialog_context_delete_title">Usuń nawyk</string>
+    <string name="dialog_context_delete_body">„%1$s" zostanie trwale usunięty.</string>
+    <string name="toast_paused_indefinitely">Nawyk wstrzymany bezterminowo</string>
+    <string name="toast_paused_until_date">Nawyk wstrzymany do wybranej daty</string>
+    <string name="toast_resumed">Nawyk wznowiony</string>
+
+    <!-- ── Arkusz pauzy ── -->
+    <string name="sheet_pause_habit_title">Wstrzymaj nawyk</string>
+
+    <!-- ── Baner osiągnięcia ── -->
+    <string name="banner_achievement_unlocked">Osiągnięcie odblokowane!</string>
+    <string name="banner_achievement_points">+%1$d pkt</string>
+
+    <!-- ── Powiadomienia (Faza 7) ── -->
+    <string name="reminder_action_done">Gotowe</string>
+    <string name="reminder_action_skip">Pomiń</string>
+    <string name="reminder_action_snooze">Odłóż 15 min</string>
+    <string name="daily_summary_title">Twoje nawyki dziś</string>
+    <string name="daily_summary_body">%1$d z %2$d nawyków ukończonych dziś — tydzień %3$d%%.</string>
+
+    <!-- ── Liczba mnoga: nawyki ── -->
+    <plurals name="dialog_delete_group_body">
+        <item quantity="one">Spowoduje to trwałe usunięcie grupy i %d nawyku wewnątrz niej.</item>
+        <item quantity="few">Spowoduje to trwałe usunięcie grupy i %d nawyki wewnątrz niej.</item>
+        <item quantity="many">Spowoduje to trwałe usunięcie grupy i %d nawyków wewnątrz niej.</item>
+        <item quantity="other">Spowoduje to trwałe usunięcie grupy i %d nawyków wewnątrz niej.</item>
+    </plurals>
+
+    <plurals name="btn_add_habits">
+        <item quantity="one">Dodaj %d nawyk</item>
+        <item quantity="few">Dodaj %d nawyki</item>
+        <item quantity="many">Dodaj %d nawyków</item>
+        <item quantity="other">Dodaj %d nawyków</item>
+    </plurals>
+</resources>

@@ -14,11 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.emoji2.emojipicker.EmojiPickerView
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitFrequency
 import com.example.evolvix.domain.model.FormError
@@ -53,7 +55,7 @@ private fun EmojiPickerField(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Emoji",
+            text = stringResource(R.string.section_emoji),
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -65,7 +67,7 @@ private fun EmojiPickerField(
             if (selectedEmoji != null) {
                 Text(text = selectedEmoji, style = MaterialTheme.typography.headlineMedium)
             } else {
-                Text(text = "Tap to pick an emoji", style = MaterialTheme.typography.bodyLarge)
+                Text(text = stringResource(R.string.hint_emoji), style = MaterialTheme.typography.bodyLarge)
             }
         }
     }
@@ -169,8 +171,8 @@ fun EditHabitScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Habit") },
-            text = { Text("Are you sure you want to delete this habit? This action cannot be undone.") },
+            title = { Text(stringResource(R.string.dialog_delete_habit_title)) },
+            text = { Text(stringResource(R.string.dialog_delete_habit_text)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -189,10 +191,10 @@ fun EditHabitScreen(
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error
                     )
-                ) { Text("Delete") }
+                ) { Text(stringResource(R.string.btn_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.btn_cancel)) }
             }
         )
     }
@@ -200,7 +202,7 @@ fun EditHabitScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Edit Habit") },
+                title = { Text(stringResource(R.string.screen_edit_habit_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 ),
@@ -209,7 +211,7 @@ fun EditHabitScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Navigate back"
+                            contentDescription = stringResource(R.string.cd_navigate_back)
                         )
                     }
                 },
@@ -219,7 +221,7 @@ fun EditHabitScreen(
                         IconButton(onClick = { showOverflowMenu = true }) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,
-                                contentDescription = "More options"
+                                contentDescription = stringResource(R.string.cd_more_options)
                             )
                         }
                         DropdownMenu(
@@ -228,11 +230,11 @@ fun EditHabitScreen(
                         ) {
                             // Placeholder — reset logic will be implemented in a later phase
                             DropdownMenuItem(
-                                text = { Text("Reset progress") },
+                                text = { Text(stringResource(R.string.menu_reset_progress)) },
                                 onClick = { showOverflowMenu = false }
                             )
                             DropdownMenuItem(
-                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                text = { Text(stringResource(R.string.menu_delete), color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     showOverflowMenu = false
                                     showDeleteDialog = true
@@ -280,11 +282,11 @@ fun EditHabitScreen(
                     showNameError = it.isEmpty()
                     habitViewModel.clearFormError()
                 },
-                label = { Text("Habit Name") },
+                label = { Text(stringResource(R.string.label_habit_name)) },
                 isError = showNameError || formError is FormError.DuplicateName,
                 supportingText = when {
-                    showNameError -> { { Text("Name cannot be empty") } }
-                    formError is FormError.DuplicateName -> { { Text("A habit with this name already exists") } }
+                    showNameError -> { { Text(stringResource(R.string.error_name_empty)) } }
+                    formError is FormError.DuplicateName -> { { Text(stringResource(R.string.error_name_duplicate)) } }
                     else -> null
                 },
                 modifier = Modifier
@@ -302,7 +304,7 @@ fun EditHabitScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Repeat every", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.label_repeat_every), style = MaterialTheme.typography.bodyLarge)
                 OutlinedTextField(
                     value = frequencyNString,
                     onValueChange = { input ->
@@ -353,7 +355,7 @@ fun EditHabitScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Target:", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.label_target), style = MaterialTheme.typography.bodyLarge)
                     OutlinedTextField(
                         value = targetString,
                         onValueChange = { input ->
@@ -375,11 +377,11 @@ fun EditHabitScreen(
                                 }
                             }
                     )
-                    Text("times", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.label_times), style = MaterialTheme.typography.bodyLarge)
                 }
                 if (showTargetError) {
                     Text(
-                        text = "Target must be greater than 0",
+                        text = stringResource(R.string.error_target_invalid),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(top = 4.dp)
@@ -416,9 +418,9 @@ fun EditHabitScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = "Smart reminders", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = stringResource(R.string.label_smart_reminders), style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text = "AI will notify you when it's the right moment",
+                        text = stringResource(R.string.subtitle_smart_reminders),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -469,17 +471,17 @@ fun EditHabitScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
-                    Text("Save Changes")
+                    Text(stringResource(R.string.btn_save_changes))
                 }
             }
 
             if (showErrorDialog) {
                 AlertDialog(
                     onDismissRequest = { showErrorDialog = false },
-                    title = { Text("Error") },
-                    text = { Text("Failed to update habit. Please try again.") },
+                    title = { Text(stringResource(R.string.dialog_error_title)) },
+                    text = { Text(stringResource(R.string.error_update_habit)) },
                     confirmButton = {
-                        TextButton(onClick = { showErrorDialog = false }) { Text("OK") }
+                        TextButton(onClick = { showErrorDialog = false }) { Text(stringResource(R.string.btn_ok)) }
                     }
                 )
             }

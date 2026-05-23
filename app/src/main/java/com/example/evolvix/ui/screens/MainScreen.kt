@@ -21,12 +21,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.draw.alpha
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.evolvix.R
 import com.example.evolvix.domain.model.HabitUiState
 import com.example.evolvix.domain.model.SortMode
 import com.example.evolvix.ui.components.HabitContextMenu
@@ -248,7 +251,7 @@ fun MainScreen(
         topBar = {
             // TopAppBar standardized across all screens (Composition over inheritance — Phase 1.2)
             TopAppBar(
-                title = { Text("My Habits") },
+                title = { Text(stringResource(R.string.screen_main_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 ),
@@ -279,7 +282,12 @@ fun MainScreen(
                                     pendingGroupName = ""
                                 }
                             ) {
-                                Text(if (isEditingExistingGroup) "Save" else "Add ${selectedHabitIds.size} habits")
+                                Text(
+                                    if (isEditingExistingGroup)
+                                        stringResource(R.string.btn_save)
+                                    else
+                                        pluralStringResource(R.plurals.btn_add_habits, selectedHabitIds.size, selectedHabitIds.size)
+                                )
                             }
                             TextButton(onClick = {
                                 multiSelectMode = false
@@ -288,35 +296,35 @@ fun MainScreen(
                                 editGroupOriginalHabitIds = emptySet()
                                 pendingGroupName = ""
                             }) {
-                                Text("Cancel")
+                                Text(stringResource(R.string.btn_cancel))
                             }
                         } else {
                             // Normal reorder mode: offer group creation and done
                             TextButton(onClick = { showNewGroupDialog = true }) {
-                                Text("New Group")
+                                Text(stringResource(R.string.btn_new_group))
                             }
                             TextButton(onClick = { habitViewModel.exitReorderMode() }) {
-                                Text("Done")
+                                Text(stringResource(R.string.btn_done))
                             }
                         }
                     } else {
                     // Sort-order picker — opens a DropdownMenu with 3 sort options
                     Box {
                         IconButton(onClick = { sortMenuExpanded = true }) {
-                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort order")
+                            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.cd_sort_order))
                         }
                         DropdownMenu(
                             expanded = sortMenuExpanded,
                             onDismissRequest = { sortMenuExpanded = false }
                         ) {
                             val sortLabels = mapOf(
-                                SortMode.DEFAULT   to "Default",
-                                SortMode.NAME      to "Name (A–Z)",
-                                SortMode.NAME_DESC to "Name (Z–A)",
-                                SortMode.FREQ_ASC  to "Cadence (fast \u2192 slow)",
-                                SortMode.FREQ_DESC to "Cadence (slow \u2192 fast)",
-                                SortMode.CATEGORY  to "By category",
-                                SortMode.CUSTOM    to "Custom"
+                                SortMode.DEFAULT   to stringResource(R.string.sort_default),
+                                SortMode.NAME      to stringResource(R.string.sort_name_asc),
+                                SortMode.NAME_DESC to stringResource(R.string.sort_name_desc),
+                                SortMode.FREQ_ASC  to stringResource(R.string.sort_cadence_asc),
+                                SortMode.FREQ_DESC to stringResource(R.string.sort_cadence_desc),
+                                SortMode.CATEGORY  to stringResource(R.string.sort_by_category),
+                                SortMode.CUSTOM    to stringResource(R.string.sort_custom)
                             )
                             SortMode.entries.forEach { mode ->
                                 DropdownMenuItem(
@@ -336,7 +344,7 @@ fun MainScreen(
                         }
                     }
                     IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
                     // ── Phase 7.2v2 — daily-summary inbox button with unread badge ──
                     BadgedBox(
@@ -347,7 +355,7 @@ fun MainScreen(
                         }
                     ) {
                         IconButton(onClick = onNavigateToInbox) {
-                            Icon(Icons.Filled.Inbox, contentDescription = "Daily summaries")
+                            Icon(Icons.Filled.Inbox, contentDescription = stringResource(R.string.cd_daily_summaries))
                         }
                     }
                     // ── Phase 7.2v2 — DEBUG-only quick-test menu ──
@@ -355,7 +363,7 @@ fun MainScreen(
                         val debugScope = rememberCoroutineScope()
                         Box {
                             IconButton(onClick = { debugMenuExpanded = true }) {
-                                Icon(Icons.Filled.BugReport, contentDescription = "Debug menu")
+                                Icon(Icons.Filled.BugReport, contentDescription = stringResource(R.string.cd_debug_menu))
                             }
                             DropdownMenu(
                                 expanded = debugMenuExpanded,
@@ -424,12 +432,12 @@ fun MainScreen(
                     showNewGroupDialog = false
                     newGroupNameInput = ""
                 },
-                title = { Text("New Group") },
+                title = { Text(stringResource(R.string.dialog_new_group_title)) },
                 text = {
                     OutlinedTextField(
                         value = newGroupNameInput,
                         onValueChange = { newGroupNameInput = it },
-                        label = { Text("Group name") },
+                        label = { Text(stringResource(R.string.hint_group_name)) },
                         singleLine = true
                     )
                 },
@@ -443,13 +451,13 @@ fun MainScreen(
                             multiSelectMode = true
                             selectedHabitIds = emptySet()
                         }
-                    ) { Text("Create") }
+                    ) { Text(stringResource(R.string.btn_create)) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
                         showNewGroupDialog = false
                         newGroupNameInput = ""
-                    }) { Text("Cancel") }
+                    }) { Text(stringResource(R.string.btn_cancel)) }
                 }
             )
         }
@@ -463,12 +471,17 @@ fun MainScreen(
             val habitCount = pendingDeleteSection.habits.size
             AlertDialog(
                 onDismissRequest = { groupPendingDelete = null },
-                title = { Text("Delete \"${pendingDeleteSection.groupName}\"?") },
+                title = {
+                    if (pendingDeleteSection.groupName != null)
+                        Text(stringResource(R.string.dialog_delete_group_title, pendingDeleteSection.groupName))
+                    else
+                        Text(stringResource(R.string.dialog_delete_group_empty))
+                },
                 text = {
                     if (habitCount > 0) {
-                        Text("This will permanently delete the group and all $habitCount habit${if (habitCount == 1) "" else "s"} inside it.")
+                        Text(pluralStringResource(R.plurals.dialog_delete_group_body, habitCount, habitCount))
                     } else {
-                        Text("Delete this empty group?")
+                        Text(stringResource(R.string.dialog_delete_group_empty))
                     }
                 },
                 confirmButton = {
@@ -482,10 +495,10 @@ fun MainScreen(
                             // automatically once no habits reference it.
                             groupPendingDelete = null
                         }
-                    ) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    ) { Text(stringResource(R.string.btn_delete), color = MaterialTheme.colorScheme.error) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { groupPendingDelete = null }) { Text("Cancel") }
+                    TextButton(onClick = { groupPendingDelete = null }) { Text(stringResource(R.string.btn_cancel)) }
                 }
             )
         }
@@ -510,14 +523,14 @@ fun MainScreen(
                         OutlinedTextField(
                             value = searchQuery,
                             onValueChange = { habitViewModel.setSearchQuery(it) },
-                            placeholder = { Text("Search…") },
+                            placeholder = { Text(stringResource(R.string.hint_search)) },
                             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                             trailingIcon = {
                                 IconButton(onClick = {
                                     habitViewModel.setSearchQuery("")
                                     searchExpanded = false
                                 }) {
-                                    Icon(Icons.Filled.Close, contentDescription = "Close search")
+                                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.cd_close_search))
                                 }
                             },
                             singleLine = true,
@@ -531,7 +544,7 @@ fun MainScreen(
                             label = {
                                 Icon(
                                     imageVector = Icons.Filled.Search,
-                                    contentDescription = "Search habits",
+                                    contentDescription = stringResource(R.string.cd_search_habits),
                                     modifier = Modifier.size(FilterChipDefaults.IconSize)
                                 )
                             }
@@ -545,11 +558,11 @@ fun MainScreen(
                         InputChip(
                             selected = false,
                             onClick = { habitViewModel.clearFilters() },
-                            label = { Text("Clear") },
+                            label = { Text(stringResource(R.string.btn_clear_filters)) },
                             trailingIcon = {
                                 Icon(
                                     imageVector = Icons.Filled.Close,
-                                    contentDescription = "Clear all filters",
+                                    contentDescription = stringResource(R.string.cd_clear_filters),
                                     modifier = Modifier.size(FilterChipDefaults.IconSize)
                                 )
                             }
@@ -918,7 +931,7 @@ fun MainScreen(
                                                 if (reorderMode && !multiSelectMode) {
                                                     Icon(
                                                         imageVector = Icons.Filled.DragHandle,
-                                                        contentDescription = "Drag to reorder",
+                                                        contentDescription = stringResource(R.string.cd_drag_reorder),
                                                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                                         modifier = Modifier.padding(end = 4.dp)
                                                     )
@@ -1073,7 +1086,7 @@ fun MainScreen(
                                         if (reorderMode && !multiSelectMode) {
                                             Icon(
                                                 imageVector = Icons.Filled.DragHandle,
-                                                contentDescription = "Drag to reorder",
+                                                contentDescription = stringResource(R.string.cd_drag_reorder),
                                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                                 modifier = Modifier.padding(end = 4.dp)
                                             )
@@ -1263,7 +1276,7 @@ private fun CategoryGroupHeader(
         if (showDragHandle) {
             Icon(
                 imageVector = Icons.Filled.DragHandle,
-                contentDescription = "Drag group to reorder",
+                contentDescription = stringResource(R.string.cd_drag_reorder),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.padding(end = 4.dp)
             )
@@ -1286,7 +1299,7 @@ private fun CategoryGroupHeader(
             IconButton(onClick = onEditConfirm) {
                 Icon(
                     imageVector = Icons.Filled.Check,
-                    contentDescription = "Confirm rename",
+                    contentDescription = stringResource(R.string.cd_edit_name),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -1302,7 +1315,7 @@ private fun CategoryGroupHeader(
                 IconButton(onClick = onEditGroupHabits) {
                     Icon(
                         imageVector = Icons.Filled.List,
-                        contentDescription = "Edit group habits",
+                        contentDescription = stringResource(R.string.cd_more_options),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -1312,7 +1325,7 @@ private fun CategoryGroupHeader(
                 IconButton(onClick = onEditStart) {
                     Icon(
                         imageVector = Icons.Filled.EditNote,
-                        contentDescription = "Rename group",
+                        contentDescription = stringResource(R.string.cd_edit_name),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -1322,14 +1335,14 @@ private fun CategoryGroupHeader(
                 IconButton(onClick = onDeleteGroup) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
-                        contentDescription = "Delete group",
+                        contentDescription = stringResource(R.string.btn_delete),
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
             Icon(
                 imageVector = if (isCollapsed) Icons.Filled.ExpandMore else Icons.Filled.ExpandLess,
-                contentDescription = if (isCollapsed) "Expand group" else "Collapse group"
+                contentDescription = stringResource(if (isCollapsed) R.string.cd_expand else R.string.cd_collapse)
             )
         }
     }

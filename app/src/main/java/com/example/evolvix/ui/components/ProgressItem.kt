@@ -36,7 +36,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.evolvix.R
 import com.example.evolvix.ui.theme.HabitColorScheme
 import androidx.compose.runtime.withFrameMillis
 import kotlin.random.Random
@@ -227,7 +229,7 @@ fun ProgressItem(
             if (isPaused) {
                 Icon(
                     imageVector = Icons.Filled.Pause,
-                    contentDescription = "Paused",
+                    contentDescription = stringResource(R.string.cd_paused),
                     tint = colorScheme.getTextColor(isSystemInDarkTheme),
                     modifier = Modifier.size(20.dp)
                 )

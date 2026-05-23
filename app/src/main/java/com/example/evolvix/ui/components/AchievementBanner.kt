@@ -10,8 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.evolvix.R
 import com.example.evolvix.domain.model.AchievementDefinition
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import kotlinx.coroutines.delay
@@ -90,7 +92,7 @@ fun AchievementBanner(viewModel: AchievementsViewModel) {
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Achievement Unlocked!",
+                            text = stringResource(R.string.banner_achievement_unlocked),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
@@ -113,7 +115,7 @@ fun AchievementBanner(viewModel: AchievementsViewModel) {
                         color = MaterialTheme.colorScheme.primary
                     ) {
                         Text(
-                            text = "+${def.points} pts",
+                            text = stringResource(R.string.banner_achievement_points, def.points),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimary,

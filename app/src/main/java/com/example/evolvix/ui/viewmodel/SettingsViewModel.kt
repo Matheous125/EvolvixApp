@@ -3,6 +3,8 @@ package com.example.evolvix.ui.viewmodel
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.AndroidViewModel
 import com.example.evolvix.notifications.DailySummaryWorker
 import com.example.evolvix.notifications.SummaryPreferences
@@ -57,19 +59,29 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     // ── Language ──────────────────────────────────────────────────────────────
 
+    // Read the current app-specific locale from AppCompatDelegate so the dialog
+    // radio button reflects the live locale (including after process restart).
     private val _languageCode = MutableStateFlow(
-        prefs.getString(KEY_LANGUAGE, "en") ?: "en"
+        AppCompatDelegate.getApplicationLocales()[0]?.language ?: "en"
     )
     /**
-     * BCP-47 language tag. Exposed as a [StateFlow] for Phase 8 localization wiring.
-     * Currently a UI-only preference; actual locale change requires Phase 8 locale API.
+     * BCP-47 language tag driving the language radio button in [SettingsScreen].
+     * Source of truth is [AppCompatDelegate.getApplicationLocales]; SharedPreferences
+     * is no longer needed for this field.
      */
     val languageCode: StateFlow<String> = _languageCode.asStateFlow()
 
-    /** Saves the language preference. Full locale switch is handled in Phase 8. */
+    /**
+     * Switches the app locale immediately via [AppCompatDelegate.setApplicationLocales].
+     * Android (API 33+) or AppCompat (older) persists the choice automatically;
+     * the call also triggers an Activity recreation so [stringResource] calls
+     * throughout the Compose tree pick up translations from the correct locale.
+     */
     fun setLanguageCode(code: String) {
-        prefs.edit().putString(KEY_LANGUAGE, code).apply()
         _languageCode.value = code
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(code))
+        // Activity is recreated by the locale change, so the ViewModel will be
+        // cleared and re-initialised — no further StateFlow update is needed.
     }
 
     // ── Daily summary ─────────────────────────────────────────────────────────
