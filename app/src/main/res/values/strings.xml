@@ -13,6 +13,7 @@
     <string name="screen_onboarding_title">Welcome</string>
 
     <!-- ── Onboarding screen ── -->
+    <string name="onboarding_welcome">Welcome to Evolvix!</string>
     <string name="onboarding_pitch">Build better habits, track your progress, and evolve every day.</string>
     <string name="onboarding_get_started">Get Started</string>
 
