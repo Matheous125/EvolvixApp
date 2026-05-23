@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import com.example.evolvix.MainActivity
 import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
+import com.example.evolvix.data.model.DailySummaryEntity
 import com.example.evolvix.domain.usecase.ComposeDailySummaryUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
 import kotlinx.coroutines.flow.firstOrNull
@@ -106,9 +107,9 @@ class DailySummaryWorker(
 
         val notification = NotificationCompat.Builder(ctx, NotificationChannels.DAILY_SUMMARY_ID)
             .setSmallIcon(android.R.drawable.ic_menu_today)
-            .setContentTitle(summary.title)
-            .setContentText(summary.shortBody)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(summary.body))
+            .setContentTitle(localizedTitle(ctx, summary))
+            .setContentText(localizedShortBody(ctx, summary))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(localizedBody(ctx, summary)))
             .setContentIntent(openInbox)
             .setDeleteIntent(deletePi)
             .setAutoCancel(true)
@@ -124,6 +125,90 @@ class DailySummaryWorker(
         // Always re-arm tomorrow's slot at the end.
         scheduleNext(ctx)
         return Result.success()
+    }
+
+    /**
+     * Returns the notification title string in the device locale.
+     * Mirrors the logic in [ComposeDailySummaryUseCase] but uses Android string
+     * resources so Polish (and future locales) are honoured.
+     */
+    private fun localizedTitle(ctx: Context, summary: DailySummaryEntity): String {
+        val resId = when {
+            summary.todayTargetReaches > 0 && summary.todayTargetReaches == summary.totalActiveHabits ->
+                R.string.summary_title_perfect_day
+            summary.todayTargetReaches > 0 ->
+                R.string.summary_title_todays_wins
+            summary.todayProgressUpdates > 0 ->
+                R.string.summary_title_some_progress
+            else ->
+                R.string.summary_title_fresh_start
+        }
+        return ctx.getString(resId)
+    }
+
+    /**
+     * Returns a short one-liner in the device locale (fits the collapsed notification row).
+     */
+    private fun localizedShortBody(ctx: Context, summary: DailySummaryEntity): String {
+        val parts = mutableListOf<String>()
+        if (summary.todayTargetReaches > 0) {
+            parts += ctx.getString(R.string.summary_line_habits_target, summary.todayTargetReaches, summary.totalActiveHabits)
+        } else if (summary.totalActiveHabits > 0) {
+            parts += ctx.getString(R.string.summary_line_no_target, summary.totalActiveHabits)
+        }
+        if (summary.achievementsUnlockedToday > 0) {
+            parts += ctx.resources.getQuantityString(
+                R.plurals.summary_line_achievements,
+                summary.achievementsUnlockedToday,
+                summary.achievementsUnlockedToday
+            )
+        }
+        parts += ctx.getString(R.string.summary_line_week_pct, summary.weekCompletionPct)
+        return parts.joinToString(" · ").take(120)
+    }
+
+    /**
+     * Returns the expanded notification body in the device locale.
+     */
+    private fun localizedBody(ctx: Context, summary: DailySummaryEntity): String {
+        val title = localizedTitle(ctx, summary)
+        val parts = mutableListOf<String>()
+        if (summary.todayTargetReaches > 0) {
+            parts += ctx.getString(R.string.summary_line_habits_target, summary.todayTargetReaches, summary.totalActiveHabits)
+        } else if (summary.totalActiveHabits > 0) {
+            parts += ctx.getString(R.string.summary_line_no_target, summary.totalActiveHabits)
+        }
+        val extraCheckins = summary.todayProgressUpdates - summary.todayTargetReaches
+        if (extraCheckins > 0) {
+            parts += ctx.getString(R.string.summary_line_checkins, extraCheckins)
+        }
+        if (summary.achievementsUnlockedToday > 0) {
+            parts += ctx.resources.getQuantityString(
+                R.plurals.summary_line_achievements,
+                summary.achievementsUnlockedToday,
+                summary.achievementsUnlockedToday
+            )
+        }
+        parts += ctx.getString(R.string.summary_line_week_pct, summary.weekCompletionPct)
+
+        val encouragement = when {
+            summary.todayTargetReaches == summary.totalActiveHabits && summary.totalActiveHabits > 0 ->
+                ctx.getString(R.string.summary_enc_perfect)
+            summary.todayTargetReaches > 0 ->
+                ctx.getString(R.string.summary_enc_good_work, summary.todayTargetReaches)
+            summary.todayProgressUpdates > 0 ->
+                ctx.getString(R.string.summary_enc_moved_needle)
+            else ->
+                ctx.getString(R.string.summary_enc_no_completions)
+        }
+
+        return buildString {
+            appendLine(title)
+            appendLine()
+            parts.forEach { appendLine("• $it") }
+            appendLine()
+            append(encouragement)
+        }.trimEnd()
     }
 
     companion object {

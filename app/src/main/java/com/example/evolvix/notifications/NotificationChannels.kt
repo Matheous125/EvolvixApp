@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import com.example.evolvix.R
 
 /**
  * Centralised notification channel registry for Phase 7.
@@ -40,20 +41,20 @@ object NotificationChannels {
         // interrupt the user visually, not just land silently in the shade.
         val reminders = NotificationChannel(
             REMINDERS_ID,
-            "Habit reminders",
+            context.getString(R.string.notif_channel_reminders_name),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Per-habit reminder notifications"
+            description = context.getString(R.string.notif_channel_reminders_desc)
         }
         // IMPORTANCE_DEFAULT → appears in the shade with a sound but no banner.
         // A daily summary is informational, not urgent — we don't want it to
         // interrupt the user the way a time-sensitive reminder would.
         val summary = NotificationChannel(
             DAILY_SUMMARY_ID,
-            "Daily summary",
+            context.getString(R.string.notif_channel_summary_name),
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "Once-a-day overview of your habits"
+            description = context.getString(R.string.notif_channel_summary_desc)
         }
         nm.createNotificationChannel(reminders)
         nm.createNotificationChannel(summary)

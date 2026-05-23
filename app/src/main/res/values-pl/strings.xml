@@ -213,11 +213,68 @@
     <string name="banner_achievement_points">+%1$d pkt</string>
 
     <!-- ── Powiadomienia (Faza 7) ── -->
+    <!-- Kanały powiadomień — nazwy widoczne w Ustawieniach systemowych -->
+    <string name="notif_channel_reminders_name">Przypomnienia o nawykach</string>
+    <string name="notif_channel_reminders_desc">Przypomnienia dla poszczególnych nawyków</string>
+    <string name="notif_channel_summary_name">Dzienne podsumowanie</string>
+    <string name="notif_channel_summary_desc">Codzienne podsumowanie Twoich nawyków</string>
+
     <string name="reminder_action_done">Gotowe</string>
     <string name="reminder_action_skip">Pomiń</string>
     <string name="reminder_action_snooze">Odłóż 15 min</string>
-    <string name="daily_summary_title">Twoje nawyki dziś</string>
-    <string name="daily_summary_body">%1$d z %2$d nawyków ukończonych dziś — tydzień %3$d%%.</string>
+
+    <!-- Szablony treści przypomnień; %1$s = nazwa nawyku -->
+    <string name="reminder_streak_milestone">Niesamowita passa w %1$s — nie przerywaj łańcucha!</string>
+    <string name="reminder_gentle_nudge">Mały sygnał dla %1$s. Dasz radę.</string>
+    <string name="reminder_celebrate_consistency">Doskonała konsekwencja w %1$s w tym tygodniu!</string>
+    <string name="reminder_recovery">Czas na powrót do %1$s — liczą się małe kroki.</string>
+    <string name="reminder_morning">Dzień dobry! Idealny czas na %1$s.</string>
+    <string name="reminder_evening">Zakończ dzień z %1$s — jeszcze jedno zwycięstwo.</string>
+    <string name="reminder_comeback">Witaj z powrotem w %1$s. Wróć tam, gdzie skończyłeś.</string>
+    <string name="reminder_weekend">Weekendowa energia — niech %1$s się dziś liczy.</string>
+    <string name="reminder_first_week">Wczesne dni z %1$s — nie przestawaj się pojawiać.</string>
+    <string name="reminder_cold_start">Świeży start z %1$s zaczyna się teraz.</string>
+    <string name="reminder_streak_save">Uratuj swoją passę w %1$s już dziś.</string>
+    <string name="reminder_target_smashed">Cel rozbity w %1$s — fantastycznie!</string>
+    <string name="reminder_category_balance">Zadbaj o balans rutyny z %1$s dziś.</string>
+    <string name="reminder_pace">Trzymaj tempo z %1$s — wytrwałość wygrywa.</string>
+    <string name="reminder_quiet">Ciche przypomnienie o %1$s.</string>
+
+    <!-- Tytuły powiadomień dziennych -->
+    <string name="summary_title_perfect_day">Idealny dzień</string>
+    <string name="summary_title_todays_wins">Dzisiejsze sukcesy</string>
+    <string name="summary_title_some_progress">Trochę postępu dziś</string>
+    <string name="summary_title_fresh_start">Jutro świeży start</string>
+
+    <!-- Linie treści podsumowania; %1$d/%2$d = liczniki -->
+    <string name="summary_line_habits_target">%1$d z %2$d nawyków osiągnęło cel</string>
+    <string name="summary_line_no_target">0 z %1$d nawyków osiągnęło cel</string>
+    <string name="summary_line_checkins">%1$d sprawdzeń postępu</string>
+    <string name="summary_line_week_pct">tydzień na poziomie %1$d%%</string>
+
+    <!-- Zachęty w treści podsumowania; %1$d = targetReaches -->
+    <string name="summary_enc_perfect">Wszystkie nawyki ukończone — tak buduje się passy!</string>
+    <string name="summary_enc_good_work">Dobra robota — %1$d ukończonych. Jutro idziemy dalej.</string>
+    <string name="summary_enc_moved_needle">Dziś zrobiłeś postęp. Spróbuj jutro zamknąć przynajmniej jeden nawyk.</string>
+    <string name="summary_enc_no_completions">Brak ukończeń. Mały, łatwy sukces jutro to najszybszy reset.</string>
+
+    <plurals name="summary_line_achievements">
+        <item quantity="one">%d nowe osiągnięcie</item>
+        <item quantity="few">%d nowe osiągnięcia</item>
+        <item quantity="many">%d nowych osiągnięć</item>
+        <item quantity="other">%d nowych osiągnięć</item>
+    </plurals>
+
+    <!-- Wiadomości motywacyjne — MotivationMessageUseCase (Faza 6) -->
+    <string name="motivation_cold_start">Dopiero zaczynasz — każdy wielki nawyk zaczyna się od pierwszego kroku!</string>
+    <string name="motivation_streak_milestone">Niesamowita passa! Budujesz trwały nawyk. Tak trzymaj!</string>
+    <string name="motivation_gentle_nudge">Spokojnie dziś. Konsekwencja ważniejsza niż perfekcja — dasz radę.</string>
+    <string name="motivation_celebrate_consistency">Świetna robota! Wyjątkowa konsekwencja w tym tygodniu.</string>
+    <string name="motivation_recovery_encouragement">Nie poddawaj się — każdy dzień to nowy początek. Możesz się odbić!</string>
+    <string name="motivation_morning_optimistic">Dzień dobry! Idealny czas, żeby odhaczyć to z listy.</string>
+    <string name="motivation_evening_reflection">Zakończ dzień z wysoką nutą — jeszcze jedno zwycięstwo!</string>
+    <string name="motivation_weekend_warrior">Weekendowa energia! Sprawdź, co nawyk da Ci dziś.</string>
+    <string name="motivation_quiet_encouragement">Stały postęp bije okazjonalną perfekcję. Wytrwaj.</string>
 
     <!-- ── Liczba mnoga: nawyki ── -->
     <plurals name="dialog_delete_group_body">

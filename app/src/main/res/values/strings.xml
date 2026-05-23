@@ -225,6 +225,12 @@
     <string name="motivation_weekend_warrior">Weekend energy! Make this habit count today.</string>
     <string name="motivation_quiet_encouragement">Steady progress beats occasional perfection. Keep at it.</string>
 
+    <!-- Notification channels — names and descriptions shown in System Settings -->
+    <string name="notif_channel_reminders_name">Habit reminders</string>
+    <string name="notif_channel_reminders_desc">Per-habit reminder notifications</string>
+    <string name="notif_channel_summary_name">Daily summary</string>
+    <string name="notif_channel_summary_desc">Once-a-day overview of your habits</string>
+
     <!-- Phase 7 — Reminder notification action button labels -->
     <string name="reminder_action_done">Done</string>
     <string name="reminder_action_skip">Skip</string>
@@ -247,6 +253,33 @@
     <string name="reminder_category_balance">Balance your routine with %1$s today.</string>
     <string name="reminder_pace">Pace yourself with %1$s — steady wins.</string>
     <string name="reminder_quiet">A quiet reminder for %1$s.</string>
+
+    <!-- Phase 7 — Daily summary notification content.
+         The Worker uses the raw counts stored in DailySummaryEntity to re-format the
+         notification text in the device locale (so Polish users see Polish text). -->
+    <string name="summary_title_perfect_day">Perfect day</string>
+    <string name="summary_title_todays_wins">Today\'s wins</string>
+    <string name="summary_title_some_progress">Some progress today</string>
+    <string name="summary_title_fresh_start">Tomorrow\'s a fresh start</string>
+
+    <!-- %1$d = targetReaches, %2$d = total habits -->
+    <string name="summary_line_habits_target">%1$d of %2$d habits hit target</string>
+    <string name="summary_line_no_target">0 of %1$d habits hit target</string>
+    <!-- %1$d = progressUpdates count -->
+    <string name="summary_line_checkins">%1$d progress check-ins</string>
+    <!-- %1$d = weekPct -->
+    <string name="summary_line_week_pct">week at %1$d%%</string>
+
+    <!-- %1$d = targetReaches (for enc_good_work) -->
+    <string name="summary_enc_perfect">Every habit met today — that\'s how streaks are built.</string>
+    <string name="summary_enc_good_work">Good work locking in %1$d. Tomorrow we go again.</string>
+    <string name="summary_enc_moved_needle">You moved the needle today. Try to close at least one habit tomorrow.</string>
+    <string name="summary_enc_no_completions">No completions logged. A short, easy win tomorrow is the fastest reset.</string>
+
+    <plurals name="summary_line_achievements">
+        <item quantity="one">%d new achievement</item>
+        <item quantity="other">%d new achievements</item>
+    </plurals>
 
     <!-- Phase 7.2 — Daily summary notification -->
     <string name="daily_summary_title">Your habits today</string>
