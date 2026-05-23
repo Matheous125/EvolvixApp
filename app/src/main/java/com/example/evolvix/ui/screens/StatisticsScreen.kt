@@ -48,7 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.annotation.PluralsRes
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -587,20 +589,26 @@ private fun ExpandedSection(stats: PerHabitStats, completions: List<HabitComplet
 
 /**
  * Maps a motivation message key (returned by [MathHabitPredictor.motivationMessageKey])
- * to the corresponding string resource ID so [stringResource] can resolve the text.
- * Using a `when` here keeps the mapping explicit and avoids [Resources.getIdentifier]
- * reflection, which is both slower and lint-unsafe.
+ * to the corresponding plurals resource ID so [pluralStringResource] can resolve the
+ * locale-correct text. Using a `when` keeps the mapping explicit and avoids
+ * [Resources.getIdentifier] reflection, which is slower and lint-unsafe.
+ *
+ * The returned ID belongs to [R.plurals] (not [R.string]); callers must pass the
+ * streak count as both the quantity selector and the format argument so that Polish
+ * can select the correct one/few/many/other form and embed the count in
+ * `motivation_streak_milestone` (e.g. "Niesamowita passa 7 dni!").
  */
+@PluralsRes
 private fun motivationKeyToRes(key: String): Int = when (key) {
-    "motivation_streak_milestone"      -> R.string.motivation_streak_milestone
-    "motivation_gentle_nudge"          -> R.string.motivation_gentle_nudge
-    "motivation_celebrate_consistency" -> R.string.motivation_celebrate_consistency
-    "motivation_recovery_encouragement"-> R.string.motivation_recovery_encouragement
-    "motivation_morning_optimistic"    -> R.string.motivation_morning_optimistic
-    "motivation_evening_reflection"    -> R.string.motivation_evening_reflection
-    "motivation_weekend_warrior"       -> R.string.motivation_weekend_warrior
-    "motivation_cold_start"            -> R.string.motivation_cold_start
-    else                               -> R.string.motivation_quiet_encouragement
+    "motivation_streak_milestone"      -> R.plurals.motivation_streak_milestone
+    "motivation_gentle_nudge"          -> R.plurals.motivation_gentle_nudge
+    "motivation_celebrate_consistency" -> R.plurals.motivation_celebrate_consistency
+    "motivation_recovery_encouragement"-> R.plurals.motivation_recovery_encouragement
+    "motivation_morning_optimistic"    -> R.plurals.motivation_morning_optimistic
+    "motivation_evening_reflection"    -> R.plurals.motivation_evening_reflection
+    "motivation_weekend_warrior"       -> R.plurals.motivation_weekend_warrior
+    "motivation_cold_start"            -> R.plurals.motivation_cold_start
+    else                               -> R.plurals.motivation_quiet_encouragement
 }
 
 /** Formats a 0–23 hour int to a human-readable 12-hour string (e.g. 14 → "2:00 PM"). */
@@ -648,7 +656,14 @@ private fun AiDataCard(title: String, content: @Composable () -> Unit) {
 private fun SmartInsightCard(stats: PerHabitStats) {
     AiDataCard(title = stringResource(R.string.card_smart_insight_title)) {
         Text(
-            text = stringResource(motivationKeyToRes(stats.motivationMessageKey)),
+            // Pass streak.current as both the quantity selector (selects one/few/many/other)
+            // and the format arg so motivation_streak_milestone can embed the count ("%d days").
+            // For messages without %d in the format string, the extra arg is safely ignored.
+            text = pluralStringResource(
+                id    = motivationKeyToRes(stats.motivationMessageKey),
+                count = stats.streak.current,
+                stats.streak.current
+            ),
             style = MaterialTheme.typography.bodySmall
         )
         if (stats.isStreakAtRisk) {

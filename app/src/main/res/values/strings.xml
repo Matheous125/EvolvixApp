@@ -214,16 +214,47 @@
 
     <!-- ── Plurals ── -->
 
-    <!-- Motivation message strings resolved by MathHabitPredictor (Phase 6) -->
-    <string name="motivation_cold_start">Just getting started — every great habit begins with a single step!</string>
-    <string name="motivation_streak_milestone">Incredible streak! You\'re building a lasting habit. Keep going!</string>
-    <string name="motivation_gentle_nudge">Take it easy today. Consistency over perfection — you\'ve got this.</string>
-    <string name="motivation_celebrate_consistency">You\'re crushing it! Exceptional consistency this week.</string>
-    <string name="motivation_recovery_encouragement">Don\'t give up — every day is a fresh start. You can bounce back!</string>
-    <string name="motivation_morning_optimistic">Good morning! A perfect time to check this off your list.</string>
-    <string name="motivation_evening_reflection">Wrap up the day on a high note — one more win to go!</string>
-    <string name="motivation_weekend_warrior">Weekend energy! Make this habit count today.</string>
-    <string name="motivation_quiet_encouragement">Steady progress beats occasional perfection. Keep at it.</string>
+    <!-- Motivation message plurals resolved by MotivationMessageUseCase (Phase 6/8C).
+         The streak count is passed as both the quantity selector and the format arg so that
+         Polish can inflect "dzień/dni" correctly via one/few/many/other forms.
+         motivation_streak_milestone embeds %d to display the numeric streak;
+         all others carry static text but still use <plurals> so Polish plural selection works. -->
+    <plurals name="motivation_cold_start">
+        <item quantity="one">Just getting started — every great habit begins with a single step!</item>
+        <item quantity="other">Just getting started — every great habit begins with a single step!</item>
+    </plurals>
+    <plurals name="motivation_streak_milestone">
+        <item quantity="one">Incredible %d-day streak! You\'re building a lasting habit. Keep going!</item>
+        <item quantity="other">Incredible %d-day streak! You\'re building a lasting habit. Keep going!</item>
+    </plurals>
+    <plurals name="motivation_gentle_nudge">
+        <item quantity="one">Take it easy today. Consistency over perfection — you\'ve got this.</item>
+        <item quantity="other">Take it easy today. Consistency over perfection — you\'ve got this.</item>
+    </plurals>
+    <plurals name="motivation_celebrate_consistency">
+        <item quantity="one">You\'re crushing it! Exceptional consistency this week.</item>
+        <item quantity="other">You\'re crushing it! Exceptional consistency this week.</item>
+    </plurals>
+    <plurals name="motivation_recovery_encouragement">
+        <item quantity="one">Don\'t give up — every day is a fresh start. You can bounce back!</item>
+        <item quantity="other">Don\'t give up — every day is a fresh start. You can bounce back!</item>
+    </plurals>
+    <plurals name="motivation_morning_optimistic">
+        <item quantity="one">Good morning! A perfect time to check this off your list.</item>
+        <item quantity="other">Good morning! A perfect time to check this off your list.</item>
+    </plurals>
+    <plurals name="motivation_evening_reflection">
+        <item quantity="one">Wrap up the day on a high note — one more win to go!</item>
+        <item quantity="other">Wrap up the day on a high note — one more win to go!</item>
+    </plurals>
+    <plurals name="motivation_weekend_warrior">
+        <item quantity="one">Weekend energy! Make this habit count today.</item>
+        <item quantity="other">Weekend energy! Make this habit count today.</item>
+    </plurals>
+    <plurals name="motivation_quiet_encouragement">
+        <item quantity="one">Steady progress beats occasional perfection. Keep at it.</item>
+        <item quantity="other">Steady progress beats occasional perfection. Keep at it.</item>
+    </plurals>
 
     <!-- Notification channels — names and descriptions shown in System Settings -->
     <string name="notif_channel_reminders_name">Habit reminders</string>
@@ -295,4 +326,113 @@
         <item quantity="one">Add %d habit</item>
         <item quantity="other">Add %d habits</item>
     </plurals>
+
+    <!-- ── Achievement titles and descriptions (Phase 8 Part C) ── -->
+    <!-- Group: Getting Started -->
+    <string name="achievement_title_first_step">First Step</string>
+    <string name="achievement_desc_first_step">Create your very first habit.</string>
+    <string name="achievement_title_action_taker">Action Taker</string>
+    <string name="achievement_desc_action_taker">Complete your first habit.</string>
+    <string name="achievement_title_double_trouble">Double Trouble</string>
+    <string name="achievement_desc_double_trouble">Complete 2 habits in a single day.</string>
+    <string name="achievement_title_threes_a_charm">Three\'s a Charm</string>
+    <string name="achievement_desc_threes_a_charm">Complete 3 habits in a single day.</string>
+    <string name="achievement_title_perfect_day">Perfect Day</string>
+    <string name="achievement_desc_perfect_day">Complete 100% of your scheduled habits for the day.</string>
+    <string name="achievement_title_the_comeback">The Comeback</string>
+    <string name="achievement_desc_the_comeback">Complete a habit the day after missing it.</string>
+    <!-- Group: Streaks & Consistency -->
+    <string name="achievement_title_warming_up">Warming Up</string>
+    <string name="achievement_desc_warming_up">Reach a 3-day streak on any habit.</string>
+    <string name="achievement_title_unstoppable">Unstoppable</string>
+    <string name="achievement_desc_unstoppable">Reach a 7-day streak on any habit.</string>
+    <string name="achievement_title_fortnight">Fortnight</string>
+    <string name="achievement_desc_fortnight">Reach a 14-day streak on any habit.</string>
+    <string name="achievement_title_habit_forming">Habit Forming</string>
+    <string name="achievement_desc_habit_forming">Reach a 21-day streak. (Science says it\'s a habit now!)</string>
+    <string name="achievement_title_monthly_master">Monthly Master</string>
+    <string name="achievement_desc_monthly_master">Reach a 30-day streak on any habit.</string>
+    <string name="achievement_title_soaring_high">Soaring High</string>
+    <string name="achievement_desc_soaring_high">Reach a 60-day streak on any habit.</string>
+    <string name="achievement_title_century_club">Century Club</string>
+    <string name="achievement_desc_century_club">Reach a 100-day streak on any habit.</string>
+    <string name="achievement_title_half_a_year">Half a Year</string>
+    <string name="achievement_desc_half_a_year">Reach a 180-day streak on any habit.</string>
+    <string name="achievement_title_full_circle">Full Circle</string>
+    <string name="achievement_desc_full_circle">Reach a 365-day streak on any habit.</string>
+    <string name="achievement_title_juggler">Juggler</string>
+    <string name="achievement_desc_juggler">Maintain a 7-day streak on 3 different habits at once.</string>
+    <string name="achievement_title_multitasker">Multitasker</string>
+    <string name="achievement_desc_multitasker">Maintain a 30-day streak on 3 different habits at once.</string>
+    <!-- Group: Lifetime Milestones -->
+    <string name="achievement_title_novice">Novice</string>
+    <string name="achievement_desc_novice">Complete 10 total habits.</string>
+    <string name="achievement_title_apprentice">Apprentice</string>
+    <string name="achievement_desc_apprentice">Complete 50 total habits.</string>
+    <string name="achievement_title_journeyman">Journeyman</string>
+    <string name="achievement_desc_journeyman">Complete 100 total habits.</string>
+    <string name="achievement_title_expert">Expert</string>
+    <string name="achievement_desc_expert">Complete 250 total habits.</string>
+    <string name="achievement_title_master">Master</string>
+    <string name="achievement_desc_master">Complete 500 total habits.</string>
+    <string name="achievement_title_grandmaster">Grandmaster</string>
+    <string name="achievement_desc_grandmaster">Complete 1,000 total habits.</string>
+    <string name="achievement_title_legend">Legend</string>
+    <string name="achievement_desc_legend">Complete 2,500 total habits.</string>
+    <string name="achievement_title_mythic">Mythic</string>
+    <string name="achievement_desc_mythic">Complete 5,000 total habits.</string>
+    <string name="achievement_title_ten_k_club">10k Club</string>
+    <string name="achievement_desc_ten_k_club">Complete 10,000 total habits.</string>
+    <string name="achievement_title_a_year_in_actions">A Year in Actions</string>
+    <string name="achievement_desc_a_year_in_actions">Complete 365 habits total.</string>
+    <!-- Group: Time of Day -->
+    <string name="achievement_title_early_bird">Early Bird</string>
+    <string name="achievement_desc_early_bird">Complete a habit before 7:00 AM.</string>
+    <string name="achievement_title_breakfast_champion">Breakfast Champion</string>
+    <string name="achievement_desc_breakfast_champion">Complete 3 habits before 9:00 AM.</string>
+    <string name="achievement_title_high_noon">High Noon</string>
+    <string name="achievement_desc_high_noon">Complete a habit exactly between 12:00 PM and 1:00 PM.</string>
+    <string name="achievement_title_afternoon_hustle">Afternoon Hustle</string>
+    <string name="achievement_desc_afternoon_hustle">Complete 3 habits between 1:00 PM and 5:00 PM.</string>
+    <string name="achievement_title_night_owl">Night Owl</string>
+    <string name="achievement_desc_night_owl">Complete a habit after 10:00 PM.</string>
+    <string name="achievement_title_midnight_oil">Midnight Oil</string>
+    <string name="achievement_desc_midnight_oil">Complete a habit after midnight.</string>
+    <string name="achievement_title_bookends">Bookends</string>
+    <string name="achievement_desc_bookends">Complete one habit before 8 AM and another after 8 PM.</string>
+    <string name="achievement_title_clockwork">Clockwork</string>
+    <string name="achievement_desc_clockwork">Complete the same habit at the exact same hour 3 days in a row.</string>
+    <!-- Group: Weekly Warriors -->
+    <string name="achievement_title_monday_motivation">Monday Motivation</string>
+    <string name="achievement_desc_monday_motivation">Complete all scheduled habits on a Monday.</string>
+    <string name="achievement_title_hump_day_hero">Hump Day Hero</string>
+    <string name="achievement_desc_hump_day_hero">Complete all scheduled habits on a Wednesday.</string>
+    <string name="achievement_title_tgif">TGIF</string>
+    <string name="achievement_desc_tgif">Complete all scheduled habits on a Friday.</string>
+    <string name="achievement_title_weekend_warrior">Weekend Warrior</string>
+    <string name="achievement_desc_weekend_warrior">Complete at least one habit on both Saturday and Sunday.</string>
+    <string name="achievement_title_no_days_off">No Days Off</string>
+    <string name="achievement_desc_no_days_off">Complete all habits every weekend for a month.</string>
+    <string name="achievement_title_the_daily_grind">The Daily Grind</string>
+    <string name="achievement_desc_the_daily_grind">Complete all scheduled habits Monday through Friday.</string>
+    <string name="achievement_title_perfect_week">Perfect Week</string>
+    <string name="achievement_desc_perfect_week">Complete 100% of your habits for 7 straight days.</string>
+    <!-- Group: Organization & Variety -->
+    <string name="achievement_title_the_architect">The Architect</string>
+    <string name="achievement_desc_the_architect">Create 5 active habits.</string>
+    <string name="achievement_title_visionary">Visionary</string>
+    <string name="achievement_desc_visionary">Create 10 active habits.</string>
+    <string name="achievement_title_colorful_life">Colorful Life</string>
+    <string name="achievement_desc_colorful_life">Assign 5 different colors to your habits.</string>
+    <string name="achievement_title_spring_cleaning">Spring Cleaning</string>
+    <string name="achievement_desc_spring_cleaning">Archive or delete an old habit.</string>
+    <string name="achievement_title_journalist">Journalist</string>
+    <string name="achievement_desc_journalist">Add a note/journal entry to a habit completion.</string>
+    <!-- Group: God Tier -->
+    <string name="achievement_title_the_machine">The Machine</string>
+    <string name="achievement_desc_the_machine">Complete 50 habits in a single week.</string>
+    <string name="achievement_title_absolute_zero">Absolute Zero</string>
+    <string name="achievement_desc_absolute_zero">Achieve a 100% completion rate for all habits in a 30-day month.</string>
+    <string name="achievement_title_platinum_trophy">Platinum Trophy</string>
+    <string name="achievement_desc_platinum_trophy">Unlock all other 49 achievements.</string>
 </resources>

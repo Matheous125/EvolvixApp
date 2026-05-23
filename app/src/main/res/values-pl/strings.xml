@@ -265,16 +265,64 @@
         <item quantity="other">%d nowych osiągnięć</item>
     </plurals>
 
-    <!-- Wiadomości motywacyjne — MotivationMessageUseCase (Faza 6) -->
-    <string name="motivation_cold_start">Dopiero zaczynasz — każdy wielki nawyk zaczyna się od pierwszego kroku!</string>
-    <string name="motivation_streak_milestone">Niesamowita passa! Budujesz trwały nawyk. Tak trzymaj!</string>
-    <string name="motivation_gentle_nudge">Spokojnie dziś. Konsekwencja ważniejsza niż perfekcja — dasz radę.</string>
-    <string name="motivation_celebrate_consistency">Świetna robota! Wyjątkowa konsekwencja w tym tygodniu.</string>
-    <string name="motivation_recovery_encouragement">Nie poddawaj się — każdy dzień to nowy początek. Możesz się odbić!</string>
-    <string name="motivation_morning_optimistic">Dzień dobry! Idealny czas, żeby odhaczyć to z listy.</string>
-    <string name="motivation_evening_reflection">Zakończ dzień z wysoką nutą — jeszcze jedno zwycięstwo!</string>
-    <string name="motivation_weekend_warrior">Weekendowa energia! Sprawdź, co nawyk da Ci dziś.</string>
-    <string name="motivation_quiet_encouragement">Stały postęp bije okazjonalną perfekcję. Wytrwaj.</string>
+    <!-- Wiadomości motywacyjne — MotivationMessageUseCase (Faza 6/8C).
+         Używamy <plurals> zamiast <string>, aby poprawnie odmieniać "dzień/dni"
+         przy wyświetlaniu liczby dni passy (np. motivation_streak_milestone).
+         Wersja PL wymaga czterech form: one/few/many/other. -->
+    <plurals name="motivation_cold_start">
+        <item quantity="one">Dopiero zaczynasz — każdy wielki nawyk zaczyna się od pierwszego kroku!</item>
+        <item quantity="few">Dopiero zaczynasz — każdy wielki nawyk zaczyna się od pierwszego kroku!</item>
+        <item quantity="many">Dopiero zaczynasz — każdy wielki nawyk zaczyna się od pierwszego kroku!</item>
+        <item quantity="other">Dopiero zaczynasz — każdy wielki nawyk zaczyna się od pierwszego kroku!</item>
+    </plurals>
+    <plurals name="motivation_streak_milestone">
+        <item quantity="one">Niesamowita passa %d dnia! Budujesz trwały nawyk. Tak trzymaj!</item>
+        <item quantity="few">Niesamowita passa %d dni! Budujesz trwały nawyk. Tak trzymaj!</item>
+        <item quantity="many">Niesamowita passa %d dni! Budujesz trwały nawyk. Tak trzymaj!</item>
+        <item quantity="other">Niesamowita passa %d dni! Budujesz trwały nawyk. Tak trzymaj!</item>
+    </plurals>
+    <plurals name="motivation_gentle_nudge">
+        <item quantity="one">Spokojnie dziś. Konsekwencja ważniejsza niż perfekcja — dasz radę.</item>
+        <item quantity="few">Spokojnie dziś. Konsekwencja ważniejsza niż perfekcja — dasz radę.</item>
+        <item quantity="many">Spokojnie dziś. Konsekwencja ważniejsza niż perfekcja — dasz radę.</item>
+        <item quantity="other">Spokojnie dziś. Konsekwencja ważniejsza niż perfekcja — dasz radę.</item>
+    </plurals>
+    <plurals name="motivation_celebrate_consistency">
+        <item quantity="one">Świetna robota! Wyjątkowa konsekwencja w tym tygodniu.</item>
+        <item quantity="few">Świetna robota! Wyjątkowa konsekwencja w tym tygodniu.</item>
+        <item quantity="many">Świetna robota! Wyjątkowa konsekwencja w tym tygodniu.</item>
+        <item quantity="other">Świetna robota! Wyjątkowa konsekwencja w tym tygodniu.</item>
+    </plurals>
+    <plurals name="motivation_recovery_encouragement">
+        <item quantity="one">Nie poddawaj się — każdy dzień to nowy początek. Możesz się odbić!</item>
+        <item quantity="few">Nie poddawaj się — każdy dzień to nowy początek. Możesz się odbić!</item>
+        <item quantity="many">Nie poddawaj się — każdy dzień to nowy początek. Możesz się odbić!</item>
+        <item quantity="other">Nie poddawaj się — każdy dzień to nowy początek. Możesz się odbić!</item>
+    </plurals>
+    <plurals name="motivation_morning_optimistic">
+        <item quantity="one">Dzień dobry! Idealny czas, żeby odhaczyć to z listy.</item>
+        <item quantity="few">Dzień dobry! Idealny czas, żeby odhaczyć to z listy.</item>
+        <item quantity="many">Dzień dobry! Idealny czas, żeby odhaczyć to z listy.</item>
+        <item quantity="other">Dzień dobry! Idealny czas, żeby odhaczyć to z listy.</item>
+    </plurals>
+    <plurals name="motivation_evening_reflection">
+        <item quantity="one">Zakończ dzień z wysoką nutą — jeszcze jedno zwycięstwo!</item>
+        <item quantity="few">Zakończ dzień z wysoką nutą — jeszcze jedno zwycięstwo!</item>
+        <item quantity="many">Zakończ dzień z wysoką nutą — jeszcze jedno zwycięstwo!</item>
+        <item quantity="other">Zakończ dzień z wysoką nutą — jeszcze jedno zwycięstwo!</item>
+    </plurals>
+    <plurals name="motivation_weekend_warrior">
+        <item quantity="one">Weekendowa energia! Spraw, żeby ten nawyk się dziś liczył.</item>
+        <item quantity="few">Weekendowa energia! Spraw, żeby ten nawyk się dziś liczył.</item>
+        <item quantity="many">Weekendowa energia! Spraw, żeby ten nawyk się dziś liczył.</item>
+        <item quantity="other">Weekendowa energia! Spraw, żeby ten nawyk się dziś liczył.</item>
+    </plurals>
+    <plurals name="motivation_quiet_encouragement">
+        <item quantity="one">Stały postęp bije okazjonalną perfekcję. Wytrwaj.</item>
+        <item quantity="few">Stały postęp bije okazjonalną perfekcję. Wytrwaj.</item>
+        <item quantity="many">Stały postęp bije okazjonalną perfekcję. Wytrwaj.</item>
+        <item quantity="other">Stały postęp bije okazjonalną perfekcję. Wytrwaj.</item>
+    </plurals>
 
     <!-- ── Liczba mnoga: nawyki ── -->
     <plurals name="dialog_delete_group_body">
@@ -290,4 +338,113 @@
         <item quantity="many">Dodaj %d nawyków</item>
         <item quantity="other">Dodaj %d nawyków</item>
     </plurals>
+
+    <!-- ── Tytuły i opisy osiągnięć (Faza 8 Część C) ── -->
+    <!-- Grupa: Pierwsze kroki -->
+    <string name="achievement_title_first_step">Pierwszy krok</string>
+    <string name="achievement_desc_first_step">Stwórz swój pierwszy nawyk.</string>
+    <string name="achievement_title_action_taker">Człowiek czynu</string>
+    <string name="achievement_desc_action_taker">Ukończ swój pierwszy nawyk.</string>
+    <string name="achievement_title_double_trouble">Podwójna dawka</string>
+    <string name="achievement_desc_double_trouble">Ukończ 2 nawyki w ciągu jednego dnia.</string>
+    <string name="achievement_title_threes_a_charm">Do trzech razy sztuka</string>
+    <string name="achievement_desc_threes_a_charm">Ukończ 3 nawyki w ciągu jednego dnia.</string>
+    <string name="achievement_title_perfect_day">Idealny dzień</string>
+    <string name="achievement_desc_perfect_day">Ukończ 100% zaplanowanych nawyków w danym dniu.</string>
+    <string name="achievement_title_the_comeback">Powrót</string>
+    <string name="achievement_desc_the_comeback">Ukończ nawyk dzień po jego pominięciu.</string>
+    <!-- Grupa: Passy i konsekwencja -->
+    <string name="achievement_title_warming_up">Rozgrzewka</string>
+    <string name="achievement_desc_warming_up">Osiągnij passę 3 dni z rzędu w dowolnym nawyku.</string>
+    <string name="achievement_title_unstoppable">Nie do zatrzymania</string>
+    <string name="achievement_desc_unstoppable">Osiągnij passę 7 dni z rzędu w dowolnym nawyku.</string>
+    <string name="achievement_title_fortnight">Dwa tygodnie</string>
+    <string name="achievement_desc_fortnight">Osiągnij passę 14 dni z rzędu w dowolnym nawyku.</string>
+    <string name="achievement_title_habit_forming">To już nawyk</string>
+    <string name="achievement_desc_habit_forming">Osiągnij passę 21 dni z rzędu. (Nauka mówi, że to już nawyk!)</string>
+    <string name="achievement_title_monthly_master">Mistrz miesiąca</string>
+    <string name="achievement_desc_monthly_master">Osiągnij passę 30 dni z rzędu w dowolnym nawyku.</string>
+    <string name="achievement_title_soaring_high">Wysoki lot</string>
+    <string name="achievement_desc_soaring_high">Osiągnij passę 60 dni z rzędu w dowolnym nawyku.</string>
+    <string name="achievement_title_century_club">Klub stulatków</string>
+    <string name="achievement_desc_century_club">Osiągnij passę 100 dni z rzędu w dowolnym nawyku.</string>
+    <string name="achievement_title_half_a_year">Pół roku</string>
+    <string name="achievement_desc_half_a_year">Osiągnij passę 180 dni z rzędu w dowolnym nawyku.</string>
+    <string name="achievement_title_full_circle">Pełny krąg</string>
+    <string name="achievement_desc_full_circle">Osiągnij passę 365 dni z rzędu w dowolnym nawyku.</string>
+    <string name="achievement_title_juggler">Żongler</string>
+    <string name="achievement_desc_juggler">Utrzymaj passę 7 dni jednocześnie w 3 różnych nawykach.</string>
+    <string name="achievement_title_multitasker">Multitasker</string>
+    <string name="achievement_desc_multitasker">Utrzymaj passę 30 dni jednocześnie w 3 różnych nawykach.</string>
+    <!-- Grupa: Kamienie milowe -->
+    <string name="achievement_title_novice">Nowicjusz</string>
+    <string name="achievement_desc_novice">Ukończ łącznie 10 nawyków.</string>
+    <string name="achievement_title_apprentice">Adept</string>
+    <string name="achievement_desc_apprentice">Ukończ łącznie 50 nawyków.</string>
+    <string name="achievement_title_journeyman">Czeladnik</string>
+    <string name="achievement_desc_journeyman">Ukończ łącznie 100 nawyków.</string>
+    <string name="achievement_title_expert">Ekspert</string>
+    <string name="achievement_desc_expert">Ukończ łącznie 250 nawyków.</string>
+    <string name="achievement_title_master">Mistrz</string>
+    <string name="achievement_desc_master">Ukończ łącznie 500 nawyków.</string>
+    <string name="achievement_title_grandmaster">Arcymistrz</string>
+    <string name="achievement_desc_grandmaster">Ukończ łącznie 1 000 nawyków.</string>
+    <string name="achievement_title_legend">Legenda</string>
+    <string name="achievement_desc_legend">Ukończ łącznie 2 500 nawyków.</string>
+    <string name="achievement_title_mythic">Mityczny</string>
+    <string name="achievement_desc_mythic">Ukończ łącznie 5 000 nawyków.</string>
+    <string name="achievement_title_ten_k_club">Klub 10 000</string>
+    <string name="achievement_desc_ten_k_club">Ukończ łącznie 10 000 nawyków.</string>
+    <string name="achievement_title_a_year_in_actions">Rok w działaniu</string>
+    <string name="achievement_desc_a_year_in_actions">Ukończ łącznie 365 nawyków.</string>
+    <!-- Grupa: Pora dnia -->
+    <string name="achievement_title_early_bird">Ranny ptaszek</string>
+    <string name="achievement_desc_early_bird">Ukończ nawyk przed 7:00.</string>
+    <string name="achievement_title_breakfast_champion">Mistrz śniadania</string>
+    <string name="achievement_desc_breakfast_champion">Ukończ 3 nawyki przed 9:00.</string>
+    <string name="achievement_title_high_noon">Południe</string>
+    <string name="achievement_desc_high_noon">Ukończ nawyk dokładnie między 12:00 a 13:00.</string>
+    <string name="achievement_title_afternoon_hustle">Popołudniowy zryw</string>
+    <string name="achievement_desc_afternoon_hustle">Ukończ 3 nawyki między 13:00 a 17:00.</string>
+    <string name="achievement_title_night_owl">Nocna sowa</string>
+    <string name="achievement_desc_night_owl">Ukończ nawyk po 22:00.</string>
+    <string name="achievement_title_midnight_oil">Nocne czuwanie</string>
+    <string name="achievement_desc_midnight_oil">Ukończ nawyk po północy.</string>
+    <string name="achievement_title_bookends">Klamra dnia</string>
+    <string name="achievement_desc_bookends">Ukończ jeden nawyk przed 8:00 i drugi po 20:00.</string>
+    <string name="achievement_title_clockwork">Jak w zegarku</string>
+    <string name="achievement_desc_clockwork">Ukończ ten sam nawyk o tej samej godzinie przez 3 dni z rzędu.</string>
+    <!-- Grupa: Wojownicy tygodnia -->
+    <string name="achievement_title_monday_motivation">Poniedziałkowa motywacja</string>
+    <string name="achievement_desc_monday_motivation">Ukończ wszystkie zaplanowane nawyki w poniedziałek.</string>
+    <string name="achievement_title_hump_day_hero">Bohater środy</string>
+    <string name="achievement_desc_hump_day_hero">Ukończ wszystkie zaplanowane nawyki w środę.</string>
+    <string name="achievement_title_tgif">Nareszcie piątek</string>
+    <string name="achievement_desc_tgif">Ukończ wszystkie zaplanowane nawyki w piątek.</string>
+    <string name="achievement_title_weekend_warrior">Weekendowy wojownik</string>
+    <string name="achievement_desc_weekend_warrior">Ukończ przynajmniej jeden nawyk zarówno w sobotę, jak i w niedzielę.</string>
+    <string name="achievement_title_no_days_off">Bez wolnych dni</string>
+    <string name="achievement_desc_no_days_off">Ukończ wszystkie nawyki każdego weekendu przez miesiąc.</string>
+    <string name="achievement_title_the_daily_grind">Codzienna harówka</string>
+    <string name="achievement_desc_the_daily_grind">Ukończ wszystkie zaplanowane nawyki od poniedziałku do piątku.</string>
+    <string name="achievement_title_perfect_week">Idealny tydzień</string>
+    <string name="achievement_desc_perfect_week">Ukończ 100% nawyków przez 7 dni z rzędu.</string>
+    <!-- Grupa: Organizacja i różnorodność -->
+    <string name="achievement_title_the_architect">Architekt</string>
+    <string name="achievement_desc_the_architect">Stwórz 5 aktywnych nawyków.</string>
+    <string name="achievement_title_visionary">Wizjoner</string>
+    <string name="achievement_desc_visionary">Stwórz 10 aktywnych nawyków.</string>
+    <string name="achievement_title_colorful_life">Kolorowe życie</string>
+    <string name="achievement_desc_colorful_life">Przypisz 5 różnych kolorów swoim nawykom.</string>
+    <string name="achievement_title_spring_cleaning">Wiosenne porządki</string>
+    <string name="achievement_desc_spring_cleaning">Zarchiwizuj lub usuń stary nawyk.</string>
+    <string name="achievement_title_journalist">Dziennikarz</string>
+    <string name="achievement_desc_journalist">Dodaj notatkę do ukończenia nawyku.</string>
+    <!-- Grupa: Poziom boga -->
+    <string name="achievement_title_the_machine">Maszyna</string>
+    <string name="achievement_desc_the_machine">Ukończ 50 nawyków w ciągu jednego tygodnia.</string>
+    <string name="achievement_title_absolute_zero">Zero błędów</string>
+    <string name="achievement_desc_absolute_zero">Osiągnij 100% ukończeń wszystkich nawyków w 30-dniowym miesiącu.</string>
+    <string name="achievement_title_platinum_trophy">Platynowe trofeum</string>
+    <string name="achievement_desc_platinum_trophy">Odblokuj wszystkie pozostałe 49 osiągnięć.</string>
 </resources>

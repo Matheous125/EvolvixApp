@@ -37,6 +37,123 @@ private fun AchievementGroup.titleResId(): Int = when (this) {
 }
 
 /**
+ * Maps an [AchievementDefinition] to its localised title string resource ID.
+ * Keeping this mapping in the UI layer preserves the domain model's Android-free purity.
+ */
+@StringRes
+private fun AchievementDefinition.titleResId(): Int = when (key) {
+    "FIRST_STEP"         -> R.string.achievement_title_first_step
+    "ACTION_TAKER"       -> R.string.achievement_title_action_taker
+    "DOUBLE_TROUBLE"     -> R.string.achievement_title_double_trouble
+    "THREES_A_CHARM"     -> R.string.achievement_title_threes_a_charm
+    "PERFECT_DAY"        -> R.string.achievement_title_perfect_day
+    "THE_COMEBACK"       -> R.string.achievement_title_the_comeback
+    "WARMING_UP"         -> R.string.achievement_title_warming_up
+    "UNSTOPPABLE"        -> R.string.achievement_title_unstoppable
+    "FORTNIGHT"          -> R.string.achievement_title_fortnight
+    "HABIT_FORMING"      -> R.string.achievement_title_habit_forming
+    "MONTHLY_MASTER"     -> R.string.achievement_title_monthly_master
+    "SOARING_HIGH"       -> R.string.achievement_title_soaring_high
+    "CENTURY_CLUB"       -> R.string.achievement_title_century_club
+    "HALF_A_YEAR"        -> R.string.achievement_title_half_a_year
+    "FULL_CIRCLE"        -> R.string.achievement_title_full_circle
+    "JUGGLER"            -> R.string.achievement_title_juggler
+    "MULTITASKER"        -> R.string.achievement_title_multitasker
+    "NOVICE"             -> R.string.achievement_title_novice
+    "APPRENTICE"         -> R.string.achievement_title_apprentice
+    "JOURNEYMAN"         -> R.string.achievement_title_journeyman
+    "EXPERT"             -> R.string.achievement_title_expert
+    "MASTER"             -> R.string.achievement_title_master
+    "GRANDMASTER"        -> R.string.achievement_title_grandmaster
+    "LEGEND"             -> R.string.achievement_title_legend
+    "MYTHIC"             -> R.string.achievement_title_mythic
+    "TEN_K_CLUB"         -> R.string.achievement_title_ten_k_club
+    "A_YEAR_IN_ACTIONS"  -> R.string.achievement_title_a_year_in_actions
+    "EARLY_BIRD"         -> R.string.achievement_title_early_bird
+    "BREAKFAST_CHAMPION" -> R.string.achievement_title_breakfast_champion
+    "HIGH_NOON"          -> R.string.achievement_title_high_noon
+    "AFTERNOON_HUSTLE"   -> R.string.achievement_title_afternoon_hustle
+    "NIGHT_OWL"          -> R.string.achievement_title_night_owl
+    "MIDNIGHT_OIL"       -> R.string.achievement_title_midnight_oil
+    "BOOKENDS"           -> R.string.achievement_title_bookends
+    "CLOCKWORK"          -> R.string.achievement_title_clockwork
+    "MONDAY_MOTIVATION"  -> R.string.achievement_title_monday_motivation
+    "HUMP_DAY_HERO"      -> R.string.achievement_title_hump_day_hero
+    "TGIF"               -> R.string.achievement_title_tgif
+    "WEEKEND_WARRIOR"    -> R.string.achievement_title_weekend_warrior
+    "NO_DAYS_OFF"        -> R.string.achievement_title_no_days_off
+    "THE_DAILY_GRIND"    -> R.string.achievement_title_the_daily_grind
+    "PERFECT_WEEK"       -> R.string.achievement_title_perfect_week
+    "THE_ARCHITECT"      -> R.string.achievement_title_the_architect
+    "VISIONARY"          -> R.string.achievement_title_visionary
+    "COLORFUL_LIFE"      -> R.string.achievement_title_colorful_life
+    "SPRING_CLEANING"    -> R.string.achievement_title_spring_cleaning
+    "JOURNALIST"         -> R.string.achievement_title_journalist
+    "THE_MACHINE"        -> R.string.achievement_title_the_machine
+    "ABSOLUTE_ZERO"      -> R.string.achievement_title_absolute_zero
+    "PLATINUM_TROPHY"    -> R.string.achievement_title_platinum_trophy
+    else                 -> R.string.app_name
+}
+
+/**
+ * Maps an [AchievementDefinition] to its localised description string resource ID.
+ */
+@StringRes
+private fun AchievementDefinition.descResId(): Int = when (key) {
+    "FIRST_STEP"         -> R.string.achievement_desc_first_step
+    "ACTION_TAKER"       -> R.string.achievement_desc_action_taker
+    "DOUBLE_TROUBLE"     -> R.string.achievement_desc_double_trouble
+    "THREES_A_CHARM"     -> R.string.achievement_desc_threes_a_charm
+    "PERFECT_DAY"        -> R.string.achievement_desc_perfect_day
+    "THE_COMEBACK"       -> R.string.achievement_desc_the_comeback
+    "WARMING_UP"         -> R.string.achievement_desc_warming_up
+    "UNSTOPPABLE"        -> R.string.achievement_desc_unstoppable
+    "FORTNIGHT"          -> R.string.achievement_desc_fortnight
+    "HABIT_FORMING"      -> R.string.achievement_desc_habit_forming
+    "MONTHLY_MASTER"     -> R.string.achievement_desc_monthly_master
+    "SOARING_HIGH"       -> R.string.achievement_desc_soaring_high
+    "CENTURY_CLUB"       -> R.string.achievement_desc_century_club
+    "HALF_A_YEAR"        -> R.string.achievement_desc_half_a_year
+    "FULL_CIRCLE"        -> R.string.achievement_desc_full_circle
+    "JUGGLER"            -> R.string.achievement_desc_juggler
+    "MULTITASKER"        -> R.string.achievement_desc_multitasker
+    "NOVICE"             -> R.string.achievement_desc_novice
+    "APPRENTICE"         -> R.string.achievement_desc_apprentice
+    "JOURNEYMAN"         -> R.string.achievement_desc_journeyman
+    "EXPERT"             -> R.string.achievement_desc_expert
+    "MASTER"             -> R.string.achievement_desc_master
+    "GRANDMASTER"        -> R.string.achievement_desc_grandmaster
+    "LEGEND"             -> R.string.achievement_desc_legend
+    "MYTHIC"             -> R.string.achievement_desc_mythic
+    "TEN_K_CLUB"         -> R.string.achievement_desc_ten_k_club
+    "A_YEAR_IN_ACTIONS"  -> R.string.achievement_desc_a_year_in_actions
+    "EARLY_BIRD"         -> R.string.achievement_desc_early_bird
+    "BREAKFAST_CHAMPION" -> R.string.achievement_desc_breakfast_champion
+    "HIGH_NOON"          -> R.string.achievement_desc_high_noon
+    "AFTERNOON_HUSTLE"   -> R.string.achievement_desc_afternoon_hustle
+    "NIGHT_OWL"          -> R.string.achievement_desc_night_owl
+    "MIDNIGHT_OIL"       -> R.string.achievement_desc_midnight_oil
+    "BOOKENDS"           -> R.string.achievement_desc_bookends
+    "CLOCKWORK"          -> R.string.achievement_desc_clockwork
+    "MONDAY_MOTIVATION"  -> R.string.achievement_desc_monday_motivation
+    "HUMP_DAY_HERO"      -> R.string.achievement_desc_hump_day_hero
+    "TGIF"               -> R.string.achievement_desc_tgif
+    "WEEKEND_WARRIOR"    -> R.string.achievement_desc_weekend_warrior
+    "NO_DAYS_OFF"        -> R.string.achievement_desc_no_days_off
+    "THE_DAILY_GRIND"    -> R.string.achievement_desc_the_daily_grind
+    "PERFECT_WEEK"       -> R.string.achievement_desc_perfect_week
+    "THE_ARCHITECT"      -> R.string.achievement_desc_the_architect
+    "VISIONARY"          -> R.string.achievement_desc_visionary
+    "COLORFUL_LIFE"      -> R.string.achievement_desc_colorful_life
+    "SPRING_CLEANING"    -> R.string.achievement_desc_spring_cleaning
+    "JOURNALIST"         -> R.string.achievement_desc_journalist
+    "THE_MACHINE"        -> R.string.achievement_desc_the_machine
+    "ABSOLUTE_ZERO"      -> R.string.achievement_desc_absolute_zero
+    "PLATINUM_TROPHY"    -> R.string.achievement_desc_platinum_trophy
+    else                 -> R.string.app_name
+}
+
+/**
  * Root composable for the Achievements screen.
  *
  * Displays:
@@ -338,13 +455,13 @@ private fun AchievementRow(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = definition.title,
+                    text = stringResource(definition.titleResId()),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
                 if (!compact) {
                     Text(
-                        text = definition.description,
+                        text = stringResource(definition.descResId()),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
