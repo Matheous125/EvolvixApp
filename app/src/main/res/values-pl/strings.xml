@@ -471,4 +471,33 @@
     <string name="achievement_desc_absolute_zero">Osiągnij 100% ukończeń wszystkich nawyków w 30-dniowym miesiącu.</string>
     <string name="achievement_title_platinum_trophy">Platynowe trofeum</string>
     <string name="achievement_desc_platinum_trophy">Odblokuj wszystkie pozostałe 49 osiągnięć.</string>
+
+    <!-- ── Phase 9 — Ekrany uwierzytelniania ── -->
+    <string name="screen_login_title">Zaloguj się</string>
+    <string name="screen_register_title">Utwórz konto</string>
+    <string name="screen_reset_password_title">Resetuj hasło</string>
+    <string name="screen_set_new_password_title">Ustaw nowe hasło</string>
+    <string name="label_email">E-mail</string>
+    <string name="label_password">Hasło</string>
+    <string name="label_new_password">Nowe hasło</string>
+    <string name="label_confirm_password">Potwierdź hasło</string>
+    <string name="btn_sign_in">Zaloguj się</string>
+    <string name="btn_create_account">Utwórz konto</string>
+    <string name="btn_send_reset_link">Wyślij link resetujący</string>
+    <string name="btn_set_password">Ustaw hasło</string>
+    <string name="auth_no_account">Nie masz jeszcze konta?</string>
+    <string name="auth_have_account">Masz już konto?</string>
+    <string name="auth_forgot_password">Zapomniałeś hasła?</string>
+    <string name="auth_sign_up">Zarejestruj się</string>
+    <string name="auth_sign_in_link">Zaloguj się</string>
+    <string name="auth_reset_email_sent">Link resetujący wysłany — sprawdź skrzynkę.</string>
+    <string name="auth_password_changed">Hasło zostało zmienione.</string>
+    <string name="error_email_empty">E-mail nie może być pusty</string>
+    <string name="error_password_empty">Hasło nie może być puste</string>
+    <string name="error_passwords_no_match">Hasła nie są zgodne</string>
+    <string name="error_password_too_short">Hasło musi mieć co najmniej 6 znaków</string>
+    <string name="cd_toggle_password">Pokaż/ukryj hasło</string>
+    <string name="label_your_name">Twoje imię</string>
+    <string name="error_display_name_empty">Imię nie może być puste</string>
+    <string name="error_invalid_email">Podaj prawidłowy adres e-mail</string>
 </resources>

@@ -58,4 +58,18 @@ sealed class Screen(val route: String) {
      * (Pattern: Preferences as Repository)
      */
     object Onboarding : Screen("onboarding")
+
+    // ── Phase 9 — Authentication graph ────────────────────────────────────────
+
+    /** Login screen — entry point of the auth nav graph. */
+    object Login : Screen("login")
+
+    /** Register screen — create a new account. */
+    object Register : Screen("register")
+
+    /** Reset-password screen — send a password-reset e-mail. */
+    object ResetPassword : Screen("reset_password")
+
+    /** Set-new-password screen — change password while logged in. */
+    object SetNewPassword : Screen("set_new_password")
 }

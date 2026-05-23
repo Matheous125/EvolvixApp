@@ -11,7 +11,12 @@ import androidx.navigation.navArgument
 import android.util.Log
 import androidx.compose.ui.platform.LocalContext
 import com.example.evolvix.notifications.OnboardingPreferences
+import com.example.evolvix.ui.screens.auth.LoginScreen
+import com.example.evolvix.ui.screens.auth.RegisterScreen
+import com.example.evolvix.ui.screens.auth.ResetPasswordScreen
+import com.example.evolvix.ui.screens.auth.SetNewPasswordScreen
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
+import com.example.evolvix.ui.viewmodel.AuthViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.SettingsViewModel
 
@@ -27,6 +32,9 @@ import com.example.evolvix.ui.viewmodel.SettingsViewModel
  *   [AchievementBanner] so both read the same [AchievementsViewModel.newlyUnlocked] SharedFlow.
  * @param settingsViewModel    Activity-scoped ViewModel that manages theme, language, and
  *   notification preferences — also shared with [SettingsScreen].
+ * @param authViewModel        Activity-scoped ViewModel for all authentication screens.
+ *                             Phase 9 uses [FakeAuthRepository]; Phase 10 swaps in Firebase
+ *                             without touching any screen or NavGraph code.
  */
 @Composable
 fun HabitNavGraph(
@@ -35,10 +43,11 @@ fun HabitNavGraph(
     habitViewModel: HabitViewModel,
     achievementsViewModel: AchievementsViewModel,
     settingsViewModel: SettingsViewModel,
+    authViewModel: AuthViewModel,
     /** Stops the pulsing FAB animation; called when the user navigates to AddNewHabit
      *  via any path (FAB tap or empty-state CTA). Hoisted to [AppContent] which owns the state. */
     onDismissFabHint: () -> Unit = {},
-    /** Start destination determined once by [AppContent] from [OnboardingPreferences]. */
+    /** Start destination determined once by [AppContent] from [OnboardingPreferences] + auth state. */
     startDestination: String = Screen.Habits.route
 ) {
     val context = LocalContext.current
@@ -155,21 +164,74 @@ fun HabitNavGraph(
             SettingsScreen(
                 settingsViewModel   = settingsViewModel,
                 achievementsViewModel = achievementsViewModel,
+                onNavigateToChangePassword = {
+                    navController.navigate(Screen.SetNewPassword.route)
+                },
                 onNavigateBack      = { navController.navigateUp() }
             )
         }
 
         // Onboarding screen — shown once on first launch (Phase 8).
-        // On "Get Started": persist the completion flag and navigate to Habits,
-        // popping the onboarding entry so Back never returns here.
+        // On "Get Started": persist the completion flag and navigate to the Login screen
+        // (Phase 9 auth guard). Onboarding is popped so Back never returns here.
         composable(route = Screen.Onboarding.route) {
             OnboardingScreen(
                 onGetStarted = {
                     OnboardingPreferences.setCompleted(context)
-                    navController.navigate(Screen.Habits.route) {
+                    navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Onboarding.route) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        // ── Phase 9 — Auth screens ────────────────────────────────────────────
+        // All four screens share the activity-scoped [authViewModel] so state
+        // (isLoading, error, isAuthenticated) is consistent across navigations.
+        // onLoginSuccess pops the entire auth back stack so Back cannot return
+        // to Login after a successful sign-in (Pattern: Sealed nav graph guard).
+
+        composable(route = Screen.Login.route) {
+            LoginScreen(
+                viewModel = authViewModel,
+                onLoginSuccess = {
+                    navController.navigate(Screen.Habits.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                onNavigateToRegister = {
+                    navController.navigate(Screen.Register.route)
+                },
+                onNavigateToResetPassword = {
+                    navController.navigate(Screen.ResetPassword.route)
+                }
+            )
+        }
+
+        composable(route = Screen.Register.route) {
+            RegisterScreen(
+                viewModel = authViewModel,
+                onLoginSuccess = {
+                    navController.navigate(Screen.Habits.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                onSaveDisplayName = { name -> settingsViewModel.setDisplayName(name) },
+                onNavigateBack = { navController.navigateUp() }
+            )
+        }
+
+        composable(route = Screen.ResetPassword.route) {
+            ResetPasswordScreen(
+                viewModel = authViewModel,
+                onNavigateBack = { navController.navigateUp() }
+            )
+        }
+
+        composable(route = Screen.SetNewPassword.route) {
+            SetNewPasswordScreen(
+                viewModel = authViewModel,
+                onNavigateBack = { navController.navigateUp() }
             )
         }
     }

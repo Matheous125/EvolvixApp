@@ -459,4 +459,33 @@
     <string name="achievement_desc_absolute_zero">Achieve a 100% completion rate for all habits in a 30-day month.</string>
     <string name="achievement_title_platinum_trophy">Platinum Trophy</string>
     <string name="achievement_desc_platinum_trophy">Unlock all other 49 achievements.</string>
+
+    <!-- ── Phase 9 — Authentication screens ── -->
+    <string name="screen_login_title">Sign In</string>
+    <string name="screen_register_title">Create Account</string>
+    <string name="screen_reset_password_title">Reset Password</string>
+    <string name="screen_set_new_password_title">Set New Password</string>
+    <string name="label_email">Email</string>
+    <string name="label_password">Password</string>
+    <string name="label_new_password">New Password</string>
+    <string name="label_confirm_password">Confirm Password</string>
+    <string name="btn_sign_in">Sign In</string>
+    <string name="btn_create_account">Create Account</string>
+    <string name="btn_send_reset_link">Send Reset Link</string>
+    <string name="btn_set_password">Set Password</string>
+    <string name="auth_no_account">Don\'t have an account?</string>
+    <string name="auth_have_account">Already have an account?</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_sign_up">Sign up</string>
+    <string name="auth_sign_in_link">Sign in</string>
+    <string name="auth_reset_email_sent">Reset link sent — check your inbox.</string>
+    <string name="auth_password_changed">Password changed successfully.</string>
+    <string name="error_email_empty">Email cannot be empty</string>
+    <string name="error_password_empty">Password cannot be empty</string>
+    <string name="error_passwords_no_match">Passwords do not match</string>
+    <string name="error_password_too_short">Password must be at least 6 characters</string>
+    <string name="cd_toggle_password">Toggle password visibility</string>
+    <string name="label_your_name">Your name</string>
+    <string name="error_display_name_empty">Name cannot be empty</string>
+    <string name="error_invalid_email">Enter a valid email address</string>
 </resources>

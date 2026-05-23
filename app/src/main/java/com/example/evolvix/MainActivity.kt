@@ -57,11 +57,14 @@ import com.example.evolvix.ui.components.FullScreenConfettiOverlay
 import com.example.evolvix.ui.theme.HabitTracker3Theme
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.AchievementsViewModelFactory
+import com.example.evolvix.ui.viewmodel.AuthViewModel
+import com.example.evolvix.ui.viewmodel.AuthViewModelFactory
 import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
 import com.example.evolvix.ui.viewmodel.SettingsViewModel
 import com.example.evolvix.ui.viewmodel.SettingsViewModelFactory
 import com.example.evolvix.ui.viewmodel.ThemeMode
+import com.example.evolvix.domain.auth.FakeAuthRepository
 
 /**
  * Main entry point for the application.
@@ -153,6 +156,14 @@ fun AppContent() {
             achievementDao = AppDatabase.getDatabase(context).achievementDao()
         )
     )
+
+    // Activity-scoped ViewModel for all authentication screens (Phase 9).
+    // Phase 9 uses FakeAuthRepository (in-memory). Phase 10 swaps the factory
+    // argument to FirebaseAuthRepository — no ViewModel code changes needed
+    // (Pattern: Strategy + Dependency Inversion).
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModelFactory(FakeAuthRepository())
+    )
     val reorderMode by habitViewModel.reorderMode.collectAsState()
 
     // Pulsing FAB state — true until the user taps the FAB for the first time.
@@ -190,11 +201,15 @@ fun AppContent() {
     val currentRoute = currentBackStackEntry?.destination?.route
 
     // Determine the start destination once at composition time.
-    // SharedPreferences is synchronous so no coroutine is needed here.
+    // Priority: Onboarding (first launch) → Login (not authenticated) → Habits.
+    // SharedPreferences + StateFlow.value are both synchronous reads safe in remember{}.
     // (Pattern: Preferences as Repository — storage concern stays out of the View)
     val startDestination = remember {
-        if (OnboardingPreferences.isCompleted(context)) Screen.Habits.route
-        else Screen.Onboarding.route
+        when {
+            !OnboardingPreferences.isCompleted(context) -> Screen.Onboarding.route
+            !authViewModel.uiState.value.isAuthenticated -> Screen.Login.route
+            else -> Screen.Habits.route
+        }
     }
 
     // Phase 7.2v2 — handle notification deep-link from DailySummaryWorker. When the
@@ -245,8 +260,16 @@ fun AppContent() {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            // Bottom navigation is not shown on the onboarding screen.
-            if (currentRoute != Screen.Onboarding.route) {
+            // Bottom navigation is hidden on the Onboarding screen and all auth screens
+            // so the user cannot reach main destinations before authenticating.
+            val noNavBarRoutes = setOf(
+                Screen.Onboarding.route,
+                Screen.Login.route,
+                Screen.Register.route,
+                Screen.ResetPassword.route,
+                Screen.SetNewPassword.route
+            )
+            if (currentRoute !in noNavBarRoutes) {
             NavigationBar {
                 navLabels.forEachIndexed { index, label ->
                     NavigationBarItem(
@@ -303,6 +326,7 @@ fun AppContent() {
             habitViewModel        = habitViewModel,
             achievementsViewModel = achievementsViewModel,
             settingsViewModel     = settingsViewModel,
+            authViewModel         = authViewModel,
             onDismissFabHint      = {
                 fabHintShown = true
                 OnboardingPreferences.markFabHintShown(context)

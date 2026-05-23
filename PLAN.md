@@ -315,18 +315,18 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
   - [x] Part C — Achievement definitions + plurals + MotivationMessageUseCase templates
 - [x] **Onboarding:** New `ui/screens/OnboardingScreen.kt` —  single welcome screen (one pager page, not three) with the app name, a one-sentence pitch, and a "Get Started" button wired to the DataStore flag. (Pattern: **Preferences as Repository**).
 - [x] **UI hints:** Pulsing FAB on the main screen on first launch (Compose `infiniteTransition`).
-- [ ] **Empty states:** Implement copy from `IDEAS.MD §6.4` for Home, Statistics
+- [x] **Empty states:** Implement copy from `IDEAS.MD §6.4` for Home, Statistics
 
 ---
 
 ## PHASE 9 — Authentication Screens (Module 1.3) — local-only first
 **Goal:** Build the auth UI surface against a fake repository. Real Firebase wiring happens in Phase 10. Decoupling keeps auth UI testable.
 
-- [ ] **Domain:** Interface `AuthRepository` in `domain/auth/` — methods `login`, `register`, `resetPassword`, `changePassword`, `logout` (Pattern: **Repository + Dependency Inversion**).
-- [ ] **Domain:** `FakeAuthRepository` for dev.
-- [ ] **ViewModel:** `AuthViewModel.kt` exposes `AuthUiState` `StateFlow`.
-- [ ] **View:** New screens in `ui/screens/auth/` — `LoginScreen.kt`, `RegisterScreen.kt`, `ResetPasswordScreen.kt`, `SetNewPasswordScreen.kt`.
-- [ ] **Navigation:** Auth nav graph guards main graph based on `isAuthenticated` flag.
+- [x] **Domain:** Interface `AuthRepository` in `domain/auth/` — methods `login`, `register`, `resetPassword`, `changePassword`, `logout` (Pattern: **Repository + Dependency Inversion**).
+- [x] **Domain:** `FakeAuthRepository` for dev.
+- [x] **ViewModel:** `AuthViewModel.kt` exposes `AuthUiState` `StateFlow`.
+- [x] **View:** New screens in `ui/screens/auth/` — `LoginScreen.kt`, `RegisterScreen.kt`, `ResetPasswordScreen.kt`, `SetNewPasswordScreen.kt`.
+- [x] **Navigation:** Auth nav graph guards main graph based on `isAuthenticated` flag.
 
 ---
 

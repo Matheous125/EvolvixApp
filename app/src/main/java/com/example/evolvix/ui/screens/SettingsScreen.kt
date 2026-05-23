@@ -68,21 +68,23 @@ private fun initials(name: String): String {
  *  2. **Appearance** — theme mode selector (Light / Dark / System) using [SingleChoiceSegmentedButtonRow];
  *     language selector via a simple radio dialog.
  *  3. **Notifications** — daily summary enable/disable [Switch].
- *  4. **Account** — Change Password and Login/Logout placeholders (Phase 9/10).
+ *  4. **Account** — Change Password (navigates to [SetNewPasswordScreen]) and Login/Logout placeholder (Phase 10).
  *  5. **Support** — Help dialog and Feedback email intent.
  *
  * Pattern: **MVVM + Observer** — all state is read from [SettingsViewModel] (StateFlow)
  * and [AchievementsViewModel] (StateFlow for points). No business logic in the Composable.
  *
- * @param settingsViewModel  Manages theme, language, name, and daily-summary preference.
- * @param achievementsViewModel  Activity-scoped VM; provides total earned points for rank.
- * @param onNavigateBack     Callback to pop the back stack.
+ * @param settingsViewModel          Manages theme, language, name, and daily-summary preference.
+ * @param achievementsViewModel      Activity-scoped VM; provides total earned points for rank.
+ * @param onNavigateToChangePassword Navigates to the SetNewPassword screen (Phase 9).
+ * @param onNavigateBack             Callback to pop the back stack.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel,
     achievementsViewModel: AchievementsViewModel,
+    onNavigateToChangePassword: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -226,7 +228,7 @@ fun SettingsScreen(
                     icon     = Icons.Filled.Lock,
                     title    = stringResource(R.string.menu_change_password),
                     subtitle = stringResource(R.string.subtitle_change_password),
-                    onClick  = { /* Phase 9 placeholder */ }
+                    onClick  = onNavigateToChangePassword
                 )
             }
             item(key = "login_logout") {
