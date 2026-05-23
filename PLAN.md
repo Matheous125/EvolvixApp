@@ -313,9 +313,9 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
   - [x] Part A — Screens (all Composables)
   - [x] Part B — Notifications + Workers + domain strings
   - [x] Part C — Achievement definitions + plurals + MotivationMessageUseCase templates
-- [ ] **Onboarding:** New `ui/screens/OnboardingScreen.kt` —  single welcome screen (one pager page, not three) with the app name, a one-sentence pitch, and a "Get Started" button wired to the DataStore flag. (Pattern: **Preferences as Repository**).
-- [ ] **UI hints:** Pulsing FAB / tap-to-complete glow on first launch (Compose `infiniteTransition`).
-- [ ] **Empty states:** Implement copy from `IDEAS.MD §6.4` for Home, Statistics, Achievements.
+- [x] **Onboarding:** New `ui/screens/OnboardingScreen.kt` —  single welcome screen (one pager page, not three) with the app name, a one-sentence pitch, and a "Get Started" button wired to the DataStore flag. (Pattern: **Preferences as Repository**).
+- [x] **UI hints:** Pulsing FAB on the main screen on first launch (Compose `infiniteTransition`).
+- [ ] **Empty states:** Implement copy from `IDEAS.MD §6.4` for Home, Statistics
 
 ---
 

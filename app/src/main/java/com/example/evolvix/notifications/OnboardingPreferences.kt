@@ -23,6 +23,7 @@ object OnboardingPreferences {
     /** SharedPreferences file shared with other UI-flag helpers. */
     private const val FILE = "habit_ui_prefs"
     private const val KEY_COMPLETED = "onboarding_completed"
+    private const val KEY_FAB_HINT_SHOWN = "fab_hint_shown"
 
     private fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
@@ -41,5 +42,21 @@ object OnboardingPreferences {
      */
     fun setCompleted(ctx: Context) {
         prefs(ctx).edit().putBoolean(KEY_COMPLETED, true).apply()
+    }
+
+    /**
+     * Returns `true` if the pulsing FAB hint has already been acknowledged
+     * (i.e., the user tapped the FAB at least once). Used to stop the
+     * [infiniteTransition] pulse after first use.
+     */
+    fun fabHintShown(ctx: Context): Boolean =
+        prefs(ctx).getBoolean(KEY_FAB_HINT_SHOWN, false)
+
+    /**
+     * Persists the FAB hint acknowledged state. Called in [AppContent] when
+     * the user taps the FAB for the first time.
+     */
+    fun markFabHintShown(ctx: Context) {
+        prefs(ctx).edit().putBoolean(KEY_FAB_HINT_SHOWN, true).apply()
     }
 }

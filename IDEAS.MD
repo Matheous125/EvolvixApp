@@ -272,15 +272,11 @@ Replaces immediate edit. Opens a menu with:
     *   *Pulsing UI Hints:* Use subtle glowing animations for primary actions (e.g., FAB button, tap to complete) on first launch.
     *   *Deep Dive:* Detailed text explanations remain in the Settings > "Help" section.
 
-### 6.4. Empty States (With Suggestions)
+### 6.4. Empty States
 *   **Home Screen:**
-    *   *Your text:* "Start building better habits today!" + [Create First Habit]
-    *   *AI Suggestion:* "A blank canvas! 🎨 Let's build your first routine."
+    *   "A blank canvas! 🎨 Let's build your first routine." + [Create First Habit]
 *   **Statistics Screen:**
-    *   *Your text:* "No habits created yet."
-    *   *AI Suggestion:* "Nothing to analyze yet! 📊 Complete a few habits, and your AI coach will start finding patterns."
-*   **Achievements Screen:**
-    *   *AI Suggestion:* "Your trophy case is empty! 🏆 Complete your first habit to unlock your first reward."
+    *   "Nothing to analyze yet! 📊 Complete a few habits, and your AI coach will start finding patterns."
 
 ---
 

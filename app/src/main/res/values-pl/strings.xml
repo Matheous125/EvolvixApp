@@ -156,8 +156,13 @@
     <string name="patterns_no_routine">Nie wykryto jeszcze stałej pory wykonywania.</string>
     <string name="patterns_recovery_speed">Szybkość powrotu: ~%1$d okres(y) po przerwie</string>
     <string name="patterns_no_recovery">Nie zarejestrowano jeszcze żadnych powrotów.</string>
-    <string name="empty_no_habits_title">Brak nawyków</string>
-    <string name="empty_no_habits_subtitle">Utwórz pierwszy nawyk, aby zobaczyć statystyki.</string>
+    <string name="empty_no_habits_title">Nic do przeanalizowania! 📊</string>
+    <string name="empty_no_habits_subtitle">Zarejestruj kilka czynności, a Twój asystent AI zacznie odkrywać wzorce.</string>
+
+    <!-- ── Ekran główny — pusty stan (IDEAS.MD §6.4) ── -->
+    <string name="empty_home_title">Czysta karta! 🎨</string>
+    <string name="empty_home_body">Zbudujmy Twój pierwszy rytm dnia.</string>
+    <string name="empty_home_cta">Utwórz pierwszy nawyk</string>
 
     <!-- ── Ustawienia ── -->
     <string name="section_appearance">Wygląd</string>

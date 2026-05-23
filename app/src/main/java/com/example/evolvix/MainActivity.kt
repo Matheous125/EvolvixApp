@@ -16,8 +16,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.scale
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -149,6 +155,24 @@ fun AppContent() {
     )
     val reorderMode by habitViewModel.reorderMode.collectAsState()
 
+    // Pulsing FAB state — true until the user taps the FAB for the first time.
+    // Read synchronously from SharedPreferences (cached in-memory, no disk I/O).
+    var fabHintShown by remember { mutableStateOf(OnboardingPreferences.fabHintShown(context)) }
+
+    // infiniteTransition drives a gentle scale oscillation (1.0 → 1.13 → 1.0).
+    // The transition is only composed when the hint is not yet shown; stopping it
+    // avoids wasting animation frames after first use.
+    val fabPulseTransition = rememberInfiniteTransition(label = "fabPulse")
+    val fabPulseScale by fabPulseTransition.animateFloat(
+        initialValue = 1f,
+        targetValue  = 1.13f,
+        animationSpec = infiniteRepeatable(
+            animation  = tween(durationMillis = 700),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "fabScale"
+    )
+
     // Full-screen confetti visibility — set to true by the celebrationEvent collector below.
     var showCelebration by remember { mutableStateOf(false) }
 
@@ -256,9 +280,18 @@ fun AppContent() {
             // FAB is visible only on the Habits screen and hidden during reorder mode
             // so the user cannot open AddHabit while rearranging the list.
             if (currentRoute == Screen.Habits.route && !reorderMode) {
-                FloatingActionButton(onClick = {
-                    navController.navigate(Screen.AddNewHabit.route)
-                }) {
+                // Apply a gentle pulse scale on first launch until the user taps the FAB.
+                // Compose `scale` modifier is cheap — the FAB is the only scaled element.
+                FloatingActionButton(
+                    onClick = {
+                        if (!fabHintShown) {
+                            fabHintShown = true
+                            OnboardingPreferences.markFabHintShown(context)
+                        }
+                        navController.navigate(Screen.AddNewHabit.route)
+                    },
+                    modifier = Modifier.scale(if (fabHintShown) 1f else fabPulseScale)
+                ) {
                     Icon(Icons.Filled.Add, "Add new habit")
                 }
             }
@@ -270,6 +303,10 @@ fun AppContent() {
             habitViewModel        = habitViewModel,
             achievementsViewModel = achievementsViewModel,
             settingsViewModel     = settingsViewModel,
+            onDismissFabHint      = {
+                fabHintShown = true
+                OnboardingPreferences.markFabHintShown(context)
+            },
             startDestination      = startDestination
         )
     }

@@ -106,6 +106,9 @@ private fun buildManualSections(habits: List<HabitUiState>): List<ManualSection>
  * Supports tap-to-increment, long-press context menu, and collapsible category groups.
  *
  * @param onNavigateToAddHabit Callback to open the Add Habit screen
+ * @param onDismissFabHint Callback to stop the pulsing FAB animation and persist the seen-state;
+ *   called from both the FAB (in [AppContent]) and the empty-state CTA so any path into
+ *   AddNewHabit dismisses the hint.
  * @param onNavigateToEditHabit Callback to open the Edit Habit screen for a given habit id
  * @param onNavigateToSettings Callback to open Settings
  * @param onNavigateToStatistics Callback to open Statistics
@@ -116,6 +119,7 @@ private fun buildManualSections(habits: List<HabitUiState>): List<ManualSection>
 fun MainScreen(
     modifier: Modifier = Modifier,
     onNavigateToAddHabit: () -> Unit = {},
+    onDismissFabHint: () -> Unit = {},
     onNavigateToEditHabit: (Int) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {},
@@ -511,7 +515,7 @@ fun MainScreen(
             // ── Chip row: search toggle + category filters ─────────────────────
             // Hidden in reorder mode — filters are irrelevant while dragging,
             // and hiding them prevents accidental changes to the visible list.
-            if (!reorderMode) {
+            if (!reorderMode && allHabitsUiState.isNotEmpty()) {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -579,7 +583,7 @@ fun MainScreen(
                     )
                 }
             }
-            } // end if (!reorderMode) filter row
+            } // end if (!reorderMode && isNotEmpty) filter row
 
             // ── Habit list ────────────────────────────────────────────────────
             // Box wraps the LazyColumn so the floating overlay can be drawn on top
@@ -592,6 +596,50 @@ fun MainScreen(
                 // No global spacedBy — spacing between groups is handled per-item below
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
             ) {
+                // ── Empty state (IDEAS.MD §6.4) ─────────────────────────────────────
+                // Shown when no habits exist at all. fillParentMaxSize() centres the
+                // card in the full LazyColumn viewport (Observer pattern — reacts to
+                // allHabitsUiState Flow emitting an empty list).
+                if (allHabitsUiState.isEmpty()) {
+                    item(key = "empty_home") {
+                        Box(
+                            modifier = Modifier.fillParentMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            ElevatedCard(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.empty_home_title),
+                                        style = MaterialTheme.typography.headlineSmall
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.empty_home_body),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.height(20.dp))
+                                    Button(onClick = {
+                                        onDismissFabHint()
+                                        onNavigateToAddHabit()
+                                    }) {
+                                        Icon(Icons.Filled.Add, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.empty_home_cta))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (groupedHabits != null) {
                     // CATEGORY mode: each group is ONE LazyColumn item (a Column) so there
                     // is no lazy item boundary between the header and the habits — gap-free.

@@ -35,6 +35,9 @@ fun HabitNavGraph(
     habitViewModel: HabitViewModel,
     achievementsViewModel: AchievementsViewModel,
     settingsViewModel: SettingsViewModel,
+    /** Stops the pulsing FAB animation; called when the user navigates to AddNewHabit
+     *  via any path (FAB tap or empty-state CTA). Hoisted to [AppContent] which owns the state. */
+    onDismissFabHint: () -> Unit = {},
     /** Start destination determined once by [AppContent] from [OnboardingPreferences]. */
     startDestination: String = Screen.Habits.route
 ) {
@@ -49,6 +52,7 @@ fun HabitNavGraph(
         composable(route = Screen.Habits.route) {
             MainScreen(
                 habitViewModel = habitViewModel,
+                onDismissFabHint = onDismissFabHint,
                 onNavigateToAddHabit = {
                     navController.navigate(Screen.AddNewHabit.route)
                 },
