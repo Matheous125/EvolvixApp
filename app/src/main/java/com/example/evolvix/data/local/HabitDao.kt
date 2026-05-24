@@ -220,6 +220,21 @@ abstract class HabitDao {
     abstract fun getCompletionsForHabit(habitId: Int): Flow<List<HabitCompletionEntity>>
 
     /**
+     * Returns only the completion records for [habitId] where the user provided an explicit
+     * difficulty rating ([HabitCompletionEntity.perceivedDifficulty] IS NOT NULL).
+     *
+     * Used by [com.example.evolvix.domain.usecase.DifficultyEstimateUseCase] to compute
+     * [recentAvgRated] — the average of the user's actual ratings over the last 14 days.
+     * The WHERE clause keeps the result set small: rows without a rating are irrelevant
+     * to the average and skipping them avoids filtering in Kotlin.
+     *
+     * @param habitId The ID of the parent habit.
+     * @return Flow of rated [HabitCompletionEntity] rows, newest first.
+     */
+    @Query("SELECT * FROM habit_completions WHERE habitId = :habitId AND perceivedDifficulty IS NOT NULL ORDER BY progressUpdate DESC")
+    abstract fun getCompletionsWithDifficulty(habitId: Int): Flow<List<HabitCompletionEntity>>
+
+    /**
      * Returns ALL completion records across every habit as a single reactive [Flow].
      *
      * This is the data source for the streak engine in [HabitViewModel]: combining this

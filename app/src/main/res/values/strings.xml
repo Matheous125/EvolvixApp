@@ -208,6 +208,12 @@
     <string name="target_adjustment_arrow_down">↓ %d</string>
     <string name="target_adjustment_current_to_suggested">%d → %d</string>
 
+    <!-- ── Phase 9.4 — Perceived Difficulty card ── -->
+    <string name="difficulty_card_title">🧠 Perceived Difficulty</string>
+    <string name="difficulty_card_subtitle">Predicted task difficulty based on your history (1 = Easy, 5 = Very Hard). Rate completions with ★ chips to improve accuracy.</string>
+    <string name="difficulty_no_data">Collecting data… keep logging to unlock this insight.</string>
+    <string name="difficulty_no_data_inline">Collecting data…</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 

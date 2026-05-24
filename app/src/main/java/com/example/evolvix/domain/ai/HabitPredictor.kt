@@ -373,4 +373,29 @@ interface HabitPredictor {
      * (Strategy + Dependency Inversion).
      */
     fun predictTargetDelta(features: TargetChangeFeatures): Float
+
+    // ── Phase 9.4 — Perceived Difficulty Regressor ────────────────────────────
+
+    /**
+     * Predicts the user's **subjective difficulty rating** (continuous ∈ [1.0, 5.0])
+     * for completing the habit given the current context encoded in [features].
+     *
+     * The returned value mirrors the model's sigmoid×4+1 output layer:
+     * - 1.0 → very easy (thriving: long streak, high rate30d).
+     * - 5.0 → very hard (struggling: zero streak, low rate7d).
+     *
+     * ⚠ **Observational caveat (thesis):** The model is trained on *synthetic* labels
+     * derived from behavioral priors (completion rates, streak length) and predicts
+     * *expected self-reported difficulty*, not objective task complexity. Present as
+     * "predicted perceived difficulty" in all thesis documentation.
+     *
+     * The caller ([com.example.evolvix.domain.usecase.DifficultyEstimateUseCase]) wraps
+     * the raw float in a [com.example.evolvix.domain.model.PerceivedDifficultyEstimate]
+     * which adds [rounded], [rating], and the user-sourced [recentAvgRated] average.
+     *
+     * Backed by `perceived_difficulty_regressor.tflite` (8-feature MLP, sigmoid→[1,5])
+     * in [TfliteHabitPredictor]; [MathHabitPredictor] provides a rule-based fallback
+     * (`5 − 4 × rate30d`, clipped to [1,5]) (Strategy + Dependency Inversion).
+     */
+    fun predictPerceivedDifficulty(features: DifficultyFeatures): Float
 }

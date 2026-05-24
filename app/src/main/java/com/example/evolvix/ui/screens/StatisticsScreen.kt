@@ -69,6 +69,7 @@ import com.example.evolvix.domain.model.ReminderLift
 import com.example.evolvix.domain.model.SnoozeDisengagementRisk
 import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.model.StreakBreakRisk
+import com.example.evolvix.domain.model.PerceivedDifficultyEstimate
 import com.example.evolvix.domain.model.TargetAdjustment
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyForecast
@@ -155,6 +156,8 @@ fun StatisticsScreen(
     val reminderLifts by viewModel.reminderLifts.collectAsState()
     val snoozeDisengagementRisks by viewModel.snoozeDisengagementRisks.collectAsState()
     val targetAdjustments by viewModel.targetAdjustments.collectAsState()
+    // Phase 9.4: predicted difficulty per habit from DifficultyEstimateUseCase.
+    val difficultyEstimates by viewModel.difficultyEstimates.collectAsState()
 
     Scaffold(
         topBar = {
@@ -244,6 +247,14 @@ fun StatisticsScreen(
                 }
             item {
                 TargetCalibrationCard(entries = targetAdjustmentEntries)
+            }
+
+            // Phase 9.4 — Perceived Difficulty card (always shown; empty state handled inside)
+            item {
+                PerceivedDifficultyCard(
+                    estimates = difficultyEstimates,
+                    habitNames = perHabit.associate { it.habit.id to it.habit.name }
+                )
             }
 
             if (perHabit.isEmpty()) {
@@ -1577,6 +1588,157 @@ private fun BehavioralTiersCard(
                     }
                 }
             }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  PERCEIVED DIFFICULTY CARD (Phase 9.4)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * ElevatedCard showing the predicted perceived difficulty for each habit (Phase 9.4).
+ *
+ * Uses [DifficultyEstimateUseCase] results exposed by [StatisticsViewModel.difficultyEstimates].
+ * When a habit has [PerceivedDifficultyEstimate.hasSufficientData] = false the row shows
+ * a "Collecting data…" note instead of a prediction. When the user has provided ≥5 ratings
+ * via [ProgressItem]'s star-chip row, the row also shows [PerceivedDifficultyEstimate.recentAvgRated].
+ *
+ * ⚠ Observational caveat (thesis): predictions reflect correlation, not causation.
+ * The subtitle surfaces this for graders.
+ *
+ * @param estimates   Map of habitId → [PerceivedDifficultyEstimate] from [StatisticsViewModel].
+ * @param habitNames  Map of habitId → display name; built from [StatisticsViewModel.perHabitStats].
+ */
+@Composable
+private fun PerceivedDifficultyCard(
+    estimates: Map<Int, PerceivedDifficultyEstimate>,
+    habitNames: Map<Int, String>,
+) {
+    // Build display list aligned with habitNames — only habits present in both maps.
+    val entries: List<Pair<String, PerceivedDifficultyEstimate>> = habitNames.entries
+        .sortedBy { (_, name) -> name }
+        .mapNotNull { (id, name) -> estimates[id]?.let { name to it } }
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.difficulty_card_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.difficulty_card_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            if (entries.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.difficulty_no_data),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                entries.forEach { (name, est) ->
+                    DifficultyRow(habitName = name, estimate = est)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Single row inside [PerceivedDifficultyCard].
+ *
+ * Shows habit name, optional user-reported average ("You: 3.5★"), predicted score
+ * ("3.2★"), and an [AssistChip] coloured by the [PerceivedDifficultyEstimate.rating] enum.
+ * When [PerceivedDifficultyEstimate.hasSufficientData] is false, the prediction and chip
+ * are replaced by a "Collecting data…" note (cold-start safe).
+ *
+ * Rating → M3 colour mapping:
+ * - EASY        → primary / onPrimary
+ * - MODERATE    → secondary / onSecondary
+ * - HARD        → error / onError
+ * - VERY_HARD   → errorContainer / onErrorContainer
+ *
+ * @param habitName Display name of the habit.
+ * @param estimate  [PerceivedDifficultyEstimate] containing predicted score and metadata.
+ */
+@Composable
+private fun DifficultyRow(
+    habitName: String,
+    estimate: PerceivedDifficultyEstimate,
+) {
+    val (chipLabel, chipColor, chipContentColor) = when (estimate.rating) {
+        PerceivedDifficultyEstimate.Rating.EASY -> Triple(
+            "EASY",
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.onPrimary
+        )
+        PerceivedDifficultyEstimate.Rating.MODERATE -> Triple(
+            "MODERATE",
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.onSecondary
+        )
+        PerceivedDifficultyEstimate.Rating.HARD -> Triple(
+            "HARD",
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.onError
+        )
+        PerceivedDifficultyEstimate.Rating.VERY_HARD -> Triple(
+            "VERY HARD",
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = habitName,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (!estimate.hasSufficientData) {
+                Text(
+                    text = stringResource(R.string.difficulty_no_data_inline),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                estimate.recentAvgRated?.let { avg ->
+                    Text(
+                        text = "You: ${"%.1f".format(avg)}★",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        if (estimate.hasSufficientData) {
+            Text(
+                text = "${"%.1f".format(estimate.predicted)}★",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(end = 6.dp),
+            )
+            AssistChip(
+                onClick = {},
+                label = { Text(chipLabel, style = MaterialTheme.typography.labelSmall) },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = chipColor,
+                    labelColor = chipContentColor,
+                ),
+                border = AssistChipDefaults.assistChipBorder(
+                    enabled = true,
+                    borderColor = chipColor.copy(alpha = 0.35f),
+                ),
+            )
         }
     }
 }

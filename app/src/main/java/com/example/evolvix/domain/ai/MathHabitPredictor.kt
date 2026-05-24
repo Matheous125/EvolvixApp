@@ -683,6 +683,26 @@ class MathHabitPredictor : HabitPredictor {
         }
     }
 
+    // ── Phase 9.4 — Perceived Difficulty Regressor fallback ──────────────────
+
+    /**
+     * Rule-based fallback for [predictPerceivedDifficulty] used when TFLite is unavailable.
+     *
+     * Formula: `5 − 4 × rate30d`, which maps the behavioral priors in
+     * `generate_difficulty_data.py` onto the [1.0, 5.0] scale without a neural network:
+     * - rate30d = 1.0 → predicted difficulty = 1.0 (very easy)
+     * - rate30d = 0.0 → predicted difficulty = 5.0 (very hard)
+     *
+     * A +0.5 penalty is applied when the current streak is zero AND rate7d < 0.30,
+     * matching the "struggling" cluster prior (difficulty mean ≈ 5.0) from training.
+     * Result is clipped to [1.0, 5.0] before returning.
+     */
+    override fun predictPerceivedDifficulty(features: DifficultyFeatures): Float {
+        val base = 5f - 4f * features.completionRateLast30Days.coerceIn(0f, 1f)
+        val penalty = if (features.currentStreak == 0 && features.completionRateLast7Days < 0.30f) 0.5f else 0f
+        return (base + penalty).coerceIn(1f, 5f)
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

@@ -48,6 +48,8 @@ class TfliteHabitPredictor(
     private val snoozeDisengagementInterpreter: Interpreter?
     // Phase 9.3 — TargetAdjustmentRegressor
     private val targetChangeInterpreter: Interpreter?
+    // Phase 9.4 — PerceivedDifficultyRegressor
+    private val difficultyInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -80,6 +82,10 @@ class TfliteHabitPredictor(
     private val targetChangeMean: FloatArray
     private val targetChangeScale: FloatArray
 
+    // Phase 9.4
+    private val difficultyMean: FloatArray
+    private val difficultyScale: FloatArray
+
     // ── Phase 8.4 — K-Means cluster tables (no Interpreter — JSON + Kotlin math) ──
     private val clusterMean: FloatArray
     private val clusterScale: FloatArray
@@ -106,6 +112,7 @@ class TfliteHabitPredictor(
         reminderLiftInterpreter = tryLoadModel(context, "reminder_lift_classifier.tflite")
         snoozeDisengagementInterpreter = tryLoadModel(context, "snooze_disengagement_classifier.tflite")
         targetChangeInterpreter = tryLoadModel(context, "target_change_regressor.tflite")
+        difficultyInterpreter = tryLoadModel(context, "perceived_difficulty_regressor.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -144,6 +151,11 @@ class TfliteHabitPredictor(
         val targetChangeJson = readJsonAsset(context, "target_change_scaler.json")
         targetChangeMean = targetChangeJson?.toFloatArray("mean") ?: FloatArray(TARGET_CHANGE_FEATURE_COUNT)
         targetChangeScale = targetChangeJson?.toFloatArray("scale") ?: FloatArray(TARGET_CHANGE_FEATURE_COUNT) { 1f }
+
+        // Phase 9.4 — PerceivedDifficultyRegressor scaler
+        val difficultyJson = readJsonAsset(context, "perceived_difficulty_scaler.json")
+        difficultyMean = difficultyJson?.toFloatArray("mean") ?: FloatArray(DIFFICULTY_FEATURE_COUNT)
+        difficultyScale = difficultyJson?.toFloatArray("scale") ?: FloatArray(DIFFICULTY_FEATURE_COUNT) { 1f }
 
         // habit_clusters.json carries everything needed for K-Means inference —
         // no Interpreter is loaded because nearest-centroid math is done in Kotlin.
@@ -516,6 +528,36 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 9.4 — Perceived Difficulty Regressor ───────────────────────────
+
+    /**
+     * TFLite inference for [HabitPredictor.predictPerceivedDifficulty].
+     *
+     * The model's output neuron applies `sigmoid × 4 + 1` internally, so the raw
+     * output tensor already lies in [1.0, 5.0] — no additional rescaling is needed.
+     * [standardScale] is applied to the input features before inference, matching
+     * the `StandardScaler` fit in `train_difficulty_model.py`.
+     *
+     * Defensive pattern: null interpreter or any runtime exception → fallback to
+     * [MathHabitPredictor.predictPerceivedDifficulty] so the feature degrades
+     * gracefully rather than crashing the calling use case.
+     */
+    override fun predictPerceivedDifficulty(features: DifficultyFeatures): Float {
+        val interp = difficultyInterpreter
+            ?: return mathFallback.predictPerceivedDifficulty(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, difficultyMean, difficultyScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            output[0][0].coerceIn(1f, 5f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictPerceivedDifficulty inference failed; using math fallback", t)
+            mathFallback.predictPerceivedDifficulty(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -637,6 +679,7 @@ class TfliteHabitPredictor(
         private const val REMINDER_LIFT_FEATURE_COUNT = 8
         private const val SNOOZE_DISENGAGEMENT_FEATURE_COUNT = 7
         private const val TARGET_CHANGE_FEATURE_COUNT = 8   // Phase 9.3
+        private const val DIFFICULTY_FEATURE_COUNT = 8       // Phase 9.4
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

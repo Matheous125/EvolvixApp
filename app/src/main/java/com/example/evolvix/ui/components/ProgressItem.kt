@@ -7,7 +7,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.SuggestionChip
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,6 +44,7 @@ import com.example.evolvix.R
 import com.example.evolvix.ui.theme.HabitColorScheme
 import androidx.compose.runtime.withFrameMillis
 import kotlin.random.Random
+import kotlinx.coroutines.delay
 
 // ── Mini-confetti particle system ────────────────────────────────────────────
 
@@ -112,6 +115,9 @@ private fun makeMiniSeeds(count: Int, rng: Random): List<MiniParticleSeed> = Lis
  * @param isOverCompleted   True when completions exceed the target.
  * @param isPaused          True when the habit is currently paused.
  * @param isSystemInDarkTheme Whether dark mode is active.
+ * @param onRateCompletion  Phase 9.4: callback invoked with a 1–5 difficulty rating when
+ *                          the user taps a star chip. The chip row appears for 5 seconds
+ *                          after each forward completion tap. Pass null to disable rating.
  */
 @Composable
 fun ProgressItem(
@@ -123,6 +129,7 @@ fun ProgressItem(
     isOverCompleted: Boolean = false,
     isPaused: Boolean = false,
     isSystemInDarkTheme: Boolean = isSystemInDarkTheme(),
+    onRateCompletion: ((Int) -> Unit)? = null,
 ) {
     // Clamp at 1f when over-completed so the bar doesn't overflow its container
     val progressFraction = if (maxClicks > 0) (currentClickCount.toFloat() / maxClicks).coerceAtMost(1f) else 0f
@@ -154,6 +161,11 @@ fun ProgressItem(
     // Tracks animation progress 0→1 inside the frame-by-frame coroutine.
     var miniAnimTime by remember { mutableFloatStateOf(0f) }
 
+    // Phase 9.4 — Rating chips state
+    // Each forward tap increments ratingTriggerKey, which re-starts the 5-second chip timer.
+    var ratingTriggerKey by remember { mutableIntStateOf(0) }
+    var showRatingChips by remember { mutableStateOf(false) }
+
     // Particle seeds are stable within a seed key — regenerated on each new celebration.
     val miniSeeds = remember(miniSeedKey) {
         if (miniSeedKey == 0) emptyList()
@@ -172,6 +184,8 @@ fun ProgressItem(
             val crossed = listOf(0.25f, 0.50f, 0.75f).any { t -> prevFrac < t && currFrac >= t }
             if (crossed) miniSeedKey++
         }
+        // Phase 9.4: trigger the star-chip row on every forward completion tap.
+        if (currentClickCount > prev && onRateCompletion != null) ratingTriggerKey++
     }
 
     // Frame-by-frame animation driver for the mini confetti burst.
@@ -189,22 +203,34 @@ fun ProgressItem(
         showMiniConfetti = false
         miniAnimTime = 0f
     }
+
+    // Phase 9.4: shows rating chips for 5 seconds after each new completion tap.
+    // Cancelled and restarted on each increment of ratingTriggerKey so rapid taps
+    // correctly reset the countdown window.
+    LaunchedEffect(ratingTriggerKey) {
+        if (ratingTriggerKey == 0) return@LaunchedEffect
+        showRatingChips = true
+        delay(5_000L)
+        showRatingChips = false
+    }
     // ─────────────────────────────────────────────────────────────────────────
 
     // Border must be applied before clip — otherwise the clip masks the stroke out.
     // When paused, alpha(0.4f) dims the entire item to signal inactivity.
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .then(if (isPaused) Modifier.alpha(0.4f) else Modifier)
-            .then(
-                if (isOverCompleted) Modifier.border(2.dp, borderColor, shape)
-                else Modifier
-            )
-            .clip(shape)
-            .background(colorScheme.getBackgroundColor(isSystemInDarkTheme))
-    ) {
+    // Wrapped in a Column so the Phase 9.4 rating chip row can appear below the bar.
+    Column(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .then(if (isPaused) Modifier.alpha(0.4f) else Modifier)
+                .then(
+                    if (isOverCompleted) Modifier.border(2.dp, borderColor, shape)
+                    else Modifier
+                )
+                .clip(shape)
+                .background(colorScheme.getBackgroundColor(isSystemInDarkTheme))
+        ) {
         // Progress bar fill — always uses the habit's own color scheme
         Box(
             modifier = Modifier
@@ -279,6 +305,47 @@ fun ProgressItem(
                     }
                 }
             }
+        }
+    }
+
+        // Phase 9.4: star-chip rating row appears for 5 seconds after each new completion.
+        if (showRatingChips && onRateCompletion != null) {
+            RatingChips(onRate = { rating ->
+                onRateCompletion(rating)
+                showRatingChips = false
+            })
+        }
+    }
+}
+
+/**
+ * A row of five difficulty-rating chips (1 = Very Easy … 5 = Very Hard).
+ *
+ * Displayed inside [ProgressItem] for 5 seconds after the user logs a new completion.
+ * Uses standard M3 [SuggestionChip] components; tapping a chip calls [onRate] with the
+ * selected value and immediately hides the row. This is an internal helper — Phase 9.4.
+ *
+ * @param onRate Called with the selected 1–5 difficulty rating.
+ */
+@Composable
+private fun RatingChips(onRate: (Int) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        (1..5).forEach { rating ->
+            SuggestionChip(
+                onClick = { onRate(rating) },
+                modifier = Modifier.weight(1f),
+                label = {
+                    Text(
+                        text = "$rating★",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                },
+            )
         }
     }
 }

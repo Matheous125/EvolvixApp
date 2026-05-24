@@ -21,6 +21,17 @@ import java.time.LocalDate
  * - Rate ≤ 40% → delta -1 (habit is too hard; reduce to rebuild momentum).
  * - Otherwise   → delta  0 (target is well-calibrated; no change).
  *
+ * **Phase 9.4 — Perceived Difficulty nudge** ([predictedDifficulty] parameter):
+ * The raw delta from the predictor is post-filtered by the difficulty estimate before
+ * being returned, so aggressive target changes are gated by how hard the habit already
+ * feels to the user:
+ * - difficulty ≥ 4.0 AND delta > 0 → delta clamped to 0 (don't push the target up when
+ *   the habit already feels very hard — avoids burnout).
+ * - difficulty ≤ 2.0 AND delta < 0 → delta clamped to 0 (don't ease off when the habit
+ *   already feels very easy — avoids unnecessary regression).
+ * When [predictedDifficulty] is null (insufficient data) the nudge is skipped and the
+ * raw delta is returned as before.
+ *
  * Minimum history: 5 periods within the 14-day window (matches [MathHabitPredictor.MIN_TARGET_SAMPLE]).
  *
  * @param predictor Strategy implementation of [HabitPredictor]; injectable so
@@ -49,16 +60,21 @@ class AdaptiveDifficultyUseCase(
      * 2. Check that at least [MIN_PERIODS] periods fall within the window; return a
      *    safe "not enough data" result if not.
      * 3. Delegate the directional delta to the injected predictor (Strategy pattern).
-     * 4. Compute the concrete [suggestedTarget] = current target + delta, clamped to ≥ 1.
+     * 4. Apply the Phase 9.4 perceived-difficulty nudge if [predictedDifficulty] is not null.
+     * 5. Compute the concrete [suggestedTarget] = current target + delta, clamped to ≥ 1.
      *
-     * @param habit       Domain model of the habit to evaluate.
-     * @param completions All historical completion records for this habit.
-     * @param today       Reference date (defaults to system clock; injectable for testing).
+     * @param habit                Domain model of the habit to evaluate.
+     * @param completions          All historical completion records for this habit.
+     * @param predictedDifficulty  Raw regression output from [DifficultyEstimateUseCase]
+     *                             in [1.0, 5.0]; pass null when the estimate has
+     *                             insufficient data to skip the Phase 9.4 nudge.
+     * @param today                Reference date (defaults to system clock; injectable for tests).
      * @return [DifficultyAdjustment] with delta, rolling rate, and suggested target.
      */
     operator fun invoke(
         habit: HabitData,
         completions: List<HabitCompletionEntity>,
+        predictedDifficulty: Float? = null,
         today: LocalDate = LocalDate.now()
     ): DifficultyAdjustment {
         val since = today.minusDays(WINDOW_DAYS)
@@ -87,7 +103,18 @@ class AdaptiveDifficultyUseCase(
         val rollingRate = reachedDates.size.toFloat() / totalPeriods
 
         // Delegate the directional decision to the injected predictor (Strategy pattern).
-        val delta = predictor.suggestTargetDelta(habit, completions)
+        var delta = predictor.suggestTargetDelta(habit, completions)
+
+        // Phase 9.4 nudge: gate the delta by the perceived difficulty estimate so that
+        // we never push the target up when the habit already feels very hard, and never
+        // ease it off when the habit already feels very easy.
+        if (predictedDifficulty != null) {
+            delta = when {
+                predictedDifficulty >= 4.0f && delta > 0 -> 0
+                predictedDifficulty <= 2.0f && delta < 0 -> 0
+                else -> delta
+            }
+        }
 
         // Clamp to ≥ 1: a target of 0 or below is never valid.
         val suggestedTarget = (habit.target + delta).coerceAtLeast(1)

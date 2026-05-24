@@ -671,6 +671,33 @@ class HabitViewModel(
         }
     }
 
+    /**
+     * Stamps [perceivedDifficulty] on the most recently inserted completion for [habitId].
+     *
+     * Called by [com.example.evolvix.ui.components.ProgressItem]'s star-chip row immediately
+     * after the user logs a new completion tap (Phase 9.4). The most recent completion is
+     * the first row from [HabitDao.getCompletionsForHabit], which is ordered DESC.
+     * Uses [HabitDao.updateCompletion] to patch the field in-place; Room propagates the
+     * change to all active Flows (Observer pattern).
+     *
+     * A no-op if no completions exist for [habitId].
+     *
+     * @param habitId The habit whose latest completion should be rated.
+     * @param rating  User-selected difficulty value in the range 1–5.
+     */
+    fun rateLastCompletion(habitId: Int, rating: Int) {
+        viewModelScope.launch {
+            try {
+                val latest = habitDao.getCompletionsForHabit(habitId).first().firstOrNull()
+                if (latest != null) {
+                    habitDao.updateCompletion(latest.copy(perceivedDifficulty = rating))
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun checkAndResetProgress() {
         viewModelScope.launch {
             try {

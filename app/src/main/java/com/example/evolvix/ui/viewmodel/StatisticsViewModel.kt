@@ -10,6 +10,7 @@ import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.HabitData
+import com.example.evolvix.domain.model.PerceivedDifficultyEstimate
 import com.example.evolvix.domain.model.ReminderLift
 import com.example.evolvix.domain.model.SnoozeDisengagementRisk
 import com.example.evolvix.domain.model.StreakBreakRisk
@@ -22,6 +23,7 @@ import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.BehavioralClusterUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
+import com.example.evolvix.domain.usecase.DifficultyEstimateUseCase
 import com.example.evolvix.domain.usecase.ReminderEffectivenessUseCase
 import com.example.evolvix.domain.usecase.SnoozeDisengagementUseCase
 import com.example.evolvix.domain.usecase.StreakBreakUseCase
@@ -78,6 +80,8 @@ class StatisticsViewModel(
     private val snoozeDisengagementUseCase = SnoozeDisengagementUseCase(predictor)
     // Phase 9.3 — requires TargetHistoryDao because it reads the target-change audit log.
     private val targetAdjustmentUseCase = TargetAdjustmentUseCase(predictor, targetHistoryDao)
+    // Phase 9.4 — Perceived Difficulty Regressor
+    private val difficultyEstimateUseCase = DifficultyEstimateUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -525,6 +529,48 @@ class StatisticsViewModel(
                 totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
             )
             habit.id to targetAdjustmentUseCase(habitData, habitCompletions, streak.current, today)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap()
+    )
+
+    /**
+     * Predicted perceived difficulty for every habit, keyed by habit ID (Phase 9.4).
+     *
+     * Combines [HabitDao.getAllHabits] and [HabitDao.getAllCompletions] with
+     * [DifficultyEstimateUseCase] to produce a [PerceivedDifficultyEstimate] for each
+     * habit, exposing both the TFLite prediction and the user’s own recent star-rating
+     * average ([PerceivedDifficultyEstimate.recentAvgRated]).
+     *
+     * Habits with fewer than [DifficultyEstimateUseCase.MIN_COMPLETIONS] completions are
+     * included with [PerceivedDifficultyEstimate.hasSufficientData] = false so the
+     * “Perceived Difficulty” card on StatisticsScreen can show a placeholder.
+     *
+     * ⚠ **Observational caveat (thesis):** [PerceivedDifficultyEstimate.predicted] reflects
+     * expected self-reported difficulty given the current habit state, not objective task
+     * complexity. Present as “predicted perceived difficulty” in all thesis documentation.
+     *
+     * (Pattern: Observer via StateFlow — same upstream pair as [targetAdjustments];
+     *  independently collectible so the Difficulty card can be shown or hidden without
+     *  affecting other Statistics cards)
+     */
+    val difficultyEstimates: StateFlow<Map<Int, PerceivedDifficultyEstimate>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val today = LocalDate.now()
+        habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
+            habit.id to difficultyEstimateUseCase(habitData, habitCompletions, streak.current, today)
         }
     }.stateIn(
         scope = viewModelScope,

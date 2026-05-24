@@ -1436,7 +1436,9 @@ private fun HabitRow(
             isOverCompleted = habit.isOverCompleted,
             isPaused = habit.pausedUntil != null,
             isSystemInDarkTheme = LocalIsDarkTheme.current,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            // Phase 9.4: persist the user's perceived-difficulty rating for this completion.
+            onRateCompletion = { rating -> viewModel.rateLastCompletion(habit.id, rating) },
         )
     }
 }

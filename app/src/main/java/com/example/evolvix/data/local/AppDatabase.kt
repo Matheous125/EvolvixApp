@@ -20,7 +20,7 @@ import com.example.evolvix.data.model.HabitTargetHistoryEntity
         DailySummaryEntity::class,
         HabitTargetHistoryEntity::class
     ],
-    version = 18,
+    version = 19, // Phase 9.4: added perceivedDifficulty column to habit_completions. Reinstall app.
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

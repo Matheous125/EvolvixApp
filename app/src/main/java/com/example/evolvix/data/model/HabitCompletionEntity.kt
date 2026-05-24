@@ -37,7 +37,12 @@ data class HabitCompletionEntity(
     val snoozeCount: Int? = null,        // Phase 9.2: number of times the reminder was snoozed before
                                          // this completion. null when fromReminder = false (no reminder
                                          // context). 0 means a reminder fired but was not snoozed.
-    val targetVersion: Int = 1           // Phase 9.3: snapshot of HabitEntity.targetVersion at the time
+    val targetVersion: Int = 1,          // Phase 9.3: snapshot of HabitEntity.targetVersion at the time
                                          // of this completion. Allows TargetAdjustmentUseCase to compute
                                          // per-version completion rates without re-joining history rows.
+    val perceivedDifficulty: Int? = null  // Phase 9.4: user-reported difficulty rating (1–5) captured via
+                                          // in-app star chips shown for ~5 seconds after a completion tap.
+                                          // null when the user dismisses without rating. Used by
+                                          // DifficultyEstimateUseCase to build recentAvgRated and by
+                                          // HabitDao.getCompletionsWithDifficulty for analytics queries.
 )
