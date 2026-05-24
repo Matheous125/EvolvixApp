@@ -237,4 +237,40 @@ interface HabitPredictor {
      * direction indicator, confidence score, and data-sufficiency flag.
      */
     fun predictWeeklyRate(features: WeeklyForecastFeatures): Float
+
+    // ── Phase 8.4 — Habit Behavioral Clustering ───────────────────────────────
+
+    /**
+     * Classifies a habit's behavioral pattern into one of four K-Means tiers and
+     * returns the matching label key from `habit_clusters.json`:
+     *  - `"effortless_routine"` — high rate30d, consistent timing, mature habit.
+     *  - `"consistent_effort"`  — good rate30d, moderate timing variability.
+     *  - `"struggling"`         — low-to-moderate rate30d, chaotic timing.
+     *  - `"dormant"`            — very low rate30d, near-zero engagement.
+     *
+     * Unlike the TFLite-backed methods, this method has **no neural network**.
+     * [TfliteHabitPredictor] performs a nearest-centroid lookup in standardized
+     * feature space using centroids loaded from `habit_clusters.json`. There is no
+     * `.tflite` interpreter involved (Strategy + Dependency Inversion still applies:
+     * [MathHabitPredictor] provides a rate30d threshold fallback).
+     *
+     * Null analytics ([ClusterFeatures.routinePrecisionStddev],
+     * [ClusterFeatures.resilienceAvgGap]) must be substituted with training medians
+     * by the caller ([BehavioralClusterUseCase]) **before** invoking this method,
+     * so both implementations always receive a fully-populated [ClusterFeatures].
+     *
+     * The raw key is resolved to a typed [com.example.evolvix.domain.model.BehavioralCluster]
+     * by [com.example.evolvix.domain.usecase.BehavioralClusterUseCase] via
+     * [com.example.evolvix.domain.model.BehavioralCluster.fromKey].
+     */
+    fun classifyBehavioralCluster(features: ClusterFeatures): String
+
+    /**
+     * Per-feature training-data medians from `habit_clusters.json`.
+     * Read by [com.example.evolvix.domain.usecase.BehavioralClusterUseCase] to
+     * substitute missing analytics values before calling [classifyBehavioralCluster].
+     * Index order mirrors [ClusterFeatures.toFloatArray]: rate30d, routinePrecisionStddev,
+     * procrastinationSkew, habitAge, resilienceAvgGap.
+     */
+    val clusterTrainingMedians: FloatArray
 }

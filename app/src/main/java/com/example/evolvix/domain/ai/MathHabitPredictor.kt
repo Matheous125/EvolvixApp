@@ -22,6 +22,10 @@ import kotlin.math.sqrt
  */
 class MathHabitPredictor : HabitPredictor {
 
+    /** Hardcoded training-data medians matching the `habit_clusters.json` produced by Phase 8.4. */
+    override val clusterTrainingMedians: FloatArray =
+        floatArrayOf(0.55f, 79.59f, 0.60f, 118.5f, 4.36f)
+
     // ── Phase 6.5 — TFLite interface (rule-based fallback) ───────────────────
 
     /**
@@ -529,6 +533,28 @@ class MathHabitPredictor : HabitPredictor {
         val weekdayMean = (features.rateMon + features.rateTue + features.rateWed +
                 features.rateThu + features.rateFri + features.rateSat + features.rateSun) / 7f
         return (0.70f * features.lastWeekRate + 0.30f * weekdayMean).coerceIn(0f, 1f)
+    }
+
+    // ── Phase 8.4 — Behavioral Clustering math fallback ──────────────────────
+
+    /**
+     * Classifies a habit's behavioral tier using a simple threshold chain on [ClusterFeatures.rate30d].
+     *
+     * This is the math-only fallback used when `habit_clusters.json` fails to load in
+     * [TfliteHabitPredictor]. It intentionally ignores the other four features so it
+     * remains usable even when analytics data is sparse.
+     *
+     * Thresholds mirror the archetype boundaries in `generate_clustering_data.py`:
+     *  - rate30d ≥ 0.85 → "effortless_routine"
+     *  - rate30d ≥ 0.55 → "consistent_effort"
+     *  - rate30d ≥ 0.20 → "struggling"
+     *  - rate30d  < 0.20 → "dormant"
+     */
+    override fun classifyBehavioralCluster(features: ClusterFeatures): String = when {
+        features.rate30d >= 0.85f -> "effortless_routine"
+        features.rate30d >= 0.55f -> "consistent_effort"
+        features.rate30d >= 0.20f -> "struggling"
+        else                      -> "dormant"
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

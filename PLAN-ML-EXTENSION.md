@@ -99,9 +99,9 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 **Architecture note:** K-Means is not a deep model — it doesn't need TensorFlow. Export the trained centroids as a plain JSON file; classification on-device is a simple nearest-centroid lookup. **No `.tflite` file needed.**
 
 ### 8.4.1 Python pipeline
-- [ ] `generate_clustering_data.py` — synthesize ~10k habit-state vectors covering the full behavioral spectrum.
-- [ ] `train_clustering_model.py` — `sklearn.cluster.KMeans(n_clusters=4)`. Use silhouette score to validate. Export centroids + per-cluster label names to `habit_clusters.json`.
-- [ ] **No TFLite export** — JSON only.
+- [x] `generate_clustering_data.py` — synthesize ~10k habit-state vectors covering the full behavioral spectrum.
+- [x] `train_clustering_model.py` — `sklearn.cluster.KMeans(n_clusters=4)`. Use silhouette score to validate. Export centroids + per-cluster label names to `habit_clusters.json`.
+- [x] **No TFLite export** — JSON only.
 
 ### 8.4.2 Android integration
 - [ ] **Model:** `domain/ai/ClusterFeatures.kt` (5 fields: rate30d, routinePrecisionStddev, procrastinationSkew, habitAge, resilienceAvgGap).

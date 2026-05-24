@@ -54,13 +54,16 @@ from sklearn.metrics import (  # noqa: E402
     f1_score,
     roc_auc_score,
     roc_curve,
+    silhouette_score,
     top_k_accuracy_score,
 )
+from sklearn.decomposition import PCA  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 
 # Reuse the three generator modules so column orders / label orders cannot
 # drift between training and evaluation.
 import generate_abandonment_data as gen_abandonment  # noqa: E402
+import generate_clustering_data as gen_clustering  # noqa: E402
 import generate_icon_data as gen_icon  # noqa: E402
 import generate_reminder_data as gen_reminder  # noqa: E402
 import generate_streak_break_data as gen_streak_break  # noqa: E402
@@ -629,6 +632,129 @@ def evaluate_weekly_forecast_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Phase 8.4 — K-Means Behavioral Clustering
+# ---------------------------------------------------------------------------
+def evaluate_clustering_model() -> dict:
+    """
+    Evaluate the K-Means nearest-centroid clustering (Phase 8.4).
+
+    Uses the full clustering_dataset.csv (unsupervised, no train/test split).
+    Metrics: silhouette score, per-cluster size, and a PCA 2-D scatter plot
+    saved to data/plots/cluster_pca.png.
+    """
+    print("\n=== Phase 8.4 — K-Means Behavioral Clustering ===")
+
+    csv_path = gen_clustering.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing — run train_clustering_model.py first."
+        )
+
+    json_path = MODELS_DIR / "habit_clusters.json"
+    if not json_path.exists():
+        raise FileNotFoundError(
+            f"{json_path} missing — run train_clustering_model.py first."
+        )
+
+    artifact = json.loads(json_path.read_text())
+    feature_cols: list[str] = artifact["feature_columns"]
+    means = np.array(artifact["feature_means"], dtype=np.float32)
+    scales = np.array(artifact["feature_scales"], dtype=np.float32)
+    centroids = np.array(artifact["centroids"], dtype=np.float32)  # (4, 5)
+    labels: list[str] = artifact["labels"]
+    saved_silhouette: float = artifact["silhouette_score"]
+
+    df = pd.read_csv(csv_path)
+    x_raw = df[feature_cols].to_numpy(dtype=np.float32)
+
+    # Standardize with the saved scaler (mirrors Kotlin standardScale()).
+    x_scaled = (x_raw - means) / np.where(scales == 0, 1.0, scales)
+
+    # Nearest-centroid assignment (mirrors Kotlin sqDistance loop).
+    diffs = x_scaled[:, np.newaxis, :] - centroids[np.newaxis, :, :]  # (n, 4, 5)
+    sq_dists = (diffs ** 2).sum(axis=2)                                  # (n, 4)
+    assigned = sq_dists.argmin(axis=1)                                   # (n,)
+    cluster_names = np.array([labels[i] for i in assigned])
+
+    # Silhouette score (verify it matches the training-time value).
+    sil = silhouette_score(x_scaled, assigned, sample_size=5_000, random_state=SEED)
+    print(f"  Silhouette score (recomputed) : {sil:.4f}")
+    print(f"  Silhouette score (from JSON)  : {saved_silhouette:.4f}")
+    gate_ok = sil >= 0.35
+    print(f"  Quality gate (>= 0.35)        : {'PASS' if gate_ok else 'FAIL'}")
+
+    # Per-cluster sizes.
+    print("\n  Per-cluster sizes:")
+    size_map: dict[str, int] = {}
+    for label in labels:
+        count = int((cluster_names == label).sum())
+        size_map[label] = count
+        pct = count / len(assigned) * 100
+        print(f"    {label:<22} {count:>6}  ({pct:.1f}%)")
+
+    # Centroid table (raw feature space, for thesis appendix).
+    print("\n  Centroid table (standardized space):")
+    header = f"{'Label':<22} " + "  ".join(f"{c:>18}" for c in feature_cols)
+    print("  " + header)
+    for i, label in enumerate(labels):
+        row_vals = "  ".join(f"{v:>18.4f}" for v in centroids[i])
+        print(f"  {label:<22} {row_vals}")
+
+    # PCA 2-D scatter plot.
+    pca = PCA(n_components=2, random_state=SEED)
+    x_2d = pca.fit_transform(x_scaled)
+    explained = pca.explained_variance_ratio_
+
+    color_map = {
+        "effortless_routine": "#2196F3",
+        "consistent_effort":  "#4CAF50",
+        "struggling":         "#FF9800",
+        "dormant":            "#9E9E9E",
+    }
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    for label in labels:
+        mask = cluster_names == label
+        color = color_map.get(label, "#000000")
+        ax.scatter(
+            x_2d[mask, 0], x_2d[mask, 1],
+            c=color, label=label, alpha=0.35, s=8, linewidths=0
+        )
+
+    # Plot centroids in PCA space.
+    centroids_2d = pca.transform(centroids)
+    for i, label in enumerate(labels):
+        color = color_map.get(label, "#000000")
+        ax.scatter(
+            centroids_2d[i, 0], centroids_2d[i, 1],
+            marker="*", s=220, c=color, edgecolors="black", linewidths=0.8, zorder=5
+        )
+
+    ax.set_title(
+        f"K-Means Behavioral Clusters — PCA projection\n"
+        f"(PC1 {explained[0]*100:.1f}%  +  PC2 {explained[1]*100:.1f}%  = "
+        f"{sum(explained)*100:.1f}% variance explained)"
+    )
+    ax.set_xlabel(f"PC1 ({explained[0]*100:.1f}%)")
+    ax.set_ylabel(f"PC2 ({explained[1]*100:.1f}%)")
+    ax.legend(title="Cluster", fontsize=8)
+    fig.tight_layout()
+    plot_path = _ensure_plots_dir() / "cluster_pca.png"
+    fig.savefig(plot_path, dpi=150)
+    plt.close(fig)
+    print(f"\n  PCA scatter plot saved → {plot_path}")
+
+    return {
+        "name": "KMeansBehavioralClustering",
+        "task": "clustering",
+        "total_rows": len(assigned),
+        "silhouette": sil,
+        "gate_passed": gate_ok,
+        "cluster_sizes": size_map,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
@@ -697,6 +823,7 @@ def main() -> None:
         evaluate_streak_break_model(),
         evaluate_weekly_forecast_model(),
     ]
+    evaluate_clustering_model()
     summary_path = write_summary(results)
     print(f"\nWrote thesis summary: {summary_path}")
     print(f"Plots directory     : {PLOTS_DIR}")

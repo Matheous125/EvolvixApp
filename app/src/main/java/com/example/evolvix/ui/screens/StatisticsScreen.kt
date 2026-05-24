@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -59,6 +61,8 @@ import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.model.AbandonmentRisk
+import com.example.evolvix.domain.model.BehavioralCluster
+import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.PerHabitStats
@@ -139,6 +143,7 @@ fun StatisticsScreen(
     val abandonmentRisks by viewModel.abandonmentRisks.collectAsState()
     val streakBreakRisks by viewModel.streakBreakRisks.collectAsState()
     val weeklyForecast by viewModel.weeklyForecast.collectAsState()
+    val behavioralClusters by viewModel.behavioralClusters.collectAsState()
 
     Scaffold(
         topBar = {
@@ -177,6 +182,16 @@ fun StatisticsScreen(
                     lifeBalance = lifeBalance,
                     weeklyForecast = weeklyForecast
                 )
+            }
+
+            // Phase 8.4 — Behavioral Tiers card (shown whenever clusters map is non-empty)
+            if (behavioralClusters.isNotEmpty()) {
+                item {
+                    BehavioralTiersCard(
+                        clusters = behavioralClusters,
+                        habitNames = perHabit.associate { it.habit.id to it.habit.name }
+                    )
+                }
             }
 
             if (perHabit.isEmpty()) {
@@ -1010,6 +1025,167 @@ private fun EmptyHabitsHint() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  BEHAVIORAL TIERS CARD (Phase 8.4)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * ElevatedCard that groups all habits by their K-Means behavioral tier (Phase 8.4).
+ *
+ * Tier display order: Effortless Routine → Consistent Effort → Struggling → Dormant.
+ * Each tier header is rendered in the tier's representative colour; habits within each
+ * tier are displayed as [AssistChip] rows so the user can scan them at a glance.
+ *
+ * When none of the [clusters] entries has [HabitCluster.hasSufficientData] = true the
+ * card shows a single placeholder string instead of tier sections.
+ *
+ * @param clusters    Map of habitId → [HabitCluster] emitted by [StatisticsViewModel.behavioralClusters].
+ * @param habitNames  Map of habitId → habit display name, pre-built from [StatisticsViewModel.perHabitStats].
+ */
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun BehavioralTiersCard(
+    clusters: Map<Int, HabitCluster>,
+    habitNames: Map<Int, String>
+) {
+    // Tier display order: best to worst, matching the four archetype labels.
+    val tierOrder = listOf(
+        BehavioralCluster.EffortlessRoutine,
+        BehavioralCluster.ConsistentEffort,
+        BehavioralCluster.Struggling,
+        BehavioralCluster.Dormant
+    )
+
+    // Habits with sufficient data, grouped by tier.
+    val byTier: Map<BehavioralCluster, List<String>> = tierOrder.associateWith { tier ->
+        clusters.values
+            .filter { it.hasSufficientData && it.cluster == tier }
+            .mapNotNull { habitNames[it.habitId] }
+            .sorted()
+    }
+    // Habits still collecting data — shown in a separate footer section.
+    val insufficientNames: List<String> = clusters.values
+        .filter { !it.hasSufficientData }
+        .mapNotNull { habitNames[it.habitId] }
+        .sorted()
+    val hasAnyData = byTier.values.any { it.isNotEmpty() }
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.card_cluster_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = stringResource(R.string.card_cluster_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if (!hasAnyData && insufficientNames.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.cluster_no_data),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                tierOrder.forEach { tier ->
+                    val habits = byTier[tier] ?: return@forEach
+                    if (habits.isEmpty()) return@forEach
+
+                    val tierLabel = when (tier) {
+                        is BehavioralCluster.EffortlessRoutine -> stringResource(R.string.cluster_effortless)
+                        is BehavioralCluster.ConsistentEffort  -> stringResource(R.string.cluster_consistent)
+                        is BehavioralCluster.Struggling        -> stringResource(R.string.cluster_struggling)
+                        is BehavioralCluster.Dormant           -> stringResource(R.string.cluster_dormant)
+                    }
+                    val tierDesc = when (tier) {
+                        is BehavioralCluster.EffortlessRoutine -> stringResource(R.string.cluster_effortless_desc)
+                        is BehavioralCluster.ConsistentEffort  -> stringResource(R.string.cluster_consistent_desc)
+                        is BehavioralCluster.Struggling        -> stringResource(R.string.cluster_struggling_desc)
+                        is BehavioralCluster.Dormant           -> stringResource(R.string.cluster_dormant_desc)
+                    }
+                    val tierColor = when (tier) {
+                        is BehavioralCluster.EffortlessRoutine -> MaterialTheme.colorScheme.primary
+                        is BehavioralCluster.ConsistentEffort  -> MaterialTheme.colorScheme.tertiary
+                        is BehavioralCluster.Struggling        -> MaterialTheme.colorScheme.error
+                        is BehavioralCluster.Dormant           -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+
+                    Text(
+                        text = tierLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = tierColor
+                    )
+                    Text(
+                        text = tierDesc,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    // FlowRow wraps chips automatically — handles any number of habits.
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    ) {
+                        habits.forEach { name ->
+                            AssistChip(
+                                onClick = {},
+                                label = { Text(name, style = MaterialTheme.typography.labelSmall) },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = tierColor.copy(alpha = 0.10f),
+                                    labelColor = tierColor
+                                ),
+                                border = AssistChipDefaults.assistChipBorder(enabled = true,
+                                    borderColor = tierColor.copy(alpha = 0.35f))
+                            )
+                        }
+                    }
+                }
+
+                // Show habits that haven't yet accumulated enough data.
+                if (insufficientNames.isNotEmpty()) {
+                    Text(
+                        text = stringResource(R.string.cluster_insufficient_section),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = stringResource(R.string.cluster_no_data),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        insufficientNames.forEach { name ->
+                            AssistChip(
+                                onClick = {},
+                                label = {
+                                    Text(name, style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                ),
+                                border = AssistChipDefaults.assistChipBorder(enabled = false)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

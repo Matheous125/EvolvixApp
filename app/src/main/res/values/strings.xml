@@ -170,6 +170,20 @@
     <string name="label_rating_critical">CRITICAL</string>
     <string name="label_risk_pct">%1$d%%</string>
 
+    <!-- ── Phase 8.4 — Behavioral Cluster card ── -->
+    <string name="card_cluster_title">🧬 Behavioral Tiers</string>
+    <string name="card_cluster_subtitle">Based on your 30-day activity patterns</string>
+    <string name="cluster_effortless">Effortless Routine</string>
+    <string name="cluster_effortless_desc">These habits run on autopilot — no willpower needed.</string>
+    <string name="cluster_consistent">Consistent Effort</string>
+    <string name="cluster_consistent_desc">Solid and steady. Intentional, but reliable.</string>
+    <string name="cluster_struggling">Struggling</string>
+    <string name="cluster_struggling_desc">Inconsistent completion. May need a smaller goal.</string>
+    <string name="cluster_dormant">Dormant</string>
+    <string name="cluster_dormant_desc">Rarely completed lately. Worth revisiting your motivation.</string>
+    <string name="cluster_no_data">Not enough data yet — keep tracking for 14+ days.</string>
+    <string name="cluster_insufficient_section">Needs more data</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 

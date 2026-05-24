@@ -7,6 +7,7 @@ import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.AbandonmentRisk
+import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.LifeBalanceEntry
@@ -14,6 +15,7 @@ import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyForecast
 import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
+import com.example.evolvix.domain.usecase.BehavioralClusterUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.StreakBreakUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
@@ -59,6 +61,7 @@ class StatisticsViewModel(
     private val abandonmentRiskUseCase = AbandonmentRiskUseCase(predictor)
     private val streakBreakUseCase = StreakBreakUseCase(predictor)
     private val weeklyForecastUseCase = WeeklyForecastUseCase(predictor)
+    private val behavioralClusterUseCase = BehavioralClusterUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -316,6 +319,42 @@ class StatisticsViewModel(
             confidence = 0f,
             hasSufficientData = false
         )
+    )
+
+    /**
+     * Behavioral tier classification for every habit, keyed by habit ID (Phase 8.4).
+     *
+     * Combines [HabitDao.getAllHabits] and [HabitDao.getAllCompletions] with
+     * [BehavioralClusterUseCase] to assign each habit to one of four K-Means archetypes:
+     * Effortless Routine, Consistent Effort, Struggling, or Dormant.
+     *
+     * Habits with fewer than 10 completions or less than 14 days of history are included
+     * with [HabitCluster.hasSufficientData] = false so the UI shows a placeholder
+     * prompting the user to keep tracking.
+     *
+     * (Pattern: Observer via StateFlow — mirrors [abandonmentRisks]; independently
+     *  collectible from [perHabitStats] so the Behavioral Tiers card can be skipped
+     *  when data is unavailable without blocking other statistics)
+     */
+    val behavioralClusters: StateFlow<Map<Int, HabitCluster>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val today = LocalDate.now()
+        habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
+            habit.id to behavioralClusterUseCase(habitData, habitCompletions, today)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap()
     )
 
     /**

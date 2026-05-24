@@ -29,12 +29,13 @@ app/src/main/java/com/example/evolvix
 │   ├── ai/                 # AI / analytics abstraction (Strategy + DI pattern)
 │   │   ├── AbandonmentFeatures.kt  # 7-field input feature vector for the HabitAbandonmentClassifier TFLite model (Phase 8.1); field order mirrors abandonment_scaler.json
 │   │   ├── AiContainer.kt         # Process-wide singleton provider for HabitPredictor (analogous to AppDatabase.getDatabase); lazy init with double-checked locking
+│   │   ├── ClusterFeatures.kt     # 5-field input feature vector for K-Means Behavioral Clustering (Phase 8.4); field order mirrors habit_clusters.json → feature_columns; null-substitution done by BehavioralClusterUseCase before construction
 │   │   ├── HabitFeatures.kt       # 7-field input feature vector for the HabitSuccessClassifier TFLite model; field order mirrors success_scaler.json
-│   │   ├── HabitPredictor.kt      # Interface defining all predictive + passive-analytics contracts (success probability, optimal time, routine precision, etc.)
+│   │   ├── HabitPredictor.kt      # Interface defining all predictive + passive-analytics contracts (success probability, optimal time, routine precision, behavioral clustering, etc.)
 │   │   ├── MathHabitPredictor.kt  # Rule-based / statistical implementation of HabitPredictor; pure Kotlin, no Android SDK, fully unit-testable
 │   │   ├── ReminderContext.kt     # 7-field input feature vector for the ReminderTemplateClassifier TFLite model; field order mirrors reminder_scaler.json
 │   │   ├── StreakBreakFeatures.kt  # 7-field input feature vector for the StreakBreakClassifier TFLite model (Phase 8.2); field order mirrors streak_break_scaler.json
-│   │   ├── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; falls back to MathHabitPredictor for non-ML methods (Strategy swap)
+│   │   ├── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; K-Means clustering via habit_clusters.json (nearest-centroid, no Interpreter); falls back to MathHabitPredictor
 │   │   └── WeeklyForecastFeatures.kt # 12-field input feature vector for the WeeklyForecastRegressor TFLite model (Phase 8.3); toFloatArray() returns fields in scaler order
 │   ├── auth/               # Authentication contracts (Dependency Inversion; swappable impl)
 │   │   ├── AuthRepository.kt      # Interface defining all auth operations (login, register, resetPassword, changePassword, logout); returns Result<Unit>
@@ -42,6 +43,7 @@ app/src/main/java/com/example/evolvix
 │   ├── model/              # Domain models and state classes
 │   │   ├── AbandonmentRisk.kt        # Output of AbandonmentRiskUseCase (Phase 8.1); wraps raw probability into a Rating tier (LOW/MEDIUM/HIGH/CRITICAL) + data-sufficiency flag
 │   │   ├── AchievementDefinition.kt  # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
+│   │   ├── BehavioralCluster.kt      # Sealed class hierarchy for 4 K-Means behavioral tiers (Phase 8.4): EffortlessRoutine, ConsistentEffort, Struggling, Dormant; also contains HabitCluster wrapper
 │   │   ├── DifficultyAdjustment.kt   # Output of AdaptiveDifficultyUseCase; bundles delta (+1/0/-1), rolling rate, current and suggested target
 │   │   ├── FormError.kt              # Domain model for inline form validation errors (e.g. duplicate habit name)
 │   │   ├── HabitClash.kt             # Output of HabitClashingUseCase; a pair of negatively-correlated (Pearson r) habits
@@ -66,6 +68,7 @@ app/src/main/java/com/example/evolvix
 │   └── usecase/
 │       ├── AbandonmentRiskUseCase.kt       # Interactor: extracts 7 AbandonmentFeatures from Room data, delegates to HabitPredictor, maps probability → AbandonmentRisk (Phase 8.1)
 │       ├── AdaptiveDifficultyUseCase.kt    # Interactor: suggests target +1/0/-1 based on 14-day rolling rate; delegates to HabitPredictor
+│       ├── BehavioralClusterUseCase.kt     # Interactor: extracts 5 ClusterFeatures (with training-median null substitution), checks 10-completion/14-day guards, delegates to HabitPredictor.classifyBehavioralCluster, resolves → HabitCluster (Phase 8.4)
 │       ├── CalculateStreakUseCase.kt        # Interactor: computes current + best streak; pure function with injectable today date
 │       ├── ComposeDailySummaryUseCase.kt   # Interactor: pure function composing today's raw data into a DailySummaryEntity for notification + inbox (Phase 7.2)
 │       ├── EvaluateAchievementsUseCase.kt  # Interactor: (habits, completions) → Set<UnlockedAchievement>; runs all 50 achievement rules (Strategy pattern)
@@ -156,16 +159,18 @@ outputs (`.tflite` + scaler JSON) are copied into `app/src/main/assets/`.
 ```
 ml-training/
 ├── generate_abandonment_data.py    # Synthetic dataset for HabitAbandonmentClassifier (Phase 8.1)
+├── generate_clustering_data.py     # Synthetic dataset for K-Means Behavioral Clustering (Phase 8.4); 10k rows, 4 archetypes, no label column (unsupervised)
 ├── generate_icon_data.py           # Synthetic dataset for HabitIconClassifier
 ├── generate_reminder_data.py       # Synthetic dataset for ReminderTemplateClassifier
 ├── generate_streak_break_data.py   # Synthetic dataset for StreakBreakClassifier (Phase 8.2)
 ├── generate_success_data.py        # Synthetic dataset for HabitSuccessClassifier
 ├── generate_weekly_forecast_data.py # Synthetic dataset for WeeklyForecastRegressor (Phase 8.3); 12 FEATURE_COLUMNS, label = next_week_rate
 ├── train_abandonment_model.py      # Trains + exports habit_abandonment_classifier.tflite + abandonment_scaler.json
+├── train_clustering_model.py       # Trains K-Means (sklearn, no TFLite) + exports habit_clusters.json with centroids, labels, scaler, training medians, silhouette score (Phase 8.4)
 ├── train_icon_model.py             # Trains + exports habit_icon_classifier.tflite + icon_vocab.json
 ├── train_reminder_model.py         # Trains + exports reminder_template_classifier.tflite + reminder_scaler.json
 ├── train_streak_break_model.py     # Trains + exports streak_break_classifier.tflite + streak_break_scaler.json
 ├── train_success_model.py          # Trains + exports habit_success_classifier.tflite + success_scaler.json
 ├── train_weekly_forecast_model.py  # Trains + exports weekly_forecast_regressor.tflite + weekly_forecast_scaler.json; MAE loss, sigmoid output, threshold MAE ≤ 0.12 (Phase 8.3)
-└── evaluate_models.py              # Thesis-grade evaluation report: loads .tflite artifacts, reproduces test split, computes metrics, saves plots to data/plots/
+└── evaluate_models.py              # Thesis-grade evaluation report: loads .tflite artifacts + habit_clusters.json, reproduces test splits, computes metrics + silhouette + PCA scatter, saves plots to data/plots/
 ```

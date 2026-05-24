@@ -62,6 +62,14 @@ class TfliteHabitPredictor(
     private val weeklyForecastMean: FloatArray
     private val weeklyForecastScale: FloatArray
 
+    // ── Phase 8.4 — K-Means cluster tables (no Interpreter — JSON + Kotlin math) ──
+    private val clusterMean: FloatArray
+    private val clusterScale: FloatArray
+    private val clusterCentroids: Array<FloatArray>   // 4 × 5, standardized space
+    private val clusterLabels: List<String>            // indexed by centroid row
+    /** Per-feature training medians; read by [BehavioralClusterUseCase] for null-substitution. */
+    override val clusterTrainingMedians: FloatArray
+
     private val iconVocabIndex: Map<String, Int>
     private val iconIdfWeights: FloatArray
     private val iconLabels: List<String>
@@ -97,6 +105,15 @@ class TfliteHabitPredictor(
         val weeklyForecastJson = readJsonAsset(context, "weekly_forecast_scaler.json")
         weeklyForecastMean = weeklyForecastJson?.toFloatArray("mean") ?: FloatArray(WEEKLY_FORECAST_FEATURE_COUNT)
         weeklyForecastScale = weeklyForecastJson?.toFloatArray("scale") ?: FloatArray(WEEKLY_FORECAST_FEATURE_COUNT) { 1f }
+
+        // habit_clusters.json carries everything needed for K-Means inference —
+        // no Interpreter is loaded because nearest-centroid math is done in Kotlin.
+        val clusterJson = readJsonAsset(context, "habit_clusters.json")
+        clusterMean           = clusterJson?.toFloatArray("feature_means")    ?: FloatArray(CLUSTER_FEATURE_COUNT)
+        clusterScale          = clusterJson?.toFloatArray("feature_scales")   ?: FloatArray(CLUSTER_FEATURE_COUNT) { 1f }
+        clusterCentroids      = clusterJson?.toFloatMatrix("centroids")        ?: emptyArray()
+        clusterLabels         = clusterJson?.toStringList("labels")            ?: emptyList()
+        clusterTrainingMedians = clusterJson?.toFloatArray("training_medians") ?: FloatArray(CLUSTER_FEATURE_COUNT)
 
         val iconJson = readJsonAsset(context, "icon_vocab.json")
         val vocab = iconJson?.toStringList("vocabulary") ?: emptyList()
@@ -323,6 +340,42 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 8.4 — Behavioral Clustering (nearest-centroid, no Interpreter) ──
+
+    /**
+     * Classifies [features] into one of four K-Means behavioral tiers by finding the
+     * centroid (stored in `habit_clusters.json`) with the smallest squared Euclidean
+     * distance in standardized feature space.
+     *
+     * Steps:
+     *  1. Standardize [features] using [clusterMean] / [clusterScale] (same scaler
+     *     fitted during training — mirrors `sklearn.StandardScaler.transform`).
+     *  2. Compute squared Euclidean distance from the standardized point to each of
+     *     the 4 centroids (4 × 5 matrix loaded from `habit_clusters.json`).
+     *  3. Return the label string at `clusterLabels[argmin(distances)]`.
+     *
+     * Falls back to [MathHabitPredictor.classifyBehavioralCluster] when the JSON
+     * was not loaded or any unexpected error occurs.
+     */
+    override fun classifyBehavioralCluster(features: ClusterFeatures): String {
+        if (clusterCentroids.isEmpty() || clusterLabels.isEmpty()) {
+            return mathFallback.classifyBehavioralCluster(features)
+        }
+        return try {
+            val scaled = standardScale(features.toFloatArray(), clusterMean, clusterScale)
+            var bestIdx = 0
+            var bestDist = Float.MAX_VALUE
+            for (i in clusterCentroids.indices) {
+                val d = sqDistance(scaled, clusterCentroids[i])
+                if (d < bestDist) { bestDist = d; bestIdx = i }
+            }
+            clusterLabels.getOrElse(bestIdx) { "dormant" }
+        } catch (t: Throwable) {
+            Log.w(TAG, "classifyBehavioralCluster failed; using math fallback", t)
+            mathFallback.classifyBehavioralCluster(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -413,6 +466,25 @@ class TfliteHabitPredictor(
         return List(arr.length()) { i -> arr.getString(i) }
     }
 
+    /** Parses a JSON array-of-arrays into an [Array<FloatArray>] (e.g. K-Means centroids). */
+    private fun JSONObject.toFloatMatrix(key: String): Array<FloatArray> {
+        val outer = optJSONArray(key) ?: return emptyArray()
+        return Array(outer.length()) { i ->
+            val inner = outer.getJSONArray(i)
+            FloatArray(inner.length()) { j -> inner.getDouble(j).toFloat() }
+        }
+    }
+
+    /** Squared Euclidean distance between two equal-length float vectors. */
+    private fun sqDistance(a: FloatArray, b: FloatArray): Float {
+        var sum = 0f
+        for (i in a.indices) {
+            val diff = a[i] - b[i]
+            sum += diff * diff
+        }
+        return sum
+    }
+
     companion object {
         private const val TAG = "TfliteHabitPredictor"
         private const val SUCCESS_FEATURE_COUNT = 7
@@ -420,6 +492,7 @@ class TfliteHabitPredictor(
         private const val ABANDONMENT_FEATURE_COUNT = 7
         private const val STREAK_BREAK_FEATURE_COUNT = 7
         private const val WEEKLY_FORECAST_FEATURE_COUNT = 12
+        private const val CLUSTER_FEATURE_COUNT = 5
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }
