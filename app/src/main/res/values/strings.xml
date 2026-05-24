@@ -190,6 +190,12 @@
     <string name="spillover_boost">Completing %1$s tends to boost %2$s (~%3$d%%).</string>
     <string name="spillover_drag">Completing %1$s may reduce %2$s adherence (~%3$d%%).</string>
 
+    <!-- Phase 9.1 — Smart Reminders (Reminder Effectiveness) -->
+    <string name="smart_reminders_title">🔔 Smart Reminders</string>
+    <string name="smart_reminders_subtitle">Predicted reminder lift — how much a notification is estimated to raise your completion probability (observational, not causal).</string>
+    <string name="smart_reminders_send">Send reminder</string>
+    <string name="smart_reminders_suppress">Suppressing reminder</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 

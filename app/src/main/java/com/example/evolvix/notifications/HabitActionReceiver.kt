@@ -66,7 +66,8 @@ class HabitActionReceiver : BroadcastReceiver() {
                 HabitCompletionEntity(
                     habitId = habitId,
                     progressUpdate = LocalDateTime.now(),
-                    isTargetReached = targetHit
+                    isTargetReached = targetHit,
+                    fromReminder = true   // Phase 9.1: completion triggered by reminder tap
                 )
             )
         }

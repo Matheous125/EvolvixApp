@@ -300,4 +300,26 @@ interface HabitPredictor {
      * classification and filters out NEUTRAL pairs.
      */
     fun predictSpillover(features: SpilloverFeatures): Float
+
+    // ── Phase 9.1 — Reminder Effectiveness (Lift) Model ──────────────────────
+
+    /**
+     * Returns the predicted completion probability (0.0 … 1.0) for a given habit
+     * context, with [ReminderLiftFeatures.reminderSent] acting as the treatment variable.
+     *
+     * At inference time [com.example.evolvix.domain.usecase.ReminderEffectivenessUseCase]
+     * calls this method **twice** — once with [reminderSent=0] and once with
+     * [reminderSent=1] — and computes lift = P(sent=1) − P(sent=0).
+     * A reminder is suppressed when `lift < SUPPRESS_THRESHOLD` and the habit has
+     * enough data history ([ReminderEffectivenessUseCase.MIN_COMPLETIONS]).
+     *
+     * ⚠ **Thesis note:** The returned probability is a *predicted lift estimator*,
+     * NOT a causal treatment effect. It should be presented as "predicted lift" rather
+     * than "causal effect recovery" in all thesis documentation.
+     *
+     * Backed by `reminder_lift_classifier.tflite` (8-feature MLP, sigmoid output)
+     * in [TfliteHabitPredictor]; [MathHabitPredictor] provides a rate-based
+     * heuristic fallback (Strategy + Dependency Inversion).
+     */
+    fun predictReminderCompletion(features: ReminderLiftFeatures): Float
 }

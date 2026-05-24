@@ -66,6 +66,7 @@ import generate_abandonment_data as gen_abandonment  # noqa: E402
 import generate_clustering_data as gen_clustering  # noqa: E402
 import generate_icon_data as gen_icon  # noqa: E402
 import generate_reminder_data as gen_reminder  # noqa: E402
+import generate_reminder_lift_data as gen_reminder_lift  # noqa: E402
 import generate_spillover_data as gen_spillover  # noqa: E402
 import generate_streak_break_data as gen_streak_break  # noqa: E402
 import generate_success_data as gen_success  # noqa: E402
@@ -833,11 +834,108 @@ def evaluate_spillover_model() -> dict:
     }
 
 
+def evaluate_reminder_lift_model() -> dict:
+    """
+    Evaluate the ReminderLiftClassifier TFLite model (Phase 9.1).
+
+    Reproduces the same 80/20 stratified split (SEED=42) used in
+    train_reminder_lift_model.py and reports accuracy, ROC-AUC, Macro F1,
+    and lift MAE on the held-out test set.
+    Acceptance gate: Macro F1 >= 0.75 and lift MAE <= 0.12.
+    """
+    print("\n=== Phase 9.1 \u2014 ReminderLiftClassifier ===")
+
+    csv_path = gen_reminder_lift.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing \u2014 run generate_reminder_lift_data.py first."
+        )
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_reminder_lift.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["completed_within_30min"].to_numpy(dtype=np.int32)
+
+    # Stratified 80/20 split \u2014 identical to train_reminder_lift_model.py.
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED, stratify=y
+    )
+
+    scaler = json.loads(
+        (MODELS_DIR / "reminder_lift_scaler.json").read_text(encoding="utf-8")
+    )
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    raw = _tflite_predict(
+        MODELS_DIR / "reminder_lift_classifier.tflite",
+        x_test_scaled,
+    )
+    y_prob = raw.ravel()
+    y_pred = (y_prob >= 0.5).astype(np.int32)
+
+    acc = float(np.mean(y_pred == y_test))
+    roc_auc = float(roc_auc_score(y_test, y_prob))
+    macro_f1 = float(f1_score(y_test, y_pred, average="macro"))
+
+    # Lift MAE: compare predicted vs actual completion lift (reminder=1 minus reminder=0).
+    reminder_col_idx = gen_reminder_lift.FEATURE_COLUMNS.index("reminderSent")
+    mask_0 = x_test[:, reminder_col_idx] == 0
+    mask_1 = x_test[:, reminder_col_idx] == 1
+    pred_lift = float(y_prob[mask_1].mean()) - float(y_prob[mask_0].mean())
+    act_lift = float(y_test[mask_1].mean()) - float(y_test[mask_0].mean())
+    lift_mae = abs(pred_lift - act_lift)
+
+    passed_f1 = macro_f1 >= 0.75
+    passed_lift = lift_mae <= 0.12
+    passed = "PASS" if (passed_f1 and passed_lift) else "FAIL"
+    print(f"Test accuracy : {acc:.4f}")
+    print(f"ROC-AUC       : {roc_auc:.4f}")
+    print(f"Macro F1      : {macro_f1:.4f}  (threshold >= 0.75 to pass)")
+    print(f"Lift MAE      : {lift_mae:.4f}  (threshold <= 0.12 to pass)")
+    print(f"Acceptance    : {passed}")
+
+    # Confusion matrix.
+    cm = confusion_matrix(y_test, y_pred)
+    out_path = PLOTS_DIR / "confusion_reminder_lift.png"
+    fig, ax = plt.subplots(figsize=(4, 4))
+    im = ax.imshow(cm, cmap="Blues")
+    ax.set_xticks([0, 1]); ax.set_xticklabels(["No", "Yes"])
+    ax.set_yticks([0, 1]); ax.set_yticklabels(["No", "Yes"])
+    ax.set_xlabel("Predicted"); ax.set_ylabel("Actual")
+    ax.set_title("Phase 9.1 \u2014 ReminderLiftClassifier")
+    for i in range(2):
+        for j in range(2):
+            ax.text(j, i, str(cm[i, j]), ha="center", va="center",
+                    color="white" if cm[i, j] > cm.max() / 2 else "black")
+    fig.colorbar(im, ax=ax)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"  Confusion matrix saved \u2192 {out_path}")
+
+    report = classification_report(
+        y_test, y_pred, target_names=["Not completed", "Completed"]
+    )
+
+    return {
+        "name": "ReminderLiftClassifier",
+        "task": "binary classification",
+        "test_size": int(len(y_test)),
+        "accuracy": acc,
+        "roc_auc": roc_auc,
+        "macro_f1": macro_f1,
+        "lift_mae": lift_mae,
+        "report": report,
+        "passed": passed,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover = results
+    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -862,7 +960,9 @@ def write_summary(results: list) -> Path:
         f"| {weekly_forecast['name']} | {weekly_forecast['task']} | {weekly_forecast['test_size']} | "
         f"MAE | {weekly_forecast['mae']:.4f} | RMSE | {weekly_forecast['rmse']:.4f} |",
         f"| {spillover['name']} | {spillover['task']} | {spillover['test_size']} | "
-        f"MAE | {spillover['mae']:.4f} | R² | {spillover['r2']:.4f} |",
+        f"MAE | {spillover['mae']:.4f} | R\u00b2 | {spillover['r2']:.4f} |",
+        f"| {reminder_lift['name']} | {reminder_lift['task']} | {reminder_lift['test_size']} | "
+        f"Macro F1 | {reminder_lift['macro_f1']:.4f} | ROC-AUC | {reminder_lift['roc_auc']:.4f} |",
         "",
         "## Generated plots",
         "",
@@ -875,6 +975,7 @@ def write_summary(results: list) -> Path:
         "- `confusion_reminder.png` — Model 3 confusion matrix (15 classes)",
         "- `scatter_weekly_forecast.png` — Model 6 actual vs predicted scatter",
         "- `scatter_spillover.png` — Phase 8.5 SpilloverRegressor actual vs predicted scatter",
+        "- `confusion_reminder_lift.png` — Phase 9.1 ReminderLiftClassifier confusion matrix",
         "",
         "## Model 2 — per-class classification report",
         "",
@@ -886,6 +987,12 @@ def write_summary(results: list) -> Path:
         "",
         "```",
         reminder["report"].rstrip(),
+        "```",
+        "",
+        "## Phase 9.1 \u2014 ReminderLiftClassifier classification report",
+        "",
+        "```",
+        reminder_lift["report"].rstrip(),
         "```",
         "",
     ]
@@ -905,6 +1012,7 @@ def main() -> None:
         evaluate_streak_break_model(),
         evaluate_weekly_forecast_model(),
         evaluate_spillover_model(),
+        evaluate_reminder_lift_model(),
     ]
     evaluate_clustering_model()
     summary_path = write_summary(results)

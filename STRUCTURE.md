@@ -34,6 +34,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── HabitPredictor.kt      # Interface defining all predictive + passive-analytics contracts (success probability, optimal time, routine precision, behavioral clustering, etc.)
 │   │   ├── MathHabitPredictor.kt  # Rule-based / statistical implementation of HabitPredictor; pure Kotlin, no Android SDK, fully unit-testable
 │   │   ├── ReminderContext.kt     # 7-field input feature vector for the ReminderTemplateClassifier TFLite model; field order mirrors reminder_scaler.json
+│   │   ├── ReminderLiftFeatures.kt # 8-field input feature vector for the ReminderLiftClassifier TFLite model (Phase 9.1); last field reminderSent ∈ {0,1} allows dual-inference for lift computation
 │   │   ├── StreakBreakFeatures.kt  # 7-field input feature vector for the StreakBreakClassifier TFLite model (Phase 8.2); field order mirrors streak_break_scaler.json
 │   │   ├── SpilloverFeatures.kt    # 5-field input feature vector for the SpilloverRegressor TFLite model (Phase 8.5); fields: rateA, rateB, hourACompleted, coOccurrenceRate, typicalGapHours
 │   │   ├── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; K-Means clustering via habit_clusters.json (nearest-centroid, no Interpreter); falls back to MathHabitPredictor
@@ -56,6 +57,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── OptimalTimePrediction.kt  # Output of OptimalTimeUseCase; ranked top hours + 24-bucket histogram + data-sufficiency flag
 │   │   ├── PerHabitStats.kt          # Bundles streak, 30-day sparkline, and completion rate for one habit; output of StatisticsViewModel.perHabitStats
 │   │   ├── ProcrastinationIndex.kt   # Output of ProcrastinationIndexUseCase; skewness of completion hour-of-day distribution + qualitative rating
+│   │   ├── ReminderLift.kt           # Output of ReminderEffectivenessUseCase (Phase 9.1); holds baselineProb, withReminderProb, lift delta, recommendSend flag, and hasSufficientData guard
 │   │   ├── ResilienceScore.kt        # Output of ResilienceScoreUseCase; avg missed periods per recovery event + qualitative rating
 │   │   ├── RoutinePrecision.kt       # Output of RoutinePrecisionUseCase; stddev of completion times in minutes + qualitative rating
 │   │   ├── SortMode.kt               # Enum defining the 7 sort/group modes for the habit list
@@ -82,6 +84,7 @@ app/src/main/java/com/example/evolvix
 │       ├── MotivationMessageUseCase.kt     # Interactor: selects a context-aware motivation message key (streak + day-of-week); delegates to HabitPredictor
 │       ├── OptimalTimeUseCase.kt           # Interactor: bins completions into a 24-bucket hour histogram; delegates top-hour ranking to HabitPredictor
 │       ├── ProcrastinationIndexUseCase.kt  # Interactor: computes skewness of completion hour-of-day distribution; delegates to HabitPredictor
+│       ├── ReminderEffectivenessUseCase.kt # Interactor: calls HabitPredictor.predictReminderCompletion twice (reminderSent=0 and 1), computes lift = P(1)−P(0), suppresses reminder if lift < 0.05 (Phase 9.1)
 │       ├── ResilienceScoreUseCase.kt       # Interactor: measures bounce-back speed (avg missed periods per recovery event); delegates to HabitPredictor
 │       ├── RoutinePrecisionUseCase.kt      # Interactor: computes stddev of completion times in minutes (clock-consistency); delegates to HabitPredictor
 │       ├── ScheduleReminderUseCase.kt      # Interactor: schedules/cancels per-habit WorkManager reminder workers with personalised timing (optimalHours or user-set time)
@@ -165,6 +168,7 @@ ml-training/
 ├── generate_clustering_data.py     # Synthetic dataset for K-Means Behavioral Clustering (Phase 8.4); 10k rows, 4 archetypes, no label column (unsupervised)
 ├── generate_icon_data.py           # Synthetic dataset for HabitIconClassifier
 ├── generate_reminder_data.py       # Synthetic dataset for ReminderTemplateClassifier
+├── generate_reminder_lift_data.py  # Synthetic dataset for ReminderLiftClassifier (Phase 9.1); 80k rows, 8 FEATURE_COLUMNS (reminderSent as binary flag), label = completed_within_30min; +16.2% lift signal
 ├── generate_streak_break_data.py   # Synthetic dataset for StreakBreakClassifier (Phase 8.2)
 ├── generate_success_data.py        # Synthetic dataset for HabitSuccessClassifier
 ├── generate_weekly_forecast_data.py # Synthetic dataset for WeeklyForecastRegressor (Phase 8.3); 12 FEATURE_COLUMNS, label = next_week_rate
@@ -173,6 +177,7 @@ ml-training/
 ├── train_clustering_model.py       # Trains K-Means (sklearn, no TFLite) + exports habit_clusters.json with centroids, labels, scaler, training medians, silhouette score (Phase 8.4)
 ├── train_icon_model.py             # Trains + exports habit_icon_classifier.tflite + icon_vocab.json
 ├── train_reminder_model.py         # Trains + exports reminder_template_classifier.tflite + reminder_scaler.json
+├── train_reminder_lift_model.py    # Trains + exports reminder_lift_classifier.tflite + reminder_lift_scaler.json (Phase 9.1); Dense(32,relu)→Dropout(0.2)→Dense(16,relu)→Dense(1,sigmoid); accuracy=80.3%, AUC=0.90, Lift MAE=0.105
 ├── train_streak_break_model.py     # Trains + exports streak_break_classifier.tflite + streak_break_scaler.json
 ├── train_success_model.py          # Trains + exports habit_success_classifier.tflite + success_scaler.json
 ├── train_weekly_forecast_model.py  # Trains + exports weekly_forecast_regressor.tflite + weekly_forecast_scaler.json; MAE loss, sigmoid output, threshold MAE ≤ 0.12 (Phase 8.3)

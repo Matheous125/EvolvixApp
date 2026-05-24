@@ -141,14 +141,14 @@ Each sub-phase here has TWO halves: (a) **Data collection** (schema migration + 
 ## Phase 9.1 — `fromReminder: Boolean` → Reminder Effectiveness Model
 
 ### 9.1.1 Data collection
-- [ ] **Model:** Add `val fromReminder: Boolean = false` to `HabitCompletionEntity`. Bump DB version (no migration code — per workstyle, reinstall).
-- [ ] **Notification flow:** In `HabitActionReceiver`, when the "Done" action is tapped, pass `fromReminder = true` through the Intent extra into the new completion row.
-- [ ] **Default value:** Manual taps in `MainScreen` / `ProgressItem` insert `false`.
+- [x] **Model:** Add `val fromReminder: Boolean = false` to `HabitCompletionEntity`. Bump DB version (no migration code — per workstyle, reinstall).
+- [x] **Notification flow:** In `HabitActionReceiver`, when the "Done" action is tapped, pass `fromReminder = true` through the Intent extra into the new completion row.
+- [x] **Default value:** Manual taps in `MainScreen` / `ProgressItem` insert `false`.
 
 ### 9.1.2 ML feature: Reminder Effectiveness Predictor
-- [ ] **Goal:** Given a habit's profile + time slot, predict P(completion within 30 min | reminder sent) vs P(completion within 30 min | no reminder). If the lift is < ε, suppress that reminder.
-- [ ] **Python pipeline:** `generate_reminder_lift_data.py` + `train_reminder_lift_model.py`. Causal-style framing: train two models (with/without reminder), output lift as their difference.
-- [ ] **Android integration:** Standard checklist. Plug result into `ScheduleReminderUseCase` to skip low-lift reminders.
+- [x] **Goal:** Given a habit's profile + time slot, predict P(completion within 30 min | reminder sent) vs P(completion within 30 min | no reminder). If the lift is < ε, suppress that reminder.
+- [x] **Python pipeline:** `generate_reminder_lift_data.py` + `train_reminder_lift_model.py`. Causal-style framing: train two models (with/without reminder), output lift as their difference.
+- [x] **Android integration:** Standard checklist. Plug result into `ScheduleReminderUseCase` to skip low-lift reminders.
 
 ---
 

@@ -585,6 +585,31 @@ class MathHabitPredictor : HabitPredictor {
         return (raw * 1.6f).coerceIn(-0.5f, 0.5f)
     }
 
+    // ── Phase 9.1 — Reminder Effectiveness (Lift) Model ──────────────────────
+
+    /**
+     * Heuristic fallback for [predictReminderCompletion] used when TFLite is unavailable.
+     *
+     * Base completion probability is a weighted blend of recent-rate signals:
+     *   `base = 0.4 × rate7d + 0.4 × rate30d + 0.05 × (streak ≥ 3 bonus)`
+     * When [ReminderLiftFeatures.reminderSent] == 1, an additive boost is applied:
+     *   `boost = 0.10 + 0.20 × (1 − rate7d)`
+     * so users with weaker recent engagement receive a larger expected reminder lift —
+     * mirroring the generative prior in `generate_reminder_lift_data.py`.
+     */
+    override fun predictReminderCompletion(features: ReminderLiftFeatures): Float {
+        val rate7d  = features.completionRateLast7Days.coerceIn(0f, 1f)
+        val rate30d = features.completionRateLast30Days.coerceIn(0f, 1f)
+        val streakBonus = if (features.currentStreak >= 3) 0.05f else 0f
+        val base = (0.4f * rate7d + 0.4f * rate30d + streakBonus).coerceIn(0f, 1f)
+        return if (features.reminderSent == 1) {
+            val boost = 0.10f + 0.20f * (1f - rate7d)
+            (base + boost).coerceIn(0f, 1f)
+        } else {
+            base
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

@@ -1,13 +1,18 @@
 package com.example.evolvix.domain.usecase
 
 import android.content.Context
+import android.util.Log
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitEntity
+import com.example.evolvix.domain.ai.AiContainer
+import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.notifications.HabitReminderWorker
+import kotlinx.coroutines.flow.firstOrNull
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
@@ -62,8 +67,20 @@ class ScheduleReminderUseCase(private val context: Context) {
     /**
      * Schedules the next single reminder slot. Public so [HabitReminderWorker] can
      * re-arm after firing.
+     *
+     * **Phase 9.1 — Smart suppression:** Before enqueuing, [ReminderEffectivenessUseCase]
+     * is called with recent completion history. If the predicted lift is below
+     * [ReminderEffectivenessUseCase.SUPPRESS_THRESHOLD] and the habit has sufficient
+     * data, the reminder is silently skipped (cancelled) for this slot.
      */
     suspend fun scheduleNext(habit: HabitEntity) {
+        // Phase 9.1: suppress reminder if predicted lift is too low
+        if (shouldSuppressReminder(habit)) {
+            Log.d(TAG, "Reminder suppressed for habit ${habit.id} (low predicted lift)")
+            cancel(habit.id)
+            return
+        }
+
         val targetMinuteOfDay = habit.reminderTime?.toLong() ?: smartMinuteOfDay(habit)
         val now = LocalDateTime.now()
         var target = now.toLocalDate().atStartOfDay().plusMinutes(targetMinuteOfDay)
@@ -124,6 +141,49 @@ class ScheduleReminderUseCase(private val context: Context) {
 
         /** Latest allowed reminder minute-of-day: 23:00. */
         private const val SCHEDULE_LATEST_MINUTE: Long = 23L * 60
+
+        private const val TAG = "ScheduleReminderUseCase"
+    }
+
+    /**
+     * Returns true when the [ReminderEffectivenessUseCase] has sufficient data AND
+     * predicts that sending a reminder yields lift below [ReminderEffectivenessUseCase.SUPPRESS_THRESHOLD].
+     *
+     * New habits (< [ReminderEffectivenessUseCase.MIN_COMPLETIONS] completions) always
+     * return false here — their reminders are sent unconditionally as a safe default.
+     */
+    private suspend fun shouldSuppressReminder(habit: HabitEntity): Boolean {
+        return try {
+            val dao = AppDatabase.getDatabase(context).habitDao()
+            val completions = dao.getCompletionsForHabit(habit.id).firstOrNull() ?: emptyList()
+            val predictor = AiContainer.predictor(context)
+            val useCase = ReminderEffectivenessUseCase(predictor)
+            // Build a minimal HabitData — only id and frequency are used by the use case
+            val habitData = HabitData(
+                id = habit.id,
+                name = habit.name,
+                currentCount = habit.currentCount,
+                frequency = habit.frequency,
+                target = habit.target
+            )
+            // Compute a simple current streak: count consecutive days with isTargetReached
+            val today = LocalDate.now()
+            var streak = 0
+            var checkDate = today
+            val reachedDates = completions
+                .filter { it.isTargetReached }
+                .map { it.progressUpdate.toLocalDate() }
+                .toSet()
+            while (checkDate in reachedDates) {
+                streak++
+                checkDate = checkDate.minusDays(1)
+            }
+            val lift = useCase(habitData, completions, streak)
+            !lift.recommendSend && lift.hasSufficientData
+        } catch (t: Throwable) {
+            Log.w(TAG, "shouldSuppressReminder failed; defaulting to send", t)
+            false  // safe default: never suppress on error
+        }
     }
 
     private fun uniqueName(habitId: Int) = HabitReminderWorker.UNIQUE_NAME_PREFIX + habitId

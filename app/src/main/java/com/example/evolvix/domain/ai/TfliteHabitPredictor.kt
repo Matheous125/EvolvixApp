@@ -44,6 +44,7 @@ class TfliteHabitPredictor(
     private val streakBreakInterpreter: Interpreter?
     private val weeklyForecastInterpreter: Interpreter?
     private val spilloverInterpreter: Interpreter?
+    private val reminderLiftInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -65,6 +66,9 @@ class TfliteHabitPredictor(
 
     private val spilloverMean: FloatArray
     private val spilloverScale: FloatArray
+
+    private val reminderLiftMean: FloatArray
+    private val reminderLiftScale: FloatArray
 
     // ── Phase 8.4 — K-Means cluster tables (no Interpreter — JSON + Kotlin math) ──
     private val clusterMean: FloatArray
@@ -89,6 +93,7 @@ class TfliteHabitPredictor(
         streakBreakInterpreter = tryLoadModel(context, "streak_break_classifier.tflite")
         weeklyForecastInterpreter = tryLoadModel(context, "weekly_forecast_regressor.tflite")
         spilloverInterpreter = tryLoadModel(context, "spillover_regressor.tflite")
+        reminderLiftInterpreter = tryLoadModel(context, "reminder_lift_classifier.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -114,6 +119,10 @@ class TfliteHabitPredictor(
         val spilloverJson = readJsonAsset(context, "spillover_scaler.json")
         spilloverMean = spilloverJson?.toFloatArray("mean") ?: FloatArray(SPILLOVER_FEATURE_COUNT)
         spilloverScale = spilloverJson?.toFloatArray("scale") ?: FloatArray(SPILLOVER_FEATURE_COUNT) { 1f }
+
+        val reminderLiftJson = readJsonAsset(context, "reminder_lift_scaler.json")
+        reminderLiftMean = reminderLiftJson?.toFloatArray("mean") ?: FloatArray(REMINDER_LIFT_FEATURE_COUNT)
+        reminderLiftScale = reminderLiftJson?.toFloatArray("scale") ?: FloatArray(REMINDER_LIFT_FEATURE_COUNT) { 1f }
 
         // habit_clusters.json carries everything needed for K-Means inference —
         // no Interpreter is loaded because nearest-centroid math is done in Kotlin.
@@ -409,6 +418,31 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 9.1 — Reminder Effectiveness (Lift) Model ──────────────────────
+
+    /**
+     * Runs the ReminderLiftClassifier: standard-scales the 8 features, feeds a (1, 8)
+     * float32 tensor to the interpreter, and returns the sigmoid output — the predicted
+     * completion probability given the current [ReminderLiftFeatures.reminderSent] value.
+     *
+     * Falls back to [MathHabitPredictor.predictReminderCompletion] when the model is
+     * missing or inference fails (Strategy + Dependency Inversion).
+     */
+    override fun predictReminderCompletion(features: ReminderLiftFeatures): Float {
+        val interp = reminderLiftInterpreter ?: return mathFallback.predictReminderCompletion(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, reminderLiftMean, reminderLiftScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            output[0][0].coerceIn(0f, 1f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictReminderCompletion inference failed; using math fallback", t)
+            mathFallback.predictReminderCompletion(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -527,6 +561,7 @@ class TfliteHabitPredictor(
         private const val WEEKLY_FORECAST_FEATURE_COUNT = 12
         private const val CLUSTER_FEATURE_COUNT = 5
         private const val SPILLOVER_FEATURE_COUNT = 5
+        private const val REMINDER_LIFT_FEATURE_COUNT = 8
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

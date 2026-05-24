@@ -65,6 +65,7 @@ import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.BehavioralCluster
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.LifeBalanceEntry
+import com.example.evolvix.domain.model.ReminderLift
 import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.PerHabitStats
@@ -147,6 +148,7 @@ fun StatisticsScreen(
     val weeklyForecast by viewModel.weeklyForecast.collectAsState()
     val behavioralClusters by viewModel.behavioralClusters.collectAsState()
     val spilloverInsights by viewModel.spilloverInsights.collectAsState()
+    val reminderLifts by viewModel.reminderLifts.collectAsState()
 
     Scaffold(
         topBar = {
@@ -194,6 +196,16 @@ fun StatisticsScreen(
                         clusters = behavioralClusters,
                         habitNames = perHabit.associate { it.habit.id to it.habit.name },
                         spilloverInsights = spilloverInsights
+                    )
+                }
+            }
+
+            // Phase 9.1 — Smart Reminders card (shown when ≥1 habit has sufficient data)
+            if (reminderLifts.values.any { it.hasSufficientData }) {
+                item {
+                    SmartRemindersCard(
+                        reminderLifts = reminderLifts,
+                        habitNames = perHabit.associate { it.habit.id to it.habit.name }
                     )
                 }
             }
@@ -1034,6 +1046,89 @@ private fun EmptyHabitsHint() {
 }
 
 /* -------------------------------------------------------------------------------------
+ *  SMART REMINDERS CARD (Phase 9.1)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * Displays predicted reminder effectiveness per habit (Phase 9.1).
+ *
+ * Shows the estimated lift — the difference in completion probability when a reminder
+ * is sent versus not sent. Results are observational (correlational), not causal.
+ *
+ * Only habits where [ReminderLift.hasSufficientData] is true are shown, sorted by
+ * lift descending so the most impactful reminders appear first.
+ */
+@Composable
+private fun SmartRemindersCard(
+    reminderLifts: Map<Int, ReminderLift>,
+    habitNames: Map<Int, String>
+) {
+    val habitsWithData = reminderLifts.values
+        .filter { it.hasSufficientData }
+        .sortedByDescending { it.lift }
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.smart_reminders_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = stringResource(R.string.smart_reminders_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            habitsWithData.forEachIndexed { index, lift ->
+                if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                val name = habitNames[lift.habitId] ?: return@forEachIndexed
+                val liftPct = (lift.lift * 100).roundToInt()
+                val liftLabel = if (liftPct >= 0) "+${liftPct}%" else "${liftPct}%"
+                val statusColor = if (lift.recommendSend) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                }
+                val statusText = if (lift.recommendSend) {
+                    stringResource(R.string.smart_reminders_send)
+                } else {
+                    stringResource(R.string.smart_reminders_suppress)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = liftLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = statusColor
+                        )
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = statusColor
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------------------
  *  BEHAVIORAL TIERS CARD (Phase 8.4)
  * ------------------------------------------------------------------------------------- */
 
@@ -1041,7 +1136,7 @@ private fun EmptyHabitsHint() {
  * ElevatedCard that groups all habits by their K-Means behavioral tier (Phase 8.4).
  *
  * Tier display order: Effortless Routine → Consistent Effort → Struggling → Dormant.
- * Each tier header is rendered in the tier's representative colour; habits within each
+ * Each tier header is rendered in the tier’s representative colour; habits within each
  * tier are displayed as [AssistChip] rows so the user can scan them at a glance.
  *
  * When none of the [clusters] entries has [HabitCluster.hasSufficientData] = true the

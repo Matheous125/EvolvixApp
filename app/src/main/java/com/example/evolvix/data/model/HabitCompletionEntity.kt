@@ -32,5 +32,6 @@ data class HabitCompletionEntity(
     val id: Int = 0,                     // Unique identifier for each completion
     val habitId: Int,                    // References parent habit's ID
     val progressUpdate: LocalDateTime,    // Timestamp of the progress update
-    val isTargetReached: Boolean         // Indicates if this update completed the target
+    val isTargetReached: Boolean,        // Indicates if this update completed the target
+    val fromReminder: Boolean = false    // Phase 9.1: true when triggered via reminder notification
 )

@@ -9,6 +9,7 @@ import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.HabitData
+import com.example.evolvix.domain.model.ReminderLift
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
@@ -18,6 +19,7 @@ import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.BehavioralClusterUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
+import com.example.evolvix.domain.usecase.ReminderEffectivenessUseCase
 import com.example.evolvix.domain.usecase.StreakBreakUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
@@ -65,6 +67,7 @@ class StatisticsViewModel(
     private val weeklyForecastUseCase = WeeklyForecastUseCase(predictor)
     private val behavioralClusterUseCase = BehavioralClusterUseCase(predictor)
     private val spilloverUseCase = SpilloverUseCase(predictor)
+    private val reminderEffectivenessUseCase = ReminderEffectivenessUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -393,6 +396,48 @@ class StatisticsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyList()
+    )
+
+    /**
+     * Per-habit predicted reminder lift (Phase 9.1).
+     *
+     * For each habit, [ReminderEffectivenessUseCase] calls [HabitPredictor.predictReminderCompletion]
+     * twice — with and without reminder sent — and returns the lift = P(sent=1) − P(sent=0).
+     * Habits with [ReminderLift.hasSufficientData] = false are included in the map so the
+     * View can show a "not enough data" placeholder instead of suppressing the card entirely.
+     *
+     * ⚠ **Thesis note:** Lift values are predicted estimates, not causal effects.
+     *
+     * (Pattern: Observer via StateFlow — same upstream pair as [spilloverInsights];
+     *  independently collectible so the Smart Reminders card can be hidden when all
+     *  habits have insufficient data)
+     */
+    val reminderLifts: StateFlow<Map<Int, ReminderLift>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
+            val today = LocalDate.now()
+            var streak = 0
+            var checkDate = today
+            val reachedDates = habitCompletions
+                .filter { it.isTargetReached }
+                .map { it.progressUpdate.toLocalDate() }
+                .toSet()
+            while (checkDate in reachedDates) { streak++; checkDate = checkDate.minusDays(1) }
+            habit.id to reminderEffectivenessUseCase(habitData, habitCompletions, streak)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap()
     )
 
     /**
