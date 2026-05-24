@@ -169,13 +169,13 @@ Each sub-phase here has TWO halves: (a) **Data collection** (schema migration + 
 These two are deeply linked; ship them together.
 
 ### 9.3.1 Data collection
-- [ ] **Model:** Add `val targetVersion: Int = 1` to `HabitCompletionEntity`. Bump DB version.
-- [ ] **New entity:** `HabitTargetHistoryEntity(habitId, oldTarget, newTarget, changedAt, version)`. New `TargetHistoryDao` with `insert` + `getForHabit(habitId): Flow<List<…>>`.
-- [ ] **Edit flow:** In `HabitViewModel.updateHabit`, when target changes, insert a history row and increment `targetVersion`. New completions inherit the latest version.
+- [x] **Model:** Add `val targetVersion: Int = 1` to `HabitCompletionEntity`. Bump DB version.
+- [x] **New entity:** `HabitTargetHistoryEntity(habitId, oldTarget, newTarget, changedAt, version)`. New `TargetHistoryDao` with `insert` + `getForHabit(habitId): Flow<List<…>>`.
+- [x] **Edit flow:** In `HabitViewModel.updateHabit`, when target changes, insert a history row and increment `targetVersion`. New completions inherit the latest version.
 
 ### 9.3.2 ML feature: Target Adjustment Recommender
-- [ ] **Goal:** Replace the hard-coded ±1 rule in `AdaptiveDifficultyUseCase` with a learned regressor predicting the optimal new target given current target + 30d rate + perceived difficulty signal.
-- [ ] **Python pipeline + integration:** Standard checklist. Output: integer delta in {-2, -1, 0, +1, +2}.
+- [x] **Goal:** Replace the hard-coded ±1 rule in `AdaptiveDifficultyUseCase` with a learned regressor predicting the optimal new target given current target + 30d rate + perceived difficulty signal.
+- [x] **Python pipeline + integration:** Standard checklist. Output: integer delta in {-2, -1, 0, +1, +2}.
 
 ---
 

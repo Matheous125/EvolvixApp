@@ -73,6 +73,7 @@ import generate_success_data as gen_success  # noqa: E402
 import generate_weekly_forecast_data as gen_weekly_forecast  # noqa: E402
 import generate_snooze_disengagement_data as gen_snooze_disengagement  # noqa: E402
 import generate_target_change_data as gen_target_change  # noqa: E402
+import generate_difficulty_data as gen_difficulty  # noqa: E402
 from train_icon_model import name_to_ngram_string  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -1122,10 +1123,118 @@ def evaluate_target_change_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Phase 9.4 — PerceivedDifficultyRegressor
+# Regression: predicts perceived difficulty ∈ [1, 5] for a completion session.
+# Acceptance criterion: MAE ≤ 0.55 on the held-out test split.
+# ---------------------------------------------------------------------------
+def evaluate_difficulty_model() -> dict:
+    """
+    Evaluate the PerceivedDifficultyRegressor TFLite model (Phase 9.4).
+
+    Reproduces the same 80/20 random split (SEED=42, no stratification because
+    the label is continuous) used in train_difficulty_model.py and reports:
+      - MAE and RMSE on the raw continuous prediction
+      - Per-bucket distribution of predicted vs actual difficulty (1–5)
+      - An actual-vs-predicted scatter plot saved to data/plots/
+
+    Acceptance gate: MAE ≤ 0.55.
+    """
+    print("\n=== Phase 9.4 — PerceivedDifficultyRegressor ===")
+
+    csv_path = gen_difficulty.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing — run generate_difficulty_data.py first."
+        )
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_difficulty.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["perceived_difficulty"].to_numpy(dtype=np.float32)
+
+    # 80/20 split — no stratification (continuous regression label).
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED
+    )
+
+    scaler = json.loads(
+        (MODELS_DIR / "perceived_difficulty_scaler.json").read_text(encoding="utf-8")
+    )
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    raw_preds = _tflite_predict(
+        MODELS_DIR / "perceived_difficulty_regressor.tflite",
+        x_test_scaled,
+    ).ravel()  # continuous ∈ [1, 5]
+
+    mae = float(np.mean(np.abs(raw_preds - y_test)))
+    rmse = float(np.sqrt(np.mean((raw_preds - y_test) ** 2)))
+
+    # Naive baseline: always predict midpoint 3.0.
+    naive_mae = float(np.mean(np.abs(np.full_like(y_test, 3.0) - y_test)))
+
+    passed = "PASS" if mae <= 0.55 else "FAIL"
+    print(f"Test MAE      : {mae:.4f}  (threshold <= 0.55 to pass)")
+    print(f"Test RMSE     : {rmse:.4f}")
+    print(f"Naive MAE     : {naive_mae:.4f}  (always predict 3.0)")
+    print(f"MAE lift      : {naive_mae - mae:.4f}")
+    print(f"Acceptance    : {passed}")
+
+    # Per-bucket accuracy (round predictions to nearest integer 1–5).
+    y_pred_rounded = np.clip(np.round(raw_preds).astype(np.int32), 1, 5)
+    y_true_rounded = np.clip(np.round(y_test).astype(np.int32), 1, 5)
+    exact_match = float((y_pred_rounded == y_true_rounded).mean())
+    within_one = float((np.abs(y_pred_rounded - y_true_rounded) <= 1).mean())
+    print(f"Exact bucket  : {exact_match:.1%}")
+    print(f"Within ±1     : {within_one:.1%}")
+
+    # ----- Confusion matrix of rounded buckets (1 … 5) -----
+    bucket_labels = [1, 2, 3, 4, 5]
+    bucket_names = ["1", "2", "3", "4", "5"]
+    cm = confusion_matrix(y_true_rounded, y_pred_rounded, labels=bucket_labels)
+    _plot_confusion_matrix(
+        cm,
+        class_names=bucket_names,
+        title="Phase 9.4 — PerceivedDifficultyRegressor — Rounded-Bucket Confusion Matrix",
+        out_path=PLOTS_DIR / "confusion_difficulty.png",
+    )
+    print(f"  Confusion matrix saved → {PLOTS_DIR / 'confusion_difficulty.png'}")
+
+    # ----- Actual vs predicted scatter -----
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(y_test, raw_preds, alpha=0.25, s=6, label="Test samples")
+    ax.plot([1, 5], [1, 5], linestyle="--", color="gray", label="Perfect prediction")
+    ax.set_xlim(0.8, 5.2)
+    ax.set_ylim(0.8, 5.2)
+    ax.set_xlabel("Actual perceived_difficulty")
+    ax.set_ylabel("Predicted perceived_difficulty (raw)")
+    ax.set_title("Phase 9.4 — PerceivedDifficultyRegressor — Actual vs Predicted")
+    ax.legend(loc="upper left")
+    fig.tight_layout()
+    scatter_path = PLOTS_DIR / "scatter_difficulty.png"
+    fig.savefig(scatter_path, dpi=150)
+    plt.close(fig)
+    print(f"  Scatter plot saved → {scatter_path}")
+
+    return {
+        "name": "PerceivedDifficultyRegressor",
+        "task": "regression (difficulty ∈ [1,5])",
+        "test_size": int(len(y_test)),
+        "mae": mae,
+        "rmse": rmse,
+        "naive_mae": naive_mae,
+        "exact_match": exact_match,
+        "within_one": within_one,
+        "passed": passed,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement, target_change = results
+    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement, target_change, difficulty = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -1157,6 +1266,8 @@ def write_summary(results: list) -> Path:
         f"Macro F1 | {snooze_disengagement['macro_f1']:.4f} | ROC-AUC | {snooze_disengagement['roc_auc']:.4f} |",
         f"| {target_change['name']} | {target_change['task']} | {target_change['test_size']} | "
         f"MAE (rounded) | {target_change['mae_rounded']:.4f} | RMSE (raw) | {target_change['rmse_raw']:.4f} |",
+        f"| {difficulty['name']} | {difficulty['task']} | {difficulty['test_size']} | "
+        f"MAE | {difficulty['mae']:.4f} | RMSE | {difficulty['rmse']:.4f} |",
         "",
         "## Generated plots",
         "",
@@ -1173,6 +1284,8 @@ def write_summary(results: list) -> Path:
         "- `confusion_snooze_disengagement.png` — Phase 9.2 SnoozeDisengagementClassifier confusion matrix",
         "- `confusion_target_change.png` — Phase 9.3 TargetChangeRegressor rounded-delta confusion matrix",
         "- `scatter_target_change.png` — Phase 9.3 TargetChangeRegressor actual vs predicted scatter",
+        "- `confusion_difficulty.png` — Phase 9.4 PerceivedDifficultyRegressor rounded-bucket confusion matrix",
+        "- `scatter_difficulty.png` — Phase 9.4 PerceivedDifficultyRegressor actual vs predicted scatter",
         "",
         "## Model 2 — per-class classification report",
         "",
@@ -1218,6 +1331,7 @@ def main() -> None:
         evaluate_reminder_lift_model(),
         evaluate_snooze_disengagement_model(),
         evaluate_target_change_model(),
+        evaluate_difficulty_model(),
     ]
     evaluate_clustering_model()
     summary_path = write_summary(results)

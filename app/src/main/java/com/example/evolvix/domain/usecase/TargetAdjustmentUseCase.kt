@@ -153,10 +153,13 @@ class TargetAdjustmentUseCase(
         }.coerceIn(-2, 2)
 
         val suggestedTarget = (habit.target + delta).coerceAtLeast(1)
-        val confidence = TargetAdjustment.confidenceFrom(rawDelta, delta)
+        // Recalculate delta after clamping so that a minimum-target habit with a
+        // negative recommendation doesn't produce a contradictory "1 → 1 ↓ -1" display.
+        val effectiveDelta = suggestedTarget - habit.target
+        val confidence = TargetAdjustment.confidenceFrom(rawDelta, effectiveDelta)
 
         return TargetAdjustment(
-            delta               = delta,
+            delta               = effectiveDelta,
             rawDelta            = rawDelta,
             currentTarget       = habit.target,
             suggestedTarget     = suggestedTarget,
