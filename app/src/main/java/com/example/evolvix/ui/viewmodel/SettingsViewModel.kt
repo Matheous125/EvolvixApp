@@ -48,7 +48,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             ThemeMode.valueOf(prefs.getString(KEY_THEME, ThemeMode.DARK.name) ?: ThemeMode.DARK.name)
         }.getOrDefault(ThemeMode.DARK)  // fall back to DARK if the stored string is invalid
     )
-    /** Current theme mode — read by [AppContent] to drive [HabitTracker3Theme]. */
+    /** Current theme mode — read by [AppContent] to drive [EvolvixTheme]. */
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
     /** Persists the selected [ThemeMode] and notifies collectors. */

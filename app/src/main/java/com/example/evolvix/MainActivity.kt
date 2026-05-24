@@ -51,10 +51,9 @@ import com.example.evolvix.navigation.Screen
 import com.example.evolvix.notifications.DailySummaryWorker
 import com.example.evolvix.notifications.NotificationChannels
 import com.example.evolvix.notifications.OnboardingPreferences
-import com.example.evolvix.notifications.SummaryPreferences
 import com.example.evolvix.ui.components.AchievementBanner
 import com.example.evolvix.ui.components.FullScreenConfettiOverlay
-import com.example.evolvix.ui.theme.HabitTracker3Theme
+import com.example.evolvix.ui.theme.EvolvixTheme
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.AchievementsViewModelFactory
 import com.example.evolvix.ui.viewmodel.AuthViewModel
@@ -118,7 +117,7 @@ class MainActivity : AppCompatActivity() {
  * and [AchievementBanner] share the same instance and the same [AchievementsViewModel.newlyUnlocked]
  * SharedFlow — ensuring the banner fires regardless of which screen the user is on.
  * [SettingsViewModel] is created here too so [SettingsScreen] and [AppContent] share the
- * same theme state: the [ThemeMode] StateFlow drives [HabitTracker3Theme] at this level,
+ * same theme state: the [ThemeMode] StateFlow drives [EvolvixTheme] at this level,
  * meaning a theme change takes effect immediately without restarting the Activity.
  * (Pattern: shared ViewModel via Activity-scoped [viewModel()])
  */
@@ -140,7 +139,7 @@ fun AppContent() {
         ThemeMode.SYSTEM -> isSystemDark
     }
 
-    HabitTracker3Theme(darkTheme = useDarkTheme) {
+    EvolvixTheme(darkTheme = useDarkTheme) {
 
     // Activity-scoped ViewModel — shared with MainScreen via HabitNavGraph.
     val habitViewModel: HabitViewModel = viewModel(
@@ -345,7 +344,7 @@ fun AppContent() {
         onFinished = { showCelebration = false },
     )
     } // end Box
-    } // end HabitTracker3Theme
+    } // end EvolvixTheme
 }
 
 @Preview(showBackground = true)

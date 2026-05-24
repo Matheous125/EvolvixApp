@@ -57,7 +57,7 @@ private val LightColorScheme = lightColorScheme(
  * @param content       Content to be themed.
  */
 @Composable
-fun HabitTracker3Theme(
+fun EvolvixTheme(
     darkTheme: Boolean = true,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,

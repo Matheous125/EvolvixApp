@@ -27,13 +27,19 @@ app/src/main/java/com/example/evolvix
 │
 ├── domain/                 # Domain Layer - Business Logic
 │   ├── ai/                 # AI / analytics abstraction (Strategy + DI pattern)
+│   │   ├── AbandonmentFeatures.kt  # 7-field input feature vector for the HabitAbandonmentClassifier TFLite model (Phase 8.1); field order mirrors abandonment_scaler.json
 │   │   ├── AiContainer.kt         # Process-wide singleton provider for HabitPredictor (analogous to AppDatabase.getDatabase); lazy init with double-checked locking
 │   │   ├── HabitFeatures.kt       # 7-field input feature vector for the HabitSuccessClassifier TFLite model; field order mirrors success_scaler.json
 │   │   ├── HabitPredictor.kt      # Interface defining all predictive + passive-analytics contracts (success probability, optimal time, routine precision, etc.)
 │   │   ├── MathHabitPredictor.kt  # Rule-based / statistical implementation of HabitPredictor; pure Kotlin, no Android SDK, fully unit-testable
 │   │   ├── ReminderContext.kt     # 7-field input feature vector for the ReminderTemplateClassifier TFLite model; field order mirrors reminder_scaler.json
+│   │   ├── StreakBreakFeatures.kt  # 7-field input feature vector for the StreakBreakClassifier TFLite model (Phase 8.2); field order mirrors streak_break_scaler.json
 │   │   └── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; falls back to MathHabitPredictor for non-ML methods (Strategy swap)
+│   ├── auth/               # Authentication contracts (Dependency Inversion; swappable impl)
+│   │   ├── AuthRepository.kt      # Interface defining all auth operations (login, register, resetPassword, changePassword, logout); returns Result<Unit>
+│   │   └── FakeAuthRepository.kt  # In-memory stub implementation of AuthRepository used during development (Phase 9); replaced by FirebaseAuthRepository in Phase 10
 │   ├── model/              # Domain models and state classes
+│   │   ├── AbandonmentRisk.kt        # Output of AbandonmentRiskUseCase (Phase 8.1); wraps raw probability into a Rating tier (LOW/MEDIUM/HIGH/CRITICAL) + data-sufficiency flag
 │   │   ├── AchievementDefinition.kt  # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
 │   │   ├── DifficultyAdjustment.kt   # Output of AdaptiveDifficultyUseCase; bundles delta (+1/0/-1), rolling rate, current and suggested target
 │   │   ├── FormError.kt              # Domain model for inline form validation errors (e.g. duplicate habit name)
@@ -50,11 +56,13 @@ app/src/main/java/com/example/evolvix
 │   │   ├── RoutinePrecision.kt       # Output of RoutinePrecisionUseCase; stddev of completion times in minutes + qualitative rating
 │   │   ├── SortMode.kt               # Enum defining the 7 sort/group modes for the habit list
 │   │   ├── SparklinePoint.kt         # Single chart data point (date + reached flag); output of SparklineUseCase
+│   │   ├── StreakBreakRisk.kt        # Output of StreakBreakUseCase (Phase 8.2); wraps raw streak-break probability into a Rating tier + data-sufficiency flag
 │   │   ├── StreakResult.kt           # Holds current + best streak counts for a single habit; output of CalculateStreakUseCase
 │   │   ├── StreakRiskAssessment.kt   # Output of StreakRecoveryUseCase; isAtRisk flag, specific at-risk weekdays, data-sufficiency flag
 │   │   ├── SuccessPrediction.kt      # Output of SuccessProbabilityUseCase; probability [0.05–0.95] + five explicit input feature values
 │   │   └── WeeklyOverview.kt         # 7-day aggregated summary (DaySummary list + week rate); output of WeeklyOverviewUseCase
 │   └── usecase/
+│       ├── AbandonmentRiskUseCase.kt       # Interactor: extracts 7 AbandonmentFeatures from Room data, delegates to HabitPredictor, maps probability → AbandonmentRisk (Phase 8.1)
 │       ├── AdaptiveDifficultyUseCase.kt    # Interactor: suggests target +1/0/-1 based on 14-day rolling rate; delegates to HabitPredictor
 │       ├── CalculateStreakUseCase.kt        # Interactor: computes current + best streak; pure function with injectable today date
 │       ├── ComposeDailySummaryUseCase.kt   # Interactor: pure function composing today's raw data into a DailySummaryEntity for notification + inbox (Phase 7.2)
@@ -71,6 +79,7 @@ app/src/main/java/com/example/evolvix
 │       ├── RoutinePrecisionUseCase.kt      # Interactor: computes stddev of completion times in minutes (clock-consistency); delegates to HabitPredictor
 │       ├── ScheduleReminderUseCase.kt      # Interactor: schedules/cancels per-habit WorkManager reminder workers with personalised timing (optimalHours or user-set time)
 │       ├── SparklineUseCase.kt             # Interactor: produces a List<SparklinePoint> (reached flag per calendar day) for a given habit and date range
+│       ├── StreakBreakUseCase.kt           # Interactor: extracts 7 StreakBreakFeatures, guards against zero-streak, delegates to HabitPredictor, maps probability → StreakBreakRisk (Phase 8.2)
 │       ├── StreakRecoveryUseCase.kt        # Interactor: detects high-risk streak patterns and which specific weekdays are consistently missed
 │       ├── SuccessProbabilityUseCase.kt    # Interactor: estimates today's completion probability via HabitPredictor (TFLite HabitSuccessClassifier)
 │       └── WeeklyOverviewUseCase.kt        # Interactor: aggregates completions into a 7-day WeeklyOverview (daily counts + week completion rate)
@@ -85,6 +94,7 @@ app/src/main/java/com/example/evolvix
 │   ├── HabitActionReceiver.kt     # BroadcastReceiver for Done/Skip/Snooze taps on reminder notifications (Command pattern); writes to Room directly
 │   ├── HabitReminderWorker.kt     # One-shot CoroutineWorker posting a per-habit reminder; selects message template via ReminderTemplateClassifier (TFLite)
 │   ├── NotificationChannels.kt    # Centralised channel registry (singleton object); called before any post to guarantee channels exist
+│   ├── OnboardingPreferences.kt   # SharedPreferences wrapper (singleton object) tracking whether the user has completed the onboarding flow; shared file with SummaryPreferences
 │   ├── SummaryDismissReceiver.kt  # BroadcastReceiver tracking swipe-dismissals of the summary notification; auto-disables after 7 consecutive dismissals
 │   └── SummaryPreferences.kt      # SharedPreferences wrapper for daily-summary state: dismissStreak counter + disabled flag
 │
@@ -100,9 +110,15 @@ app/src/main/java/com/example/evolvix
 │   ├── screens/            # Main UI screens
 │   │   ├── AchievementsScreen.kt  # Achievement list with collapsible groups
 │   │   ├── AddNewHabitScreen.kt   # Create habit form (name, target, frequency, category, color, reminder time, habit templates)
+│   │   ├── auth/                  # Authentication screens (Phase 9)
+│   │   │   ├── LoginScreen.kt         # Email + password login form; delegates to AuthViewModel
+│   │   │   ├── RegisterScreen.kt      # Account creation form; delegates to AuthViewModel
+│   │   │   ├── ResetPasswordScreen.kt # Request password-reset e-mail form; delegates to AuthViewModel
+│   │   │   └── SetNewPasswordScreen.kt # Confirm new password entry (deep-link target); delegates to AuthViewModel
 │   │   ├── EditHabitScreen.kt     # Edit habit details form
 │   │   ├── HistoryScreen.kt       # Browse, edit, and add habit completion history
 │   │   ├── MainScreen.kt          # Habit list with completion interaction, sort/filter, context menu, unread-badge bell icon
+│   │   ├── OnboardingScreen.kt    # Single-page onboarding shown once on first launch; sets OnboardingPreferences flag on "Get Started" tap
 │   │   ├── SettingsScreen.kt      # App settings: theme mode selector (Light/Dark/System), daily-summary toggle, reminder management
 │   │   ├── StatisticsScreen.kt    # Analytics: weekly overview, life balance, per-habit stats, AI insight cards
 │   │   └── SummaryInboxScreen.kt  # Scrollable inbox of daily summary cards; mark-read / dismiss actions; unread badge driven by SummaryInboxViewModel
@@ -114,6 +130,8 @@ app/src/main/java/com/example/evolvix
 │   └── viewmodel/          # The "ViewModel" Layer - UI Logic
 │       ├── AchievementsViewModel.kt        # Observes habits+completions Flow, runs EvaluateAchievementsUseCase, persists deltas; emits newlyUnlocked SharedFlow for AchievementBanner
 │       ├── AchievementsViewModelFactory.kt # Factory for AchievementsViewModel (injects HabitDao + AchievementDao)
+│       ├── AuthViewModel.kt               # State holder for all auth screens; exposes AuthUiState (isLoading, isAuthenticated, error, resetEmailSent); delegates to AuthRepository
+│       ├── AuthViewModelFactory.kt        # Factory for AuthViewModel (injects AuthRepository)
 │       ├── HabitViewModel.kt               # Central ViewModel: habit CRUD, streak recomputation, sort/filter state, pause, over-completion, form validation
 │       ├── HabitViewModelFactory.kt        # Factory for HabitViewModel (injects HabitDao)
 │       ├── HistoryViewModel.kt             # Scoped to a single habit; exposes grouped completions, delete/update/retroactive-insert operations
@@ -122,8 +140,7 @@ app/src/main/java/com/example/evolvix
 │       ├── SettingsViewModelFactory.kt     # Factory for SettingsViewModel (injects Application context)
 │       ├── StatisticsViewModel.kt          # Combines habits+completions Flows; runs all analytics use cases; exposes overview, lifeBalance, perHabitStats, AI cards as StateFlows
 │       ├── StatisticsViewModelFactory.kt   # Factory for StatisticsViewModel (injects HabitDao)
-│       ├── SummaryInboxViewModel.kt        # AndroidViewModel exposing DailySummaryEntity list + unreadCount StateFlow; resets dismissStreak on open
-│       └── SummaryInboxViewModelFactory.kt # Factory for SummaryInboxViewModel (injects Application context)
+│       └── SummaryInboxViewModel.kt        # AndroidViewModel exposing DailySummaryEntity list + unreadCount StateFlow; resets dismissStreak on open
 │
 └── MainActivity.kt         # Entry point; sets up NavGraph, AiContainer, NotificationChannels; handles deep-link from summary notification
 ```
