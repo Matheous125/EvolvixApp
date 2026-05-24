@@ -65,6 +65,7 @@ import generate_icon_data as gen_icon  # noqa: E402
 import generate_reminder_data as gen_reminder  # noqa: E402
 import generate_streak_break_data as gen_streak_break  # noqa: E402
 import generate_success_data as gen_success  # noqa: E402
+import generate_weekly_forecast_data as gen_weekly_forecast  # noqa: E402
 from train_icon_model import name_to_ngram_string  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -561,10 +562,77 @@ def evaluate_reminder_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Model 6 — WeeklyForecastRegressor (Phase 8.3)
+# Regression: predicts the user’s next-week habit-completion rate (0–1).
+# Acceptance criterion: Test MAE ≤ 0.12.
+# ---------------------------------------------------------------------------
+def evaluate_weekly_forecast_model() -> dict:
+    print("\n=== Model 6 — WeeklyForecastRegressor ===")
+    csv_path = gen_weekly_forecast.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing — run generate_weekly_forecast_data.py first."
+        )
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_weekly_forecast.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["next_week_rate"].to_numpy(dtype=np.float32)
+
+    # 80/20 split — no stratification (continuous regression label).
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED
+    )
+
+    scaler = json.loads(
+        (MODELS_DIR / "weekly_forecast_scaler.json").read_text(encoding="utf-8")
+    )
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    raw = _tflite_predict(
+        MODELS_DIR / "weekly_forecast_regressor.tflite",
+        x_test_scaled,
+    )
+    y_pred = raw.ravel()  # shape (n,)
+
+    mae = float(np.mean(np.abs(y_pred - y_test)))
+    rmse = float(np.sqrt(np.mean((y_pred - y_test) ** 2)))
+
+    print(f"Test MAE  : {mae:.4f}  (threshold <= 0.12 to pass)")
+    print(f"Test RMSE : {rmse:.4f}")
+    passed = "PASS" if mae <= 0.12 else "FAIL"
+    print(f"Acceptance: {passed}")
+
+    # Scatter plot: actual vs predicted (visual residual check for thesis).
+    out_path = PLOTS_DIR / "scatter_weekly_forecast.png"
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(y_test, y_pred, alpha=0.3, s=8, label="predictions")
+    lo, hi = min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())
+    ax.plot([lo, hi], [lo, hi], linestyle="--", color="gray", label="perfect fit")
+    ax.set_xlabel("Actual next_week_rate")
+    ax.set_ylabel("Predicted next_week_rate")
+    ax.set_title("Model 6 \u2014 WeeklyForecastRegressor \u2014 Actual vs Predicted")
+    ax.legend(loc="upper left")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+    return {
+        "name": "WeeklyForecastRegressor",
+        "task": "regression",
+        "test_size": int(len(y_test)),
+        "mae": mae,
+        "rmse": rmse,
+        "passed": passed,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder, abandonment = results
+    success, icon, reminder, abandonment, streak_break, weekly_forecast = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -586,6 +654,8 @@ def write_summary(results: list) -> Path:
         f"Top-1 accuracy | {icon['top1']:.4f} | Top-3 accuracy | {icon['top3']:.4f} |",
         f"| {reminder['name']} | {reminder['task']} | {reminder['test_size']} | "
         f"Top-1 accuracy | {reminder['top1']:.4f} | — | — |",
+        f"| {weekly_forecast['name']} | {weekly_forecast['task']} | {weekly_forecast['test_size']} | "
+        f"MAE | {weekly_forecast['mae']:.4f} | RMSE | {weekly_forecast['rmse']:.4f} |",
         "",
         "## Generated plots",
         "",
@@ -596,6 +666,7 @@ def write_summary(results: list) -> Path:
         "- `calibration_success.png` — Model 1 reliability diagram",
         "- `confusion_icon.png` — Model 2 confusion matrix (17 classes)",
         "- `confusion_reminder.png` — Model 3 confusion matrix (15 classes)",
+        "- `scatter_weekly_forecast.png` — Model 6 actual vs predicted scatter",
         "",
         "## Model 2 — per-class classification report",
         "",
@@ -624,6 +695,7 @@ def main() -> None:
         evaluate_reminder_model(),
         evaluate_abandonment_model(),
         evaluate_streak_break_model(),
+        evaluate_weekly_forecast_model(),
     ]
     summary_path = write_summary(results)
     print(f"\nWrote thesis summary: {summary_path}")

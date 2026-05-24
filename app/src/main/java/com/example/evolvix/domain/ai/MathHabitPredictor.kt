@@ -512,6 +512,25 @@ class MathHabitPredictor : HabitPredictor {
         return (0.55f - rate * 0.40f - streakContribution).coerceIn(0.10f, 0.55f)
     }
 
+    // ── Phase 8.3 — Weekly Performance Forecaster ─────────────────────────────
+
+    /**
+     * Naive-blend fallback for next-week completion rate when the TFLite model is
+     * unavailable. Mirrors the generative prior from `generate_weekly_forecast_data.py`:
+     *
+     *   base = 0.70 × lastWeekRate + 0.30 × mean(rateMon..rateSun)
+     *
+     * The 70/30 split gives more weight to the immediately-preceding week (strong
+     * auto-correlation in habit behaviour) while the weekday-mean grounds the
+     * prediction in the user's structural pattern across days of the week.
+     * Result is clamped to [0.0, 1.0].
+     */
+    override fun predictWeeklyRate(features: WeeklyForecastFeatures): Float {
+        val weekdayMean = (features.rateMon + features.rateTue + features.rateWed +
+                features.rateThu + features.rateFri + features.rateSat + features.rateSun) / 7f
+        return (0.70f * features.lastWeekRate + 0.30f * weekdayMean).coerceIn(0f, 1f)
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

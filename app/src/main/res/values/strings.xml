@@ -157,6 +157,13 @@
     <string name="patterns_no_routine">No consistent completion time detected yet.</string>
     <string name="patterns_recovery_speed">Recovery speed: ~%1$d period(s) after a gap</string>
     <string name="patterns_no_recovery">No recovery events recorded yet.</string>
+    <!-- ── Phase 8.3 — Weekly Forecast strip ── -->
+    <string name="card_forecast_title">🔮 Next Week Forecast</string>
+    <string name="label_forecast_predicted">Predicted: %1$d%%</string>
+    <string name="label_forecast_confidence">Confidence: %1$d%%</string>
+    <string name="label_forecast_no_data">Track habits for 7+ days with 2+ active habits to unlock the forecast.</string>
+    <string name="cd_forecast_direction">Forecast direction</string>
+
     <!-- ── Phase 8.1 — Abandonment Risk card ── -->
     <string name="card_at_risk_title">⚠️ Habits at Risk</string>
     <string name="label_rating_high">HIGH</string>

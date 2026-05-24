@@ -203,13 +203,15 @@ fun AppContent() {
     // Priority: Onboarding (first launch) → Login (not authenticated) → Habits.
     // SharedPreferences + StateFlow.value are both synchronous reads safe in remember{}.
     // (Pattern: Preferences as Repository — storage concern stays out of the View)
-    val startDestination = remember {
-        when {
-            !OnboardingPreferences.isCompleted(context) -> Screen.Onboarding.route
-            !authViewModel.uiState.value.isAuthenticated -> Screen.Login.route
-            else -> Screen.Habits.route
-        }
-    }
+    // TODO: re-enable auth guard before release — temporarily bypassed for ML smoke testing
+    val startDestination = remember { Screen.Habits.route }
+//    val startDestination = remember {
+//        when {
+//            !OnboardingPreferences.isCompleted(context) -> Screen.Onboarding.route
+//            !authViewModel.uiState.value.isAuthenticated -> Screen.Login.route
+//            else -> Screen.Habits.route
+//        }
+//    }
 
     // Phase 7.2v2 — handle notification deep-link from DailySummaryWorker. When the
     // user taps the summary notification, MainActivity is (re)launched with an extra

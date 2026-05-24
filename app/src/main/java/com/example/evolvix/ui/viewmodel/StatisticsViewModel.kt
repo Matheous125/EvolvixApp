@@ -11,12 +11,14 @@ import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
+import com.example.evolvix.domain.model.WeeklyForecast
 import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.StreakBreakUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
+import com.example.evolvix.domain.usecase.WeeklyForecastUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
 import java.time.LocalDateTime
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,6 +58,7 @@ class StatisticsViewModel(
     private val calculateStreakUseCase = CalculateStreakUseCase()
     private val abandonmentRiskUseCase = AbandonmentRiskUseCase(predictor)
     private val streakBreakUseCase = StreakBreakUseCase(predictor)
+    private val weeklyForecastUseCase = WeeklyForecastUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -270,6 +273,49 @@ class StatisticsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyMap()
+    )
+
+    /**
+     * Next-week completion rate forecast for the entire user (all active habits).
+     *
+     * Combines [HabitDao.getAllHabits] and [HabitDao.getAllCompletions] with
+     * [WeeklyForecastUseCase] to produce a [WeeklyForecast] carrying the predicted rate,
+     * trend direction (UP/FLAT/DOWN), and a confidence score derived from history depth.
+     * [WeeklyForecast.hasSufficientData] is false when there are fewer than 2 active
+     * habits or less than 7 days of completion history — the View renders a placeholder.
+     *
+     * (Pattern: Observer via StateFlow — same upstream pair as [overview]; streak map is
+     *  re-derived here so this flow is independently collectible)
+     */
+    val weeklyForecast: StateFlow<WeeklyForecast> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val today = LocalDate.now()
+        val allHabitData: List<HabitData> = habits.map { h ->
+            HabitData(
+                id = h.id, name = h.name, currentCount = h.currentCount,
+                frequency = h.frequency, target = h.target,
+                totalProgressUpdates = h.totalProgressUpdates,
+                totalTargetReaches = h.totalTargetReaches, lastResetDate = h.lastResetDate
+            )
+        }
+        // Pre-compute current streaks for all habits (same approach as streakBreakRisks).
+        val currentStreaks: Map<Int, Int> = habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            habit.id to calculateStreakUseCase(habitCompletions, habit.frequency, today).current
+        }
+        weeklyForecastUseCase(allHabitData, completions, currentStreaks, today)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = WeeklyForecast(
+            predictedRate = 0f,
+            lastWeekRate = 0f,
+            direction = WeeklyForecast.Direction.FLAT,
+            confidence = 0f,
+            hasSufficientData = false
+        )
     )
 
     /**

@@ -42,6 +42,7 @@ class TfliteHabitPredictor(
     private val reminderInterpreter: Interpreter?
     private val abandonmentInterpreter: Interpreter?
     private val streakBreakInterpreter: Interpreter?
+    private val weeklyForecastInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -58,6 +59,9 @@ class TfliteHabitPredictor(
     private val streakBreakMean: FloatArray
     private val streakBreakScale: FloatArray
 
+    private val weeklyForecastMean: FloatArray
+    private val weeklyForecastScale: FloatArray
+
     private val iconVocabIndex: Map<String, Int>
     private val iconIdfWeights: FloatArray
     private val iconLabels: List<String>
@@ -71,6 +75,7 @@ class TfliteHabitPredictor(
         reminderInterpreter = tryLoadModel(context, "reminder_template_classifier.tflite")
         abandonmentInterpreter = tryLoadModel(context, "habit_abandonment_classifier.tflite")
         streakBreakInterpreter = tryLoadModel(context, "streak_break_classifier.tflite")
+        weeklyForecastInterpreter = tryLoadModel(context, "weekly_forecast_regressor.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -88,6 +93,10 @@ class TfliteHabitPredictor(
         val streakBreakJson = readJsonAsset(context, "streak_break_scaler.json")
         streakBreakMean = streakBreakJson?.toFloatArray("mean") ?: FloatArray(STREAK_BREAK_FEATURE_COUNT)
         streakBreakScale = streakBreakJson?.toFloatArray("scale") ?: FloatArray(STREAK_BREAK_FEATURE_COUNT) { 1f }
+
+        val weeklyForecastJson = readJsonAsset(context, "weekly_forecast_scaler.json")
+        weeklyForecastMean = weeklyForecastJson?.toFloatArray("mean") ?: FloatArray(WEEKLY_FORECAST_FEATURE_COUNT)
+        weeklyForecastScale = weeklyForecastJson?.toFloatArray("scale") ?: FloatArray(WEEKLY_FORECAST_FEATURE_COUNT) { 1f }
 
         val iconJson = readJsonAsset(context, "icon_vocab.json")
         val vocab = iconJson?.toStringList("vocabulary") ?: emptyList()
@@ -291,6 +300,29 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 8.3 — Weekly Performance Forecaster ─────────────────────────────
+
+    /**
+     * Runs the weekly forecast regressor: standard-scale the 12 [WeeklyForecastFeatures],
+     * feed a (1, 12) float32 tensor, and return the sigmoid output as the predicted
+     * next-week completion rate. Falls back to [MathHabitPredictor.predictWeeklyRate]
+     * when the model asset is missing or inference fails.
+     */
+    override fun predictWeeklyRate(features: WeeklyForecastFeatures): Float {
+        val interp = weeklyForecastInterpreter ?: return mathFallback.predictWeeklyRate(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, weeklyForecastMean, weeklyForecastScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            output[0][0].coerceIn(0f, 1f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictWeeklyRate inference failed; using math fallback", t)
+            mathFallback.predictWeeklyRate(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -387,6 +419,7 @@ class TfliteHabitPredictor(
         private const val REMINDER_FEATURE_COUNT = 7
         private const val ABANDONMENT_FEATURE_COUNT = 7
         private const val STREAK_BREAK_FEATURE_COUNT = 7
+        private const val WEEKLY_FORECAST_FEATURE_COUNT = 12
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

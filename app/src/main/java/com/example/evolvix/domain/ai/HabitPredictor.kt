@@ -216,4 +216,25 @@ interface HabitPredictor {
      * thresholding the float directly.
      */
     fun predictStreakBreak(features: StreakBreakFeatures): Float
+
+    // ── Phase 8.3 — Weekly Performance Forecaster ─────────────────────────────
+
+    /**
+     * Predicts the user's overall habit-completion rate for the **next 7 days**,
+     * given a pre-computed [WeeklyForecastFeatures] vector aggregated across all
+     * active habits.
+     *
+     * This is a **regression** output: the returned value is in [0.0, 1.0] (not a
+     * class probability), representing the predicted fraction of (habit × day) pairs
+     * that will be completed next week.
+     *
+     * Backed by `weekly_forecast_regressor.tflite` in [TfliteHabitPredictor];
+     * [MathHabitPredictor] provides a naive-blend fallback:
+     * `0.7 × lastWeekRate + 0.3 × mean(weekday rates)`.
+     *
+     * Callers should wrap the raw output in a [com.example.evolvix.domain.model.WeeklyForecast]
+     * via [com.example.evolvix.domain.usecase.WeeklyForecastUseCase], which adds the
+     * direction indicator, confidence score, and data-sufficiency flag.
+     */
+    fun predictWeeklyRate(features: WeeklyForecastFeatures): Float
 }

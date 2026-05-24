@@ -34,7 +34,8 @@ app/src/main/java/com/example/evolvix
 │   │   ├── MathHabitPredictor.kt  # Rule-based / statistical implementation of HabitPredictor; pure Kotlin, no Android SDK, fully unit-testable
 │   │   ├── ReminderContext.kt     # 7-field input feature vector for the ReminderTemplateClassifier TFLite model; field order mirrors reminder_scaler.json
 │   │   ├── StreakBreakFeatures.kt  # 7-field input feature vector for the StreakBreakClassifier TFLite model (Phase 8.2); field order mirrors streak_break_scaler.json
-│   │   └── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; falls back to MathHabitPredictor for non-ML methods (Strategy swap)
+│   │   ├── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; falls back to MathHabitPredictor for non-ML methods (Strategy swap)
+│   │   └── WeeklyForecastFeatures.kt # 12-field input feature vector for the WeeklyForecastRegressor TFLite model (Phase 8.3); toFloatArray() returns fields in scaler order
 │   ├── auth/               # Authentication contracts (Dependency Inversion; swappable impl)
 │   │   ├── AuthRepository.kt      # Interface defining all auth operations (login, register, resetPassword, changePassword, logout); returns Result<Unit>
 │   │   └── FakeAuthRepository.kt  # In-memory stub implementation of AuthRepository used during development (Phase 9); replaced by FirebaseAuthRepository in Phase 10
@@ -60,6 +61,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── StreakResult.kt           # Holds current + best streak counts for a single habit; output of CalculateStreakUseCase
 │   │   ├── StreakRiskAssessment.kt   # Output of StreakRecoveryUseCase; isAtRisk flag, specific at-risk weekdays, data-sufficiency flag
 │   │   ├── SuccessPrediction.kt      # Output of SuccessProbabilityUseCase; probability [0.05–0.95] + five explicit input feature values
+│   │   ├── WeeklyForecast.kt         # Output of WeeklyForecastUseCase (Phase 8.3); predictedRate, lastWeekRate, Direction (UP/FLAT/DOWN), confidence, hasSufficientData
 │   │   └── WeeklyOverview.kt         # 7-day aggregated summary (DaySummary list + week rate); output of WeeklyOverviewUseCase
 │   └── usecase/
 │       ├── AbandonmentRiskUseCase.kt       # Interactor: extracts 7 AbandonmentFeatures from Room data, delegates to HabitPredictor, maps probability → AbandonmentRisk (Phase 8.1)
@@ -82,6 +84,7 @@ app/src/main/java/com/example/evolvix
 │       ├── StreakBreakUseCase.kt           # Interactor: extracts 7 StreakBreakFeatures, guards against zero-streak, delegates to HabitPredictor, maps probability → StreakBreakRisk (Phase 8.2)
 │       ├── StreakRecoveryUseCase.kt        # Interactor: detects high-risk streak patterns and which specific weekdays are consistently missed
 │       ├── SuccessProbabilityUseCase.kt    # Interactor: estimates today's completion probability via HabitPredictor (TFLite HabitSuccessClassifier)
+│       ├── WeeklyForecastUseCase.kt        # Interactor: extracts 12 WeeklyForecastFeatures, checks data sufficiency, delegates to HabitPredictor, wraps output in WeeklyForecast (Phase 8.3)
 │       └── WeeklyOverviewUseCase.kt        # Interactor: aggregates completions into a 7-day WeeklyOverview (daily counts + week completion rate)
 │
 ├── navigation/             # Navigation Configuration
@@ -143,4 +146,26 @@ app/src/main/java/com/example/evolvix
 │       └── SummaryInboxViewModel.kt        # AndroidViewModel exposing DailySummaryEntity list + unreadCount StateFlow; resets dismissStreak on open
 │
 └── MainActivity.kt         # Entry point; sets up NavGraph, AiContainer, NotificationChannels; handles deep-link from summary notification
+```
+
+## ml-training/
+
+Off-device Python training pipeline. Scripts are run once on a developer machine;
+outputs (`.tflite` + scaler JSON) are copied into `app/src/main/assets/`.
+
+```
+ml-training/
+├── generate_abandonment_data.py    # Synthetic dataset for HabitAbandonmentClassifier (Phase 8.1)
+├── generate_icon_data.py           # Synthetic dataset for HabitIconClassifier
+├── generate_reminder_data.py       # Synthetic dataset for ReminderTemplateClassifier
+├── generate_streak_break_data.py   # Synthetic dataset for StreakBreakClassifier (Phase 8.2)
+├── generate_success_data.py        # Synthetic dataset for HabitSuccessClassifier
+├── generate_weekly_forecast_data.py # Synthetic dataset for WeeklyForecastRegressor (Phase 8.3); 12 FEATURE_COLUMNS, label = next_week_rate
+├── train_abandonment_model.py      # Trains + exports habit_abandonment_classifier.tflite + abandonment_scaler.json
+├── train_icon_model.py             # Trains + exports habit_icon_classifier.tflite + icon_vocab.json
+├── train_reminder_model.py         # Trains + exports reminder_template_classifier.tflite + reminder_scaler.json
+├── train_streak_break_model.py     # Trains + exports streak_break_classifier.tflite + streak_break_scaler.json
+├── train_success_model.py          # Trains + exports habit_success_classifier.tflite + success_scaler.json
+├── train_weekly_forecast_model.py  # Trains + exports weekly_forecast_regressor.tflite + weekly_forecast_scaler.json; MAE loss, sigmoid output, threshold MAE ≤ 0.12 (Phase 8.3)
+└── evaluate_models.py              # Thesis-grade evaluation report: loads .tflite artifacts, reproduces test split, computes metrics, saves plots to data/plots/
 ```

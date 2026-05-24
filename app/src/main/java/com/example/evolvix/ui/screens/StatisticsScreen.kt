@@ -62,6 +62,7 @@ import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.PerHabitStats
+import com.example.evolvix.domain.model.WeeklyForecast
 import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.ui.components.BarChartDay
 import com.example.evolvix.ui.components.ScrollableBarChart
@@ -137,6 +138,7 @@ fun StatisticsScreen(
     val allCompletions by viewModel.allCompletions.collectAsState()
     val abandonmentRisks by viewModel.abandonmentRisks.collectAsState()
     val streakBreakRisks by viewModel.streakBreakRisks.collectAsState()
+    val weeklyForecast by viewModel.weeklyForecast.collectAsState()
 
     Scaffold(
         topBar = {
@@ -172,7 +174,8 @@ fun StatisticsScreen(
                 SummaryGroupCard(
                     overview = overview,
                     previousWeekRate = prevRate,
-                    lifeBalance = lifeBalance
+                    lifeBalance = lifeBalance,
+                    weeklyForecast = weeklyForecast
                 )
             }
 
@@ -211,7 +214,8 @@ fun StatisticsScreen(
 private fun SummaryGroupCard(
     overview: WeeklyOverview,
     previousWeekRate: Float,
-    lifeBalance: List<LifeBalanceEntry>
+    lifeBalance: List<LifeBalanceEntry>,
+    weeklyForecast: WeeklyForecast
 ) {
     // Local UI state — expansion is purely a View concern, so it stays out of the VM.
     var expanded by remember { mutableStateOf(true) }
@@ -244,9 +248,98 @@ private fun SummaryGroupCard(
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
                 GlobalOverviewBody(overview = overview, previousWeekRate = previousWeekRate)
+                Spacer(Modifier.height(12.dp))
+                WeeklyForecastStrip(forecast = weeklyForecast)
                 Spacer(Modifier.height(16.dp))
                 LifeBalanceBody(entries = lifeBalance)
             }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  WEEKLY FORECAST STRIP (Phase 8.3)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * Forecast strip rendered inside [SummaryGroupCard] between the overview body and the
+ * life-balance section.
+ *
+ * Shows the ML-predicted next-week completion rate, a direction icon (▲/▬/▼), and a
+ * confidence indicator bar.  When [WeeklyForecast.hasSufficientData] is false the strip
+ * renders a single muted "not enough data" hint instead.
+ *
+ * Direction icon reuses the already-imported TrendingUp/Flat/Down AutoMirrored vectors
+ * so no new icon dependency is needed.
+ *
+ * @param forecast [WeeklyForecast] emitted by [StatisticsViewModel.weeklyForecast].
+ */
+@Composable
+private fun WeeklyForecastStrip(forecast: WeeklyForecast) {
+    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(
+                text = stringResource(R.string.card_forecast_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(8.dp))
+
+            if (!forecast.hasSufficientData) {
+                Text(
+                    text = stringResource(R.string.label_forecast_no_data),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                return@Column
+            }
+
+            val predictedPct = (forecast.predictedRate * 100).roundToInt()
+            val confidencePct = (forecast.confidence * 100).roundToInt()
+
+            // Direction icon + color — mirrors the GlobalOverviewBody trend indicator.
+            val (directionIcon, directionColor) = when (forecast.direction) {
+                WeeklyForecast.Direction.UP ->
+                    Icons.AutoMirrored.Filled.TrendingUp to MaterialTheme.colorScheme.primary
+                WeeklyForecast.Direction.DOWN ->
+                    Icons.AutoMirrored.Filled.TrendingDown to MaterialTheme.colorScheme.error
+                WeeklyForecast.Direction.FLAT ->
+                    Icons.AutoMirrored.Filled.TrendingFlat to MaterialTheme.colorScheme.onSurfaceVariant
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = directionIcon,
+                    contentDescription = stringResource(R.string.cd_forecast_direction),
+                    tint = directionColor,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = stringResource(R.string.label_forecast_predicted, predictedPct),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = directionColor
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+            // Confidence progress bar — thin, muted; conveys data-volume proxy to the user.
+            LinearProgressIndicator(
+                progress = { forecast.confidence.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color = MaterialTheme.colorScheme.secondary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.label_forecast_confidence, confidencePct),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

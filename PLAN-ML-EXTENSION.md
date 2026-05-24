@@ -79,17 +79,17 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 **Architecture note:** This is a *regression* model, not classification — output layer is a single linear neuron (or sigmoid for [0,1] bounded output).
 
 ### 8.3.1 Python pipeline
-- [ ] `generate_weekly_forecast_data.py` — synthesize week-pairs. Features: last week's rate, current streak avg across habits, habit count, day-of-week-specific rates (7 features), week-of-year sin/cos (seasonality encoding). Label: next-week rate.
-- [ ] `train_weekly_forecast_model.py` — MLP with linear output + MAE loss. Export `.tflite` + scaler.
+- [x] `generate_weekly_forecast_data.py` — synthesize week-pairs. Features: last week's rate, current streak avg across habits, habit count, day-of-week-specific rates (7 features), week-of-year sin/cos (seasonality encoding). Label: next-week rate.
+- [x] `train_weekly_forecast_model.py` — MLP with linear output + MAE loss. Export `.tflite` + scaler.
 
 ### 8.3.2 Android integration
-- [ ] **Model:** `domain/ai/WeeklyForecastFeatures.kt` (~11 fields including 7-day rate vector).
-- [ ] **Interface:** `fun predictWeeklyRate(features: WeeklyForecastFeatures): Float`.
-- [ ] **Math fallback:** Naive blend: `0.7 × lastWeekRate + 0.3 × monthRate`.
-- [ ] **Domain model:** `WeeklyForecast.kt` — `predictedRate`, `lastWeekRate`, `direction: { UP, FLAT, DOWN }`, `confidence`.
-- [ ] **Use case:** `WeeklyForecastUseCase.kt`.
-- [ ] **ViewModel + View:** Add forecast strip to `StatisticsScreen` weekly card.
-- [ ] **Summary integration:** Update `ComposeDailySummaryUseCase` (Sunday only) to include "Next week looks ↑/↓".
+- [x] **Model:** `domain/ai/WeeklyForecastFeatures.kt` (~11 fields including 7-day rate vector).
+- [x] **Interface:** `fun predictWeeklyRate(features: WeeklyForecastFeatures): Float`.
+- [x] **Math fallback:** Naive blend: `0.7 × lastWeekRate + 0.3 × monthRate`.
+- [x] **Domain model:** `WeeklyForecast.kt` — `predictedRate`, `lastWeekRate`, `direction: { UP, FLAT, DOWN }`, `confidence`.
+- [x] **Use case:** `WeeklyForecastUseCase.kt`.
+- [x] **ViewModel + View:** Add forecast strip to `StatisticsScreen` weekly card.
+- [x] **Summary integration:** Update `ComposeDailySummaryUseCase` (Sunday only) to include "Next week looks ↑/↓".
 
 ---
 

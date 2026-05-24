@@ -4,6 +4,8 @@ import com.example.evolvix.data.model.AchievementEntity
 import com.example.evolvix.data.model.DailySummaryEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.data.model.HabitEntity
+import com.example.evolvix.domain.model.WeeklyForecast
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -29,14 +31,19 @@ class ComposeDailySummaryUseCase {
      * @param activeHabits  Snapshot of non-paused habits at compose time.
      * @param completionsAll All completions (Compose use case filters to today).
      * @param achievementsUnlockedToday Achievements with `unlockedAt.toLocalDate() == today`.
-     * @param weekRate      0..1 weekly completion rate from [WeeklyOverviewUseCase].
+     * @param weekRate            0..1 weekly completion rate from [WeeklyOverviewUseCase].
+     * @param nextWeekForecast    Optional Phase 8.3 forecast. When non-null and
+     *                            [WeeklyForecast.hasSufficientData] is true and today is
+     *                            Sunday, a one-line next-week outlook is appended to the body.
+     *                            Defaults to null so existing callers need no change.
      */
     operator fun invoke(
         today: LocalDate,
         activeHabits: List<HabitEntity>,
         completionsAll: List<HabitCompletionEntity>,
         achievementsUnlockedToday: List<AchievementEntity>,
-        weekRate: Float
+        weekRate: Float,
+        nextWeekForecast: WeeklyForecast? = null
     ): DailySummaryEntity {
         val todays = completionsAll.filter { it.progressUpdate.toLocalDate() == today }
         val progressUpdates = todays.size
@@ -73,12 +80,33 @@ class ComposeDailySummaryUseCase {
             else                                 -> "No completions logged. A short, easy win tomorrow is the fastest reset."
         }
 
+        // Sunday forecast line — append only when today is Sunday, the forecast is
+        // available, and the model has seen enough history to trust the output.
+        val forecastLine: String? =
+            if (today.dayOfWeek == DayOfWeek.SUNDAY &&
+                nextWeekForecast != null &&
+                nextWeekForecast.hasSufficientData
+            ) {
+                val arrow = when (nextWeekForecast.direction) {
+                    WeeklyForecast.Direction.UP   -> "↑"
+                    WeeklyForecast.Direction.FLAT -> "→"
+                    WeeklyForecast.Direction.DOWN -> "↓"
+                }
+                val pct = (nextWeekForecast.predictedRate * 100).toInt().coerceIn(0, 100)
+                "Next week looks $arrow — predicted $pct% completion rate."
+            } else null
+
         val body = buildString {
             appendLine(title)
             appendLine()
             parts.forEach { appendLine("• $it") }
             appendLine()
             append(encouragement)
+            if (forecastLine != null) {
+                appendLine()
+                appendLine()
+                append(forecastLine)
+            }
         }.trimEnd()
 
         return DailySummaryEntity(
