@@ -122,13 +122,13 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 - [x] `train_spillover_model.py` — small MLP outputting the lift delta. Export `.tflite` + scaler.
 
 ### 8.5.2 Android integration
-- [ ] **Model:** `domain/ai/SpilloverFeatures.kt` (5 fields).
-- [ ] **Interface:** `fun predictSpillover(features: SpilloverFeatures): Float`.
-- [ ] **Math fallback:** Co-occurrence-rate-based heuristic (extension of existing `relatedHabits` logic).
-- [ ] **Domain model:** `SpilloverPair.kt` — `habitA`, `habitB`, `liftDelta`, `direction`.
-- [ ] **Use case:** `SpilloverUseCase.kt` evaluates all habit pairs after habit A is completed today.
-- [ ] **View:** Append to `StatisticsScreen` AI-insights card with text like "Doing X in the morning makes Y 23% more likely."
-- [ ] **Reminder integration:** When a habit A with strong positive spillover to B is completed, optionally trigger an earlier reminder for B via `ScheduleReminderUseCase`.
+- [x] **Model:** `domain/ai/SpilloverFeatures.kt` (5 fields).
+- [x] **Interface:** `fun predictSpillover(features: SpilloverFeatures): Float`.
+- [x] **Math fallback:** Co-occurrence-rate-based heuristic (extension of existing `relatedHabits` logic).
+- [x] **Domain model:** `SpilloverPair.kt` — `habitA`, `habitB`, `liftDelta`, `direction`.
+- [x] **Use case:** `SpilloverUseCase.kt` evaluates all habit pairs after habit A is completed today.
+- [x] **View:** Append to `StatisticsScreen` AI-insights card with text like "Doing X in the morning makes Y 23% more likely."
+- [x] **Reminder integration:** When a habit A with strong positive spillover to B is completed, optionally trigger an earlier reminder for B via `ScheduleReminderUseCase`.
 
 ---
 
