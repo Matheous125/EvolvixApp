@@ -61,8 +61,8 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 **Why distinct from `StreakRecoveryUseCase`:** Current logic is a hard rule (3 of last 4 same-weekday misses). This is a learned model picking up subtler signals (e.g. mature long streaks fail differently than young short streaks).
 
 ### 8.2.1 Python pipeline
-- [ ] `generate_streak_break_data.py` — synthesize streak-state snapshots labeled with "did streak survive next N periods." Features: streak length, habit age, 7-day rate, day-of-week, hour-of-day, recent gap pattern (avg gap last 30d).
-- [ ] `train_streak_break_model.py` — same architecture template as Model 1. Export `streak_break_classifier.tflite` + scaler JSON.
+- [x] `generate_streak_break_data.py` — synthesize streak-state snapshots labeled with "did streak survive next N periods." Features: streak length, habit age, 7-day rate, day-of-week, hour-of-day, recent gap pattern (avg gap last 30d).
+- [x] `train_streak_break_model.py` — same architecture template as Model 1. Export `streak_break_classifier.tflite` + scaler JSON.
 
 ### 8.2.2 Android integration
 - [ ] **Model:** `domain/ai/StreakBreakFeatures.kt` (6–7 fields).
