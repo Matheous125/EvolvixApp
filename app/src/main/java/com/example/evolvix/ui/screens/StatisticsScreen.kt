@@ -66,6 +66,7 @@ import com.example.evolvix.domain.model.BehavioralCluster
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.ReminderLift
+import com.example.evolvix.domain.model.SnoozeDisengagementRisk
 import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.PerHabitStats
@@ -149,6 +150,7 @@ fun StatisticsScreen(
     val behavioralClusters by viewModel.behavioralClusters.collectAsState()
     val spilloverInsights by viewModel.spilloverInsights.collectAsState()
     val reminderLifts by viewModel.reminderLifts.collectAsState()
+    val snoozeDisengagementRisks by viewModel.snoozeDisengagementRisks.collectAsState()
 
     Scaffold(
         topBar = {
@@ -208,6 +210,23 @@ fun StatisticsScreen(
                         habitNames = perHabit.associate { it.habit.id to it.habit.name }
                     )
                 }
+            }
+
+            // Phase 9.2 — Snooze Drift card (shown when ≥1 habit has HIGH or CRITICAL risk)
+            val snoozeDriftEntries = snoozeDisengagementRisks.values
+                .filter {
+                    it.hasSufficientData &&
+                        (it.rating == SnoozeDisengagementRisk.Rating.HIGH ||
+                            it.rating == SnoozeDisengagementRisk.Rating.CRITICAL)
+                }
+                .sortedByDescending { it.probability }
+                .mapNotNull { risk ->
+                    val name = perHabit.find { it.habit.id == risk.habitId }?.habit?.name
+                        ?: return@mapNotNull null
+                    name to risk
+                }
+            if (snoozeDriftEntries.isNotEmpty()) {
+                item { SnoozeDriftCard(entries = snoozeDriftEntries) }
             }
 
             if (perHabit.isEmpty()) {
@@ -1125,6 +1144,96 @@ private fun SmartRemindersCard(
                 }
             }
         }
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  SNOOZE DRIFT CARD (Phase 9.2)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * ElevatedCard listing habits with a HIGH or CRITICAL snooze-disengagement risk.
+ *
+ * Shows the probability as a percentage and a colour-coded rating chip per habit,
+ * sorted descending by probability. Only rendered when [entries] is non-empty
+ * (caller guards this).
+ *
+ * ⚠ The risk score is observational — high snooze counts correlate with dropout but
+ * do not cause it. The subtitle surfaces this caveat for the thesis defence.
+ *
+ * @param entries (habitName, [SnoozeDisengagementRisk]) pairs for HIGH/CRITICAL habits only.
+ */
+@Composable
+private fun SnoozeDriftCard(entries: List<Pair<String, SnoozeDisengagementRisk>>) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.snooze_drift_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.snooze_drift_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            entries.forEach { (name, risk) ->
+                SnoozeDriftRow(habitName = name, risk = risk)
+            }
+        }
+    }
+}
+
+/**
+ * Single row inside [SnoozeDriftCard]: habit name, a colour-coded rating chip, and
+ * the raw snooze-disengagement probability as a percentage.
+ *
+ * CRITICAL uses the `error` token (deep red); HIGH uses `errorContainer` (lighter red)
+ * matching the visual severity hierarchy used in [AtRiskRow].
+ */
+@Composable
+private fun SnoozeDriftRow(habitName: String, risk: SnoozeDisengagementRisk) {
+    val (chipLabel, chipColor, chipContentColor) = when (risk.rating) {
+        SnoozeDisengagementRisk.Rating.CRITICAL -> Triple(
+            stringResource(R.string.label_rating_critical),
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.onError
+        )
+        SnoozeDisengagementRisk.Rating.HIGH -> Triple(
+            stringResource(R.string.label_rating_high),
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer
+        )
+        else -> return  // Only HIGH/CRITICAL reach this composable
+    }
+    val pct = (risk.probability * 100).roundToInt()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = habitName,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        AssistChip(
+            onClick = {},
+            label = { Text(chipLabel, style = MaterialTheme.typography.labelSmall) },
+            colors = AssistChipDefaults.assistChipColors(
+                containerColor = chipColor,
+                labelColor = chipContentColor
+            )
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.label_risk_pct, pct),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

@@ -196,6 +196,10 @@
     <string name="smart_reminders_send">Send reminder</string>
     <string name="smart_reminders_suppress">Suppressing reminder</string>
 
+    <!-- Phase 9.2 — Snooze Drift (Snooze Disengagement) -->
+    <string name="snooze_drift_title">😴 Snooze Drift</string>
+    <string name="snooze_drift_subtitle">Habits where frequent snoozing correlates with disengagement risk (observational, not causal).</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 

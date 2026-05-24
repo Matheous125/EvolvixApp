@@ -322,4 +322,28 @@ interface HabitPredictor {
      * heuristic fallback (Strategy + Dependency Inversion).
      */
     fun predictReminderCompletion(features: ReminderLiftFeatures): Float
+
+    // ── Phase 9.2 — Snooze Disengagement Predictor ───────────────────────────
+
+    /**
+     * Returns the probability (0.0 … 1.0) that the habit will receive **zero completions
+     * in the next 7 days**, given a pre-computed [SnoozeDisengagementFeatures] vector.
+     *
+     * This is a shorter-horizon early-warning signal than [predictAbandonment] (14 days).
+     * The distinguishing features are [SnoozeDisengagementFeatures.avgSnoozeCountLast14Days]
+     * and [SnoozeDisengagementFeatures.snoozeFrequencyLast14Days], which capture the
+     * snooze-drift pattern before it escalates into full abandonment.
+     *
+     * ⚠ **Thesis note:** The returned value is a *predicted disengagement risk* based on
+     * observational snooze data, NOT a causal effect of snoozing. Present accordingly.
+     *
+     * Backed by `snooze_disengagement_classifier.tflite` (7-feature MLP, sigmoid output)
+     * in [TfliteHabitPredictor]; [MathHabitPredictor] provides a rule-based fallback
+     * (Strategy + Dependency Inversion).
+     *
+     * Callers should map the raw probability to [com.example.evolvix.domain.model.SnoozeDisengagementRisk.Rating]
+     * via [com.example.evolvix.domain.model.SnoozeDisengagementRisk.ratingFor] rather
+     * than thresholding the float directly.
+     */
+    fun predictSnoozeDisengagement(features: SnoozeDisengagementFeatures): Float
 }

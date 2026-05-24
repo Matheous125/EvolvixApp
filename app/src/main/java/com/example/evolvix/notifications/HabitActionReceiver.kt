@@ -34,8 +34,19 @@ class HabitActionReceiver : BroadcastReceiver() {
         nm.cancel(habitId)
 
         when (intent.action) {
-            ACTION_DONE   -> recordCompletion(context.applicationContext, habitId)
-            ACTION_SKIP   -> { /* noop — user explicitly skipped, nothing persisted */ }
+            ACTION_DONE   -> {
+                // Phase 9.2: read the accumulated snooze count and flush it onto the
+                // completion row before resetting, so SnoozeDisengagementUseCase can
+                // compute avgSnoozeCountLast14Days from persisted HabitCompletionEntity rows.
+                val snoozes = SnoozePreferences.getCount(context.applicationContext, habitId)
+                SnoozePreferences.reset(context.applicationContext, habitId)
+                recordCompletion(context.applicationContext, habitId, snoozes)
+            }
+            ACTION_SKIP   -> {
+                // Phase 9.2: a skip ends the reminder cycle; reset the counter so the
+                // next reminder starts from zero rather than accumulating across cycles.
+                SnoozePreferences.reset(context.applicationContext, habitId)
+            }
             ACTION_SNOOZE -> snooze(context.applicationContext, habitId)
         }
     }
@@ -45,7 +56,7 @@ class HabitActionReceiver : BroadcastReceiver() {
      * dispatcher. Mirrors [com.example.evolvix.ui.viewmodel.HabitViewModel.incrementHabitCompletion]
      * but cannot call it directly because no ViewModel exists in this process at notification time.
      */
-    private fun recordCompletion(context: Context, habitId: Int) {
+    private fun recordCompletion(context: Context, habitId: Int, snoozeCount: Int) {
         // Fire-and-forget background scope — the BroadcastReceiver is killed after onReceive,
         // but `goAsync()` is overkill for a single DAO write that takes a few ms on Room's
         // own executor. We keep things simple and let Room's internal pool finish the write.
@@ -67,7 +78,8 @@ class HabitActionReceiver : BroadcastReceiver() {
                     habitId = habitId,
                     progressUpdate = LocalDateTime.now(),
                     isTargetReached = targetHit,
-                    fromReminder = true   // Phase 9.1: completion triggered by reminder tap
+                    fromReminder = true,       // Phase 9.1: completion triggered by reminder tap
+                    snoozeCount = snoozeCount  // Phase 9.2: number of snoozes before completing
                 )
             )
         }
@@ -79,6 +91,9 @@ class HabitActionReceiver : BroadcastReceiver() {
      * with the daily slot scheduled by [com.example.evolvix.domain.usecase.ScheduleReminderUseCase].
      */
     private fun snooze(context: Context, habitId: Int) {
+        // Phase 9.2: increment the per-habit snooze counter before rescheduling so the
+        // final count accurately reflects all snooze taps in this reminder cycle.
+        SnoozePreferences.increment(context, habitId)
         // KEY_IS_SNOOZE bypasses the smart gate: the user explicitly asked to be
         // reminded again, so we should never silently swallow the snoozed notification.
         val request = OneTimeWorkRequestBuilder<HabitReminderWorker>()

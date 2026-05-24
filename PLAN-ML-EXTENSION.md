@@ -155,12 +155,12 @@ Each sub-phase here has TWO halves: (a) **Data collection** (schema migration + 
 ## Phase 9.2 — `snoozeCount: Int` → Snooze Behavior Predictor
 
 ### 9.2.1 Data collection
-- [ ] **Storage choice:** Per-reminder counter in `SharedPreferences` (key: `snooze_count_<habitId>`); reset when a completion or skip is logged for that habit. Persist the **final** `snoozeCount` onto the eventual completion row via a new nullable `val snoozeCount: Int? = null` column. Bump DB version.
-- [ ] **Snooze flow:** Update `HabitActionReceiver` to increment the SharedPreferences counter when "Snooze" is tapped, then reschedule the reminder via `ScheduleReminderUseCase`.
+- [x] **Storage choice:** Per-reminder counter in `SharedPreferences` (key: `snooze_count_<habitId>`); reset when a completion or skip is logged for that habit. Persist the **final** `snoozeCount` onto the eventual completion row via a new nullable `val snoozeCount: Int? = null` column. Bump DB version.
+- [x] **Snooze flow:** Update `HabitActionReceiver` to increment the SharedPreferences counter when "Snooze" is tapped, then reschedule the reminder via `ScheduleReminderUseCase`.
 
 ### 9.2.2 ML feature: Snooze Disengagement Predictor
-- [ ] **Goal:** Predict whether the user will abandon the habit within 7 days given the recent snooze pattern.
-- [ ] **Python pipeline + Android integration:** Standard checklist. Use the output to soften reminder templates (Model 3 retrain with `snoozeCount` as an 8th input feature — non-trivial: requires retraining Model 3 too).
+- [x] **Goal:** Predict whether the user will abandon the habit within 7 days given the recent snooze pattern.
+- [x] **Python pipeline + Android integration:** Standard checklist. Use the output to soften reminder templates (Model 3 retrain with `snoozeCount` as an 8th input feature — non-trivial: requires retraining Model 3 too).
 
 ---
 

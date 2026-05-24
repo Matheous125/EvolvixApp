@@ -71,6 +71,7 @@ import generate_spillover_data as gen_spillover  # noqa: E402
 import generate_streak_break_data as gen_streak_break  # noqa: E402
 import generate_success_data as gen_success  # noqa: E402
 import generate_weekly_forecast_data as gen_weekly_forecast  # noqa: E402
+import generate_snooze_disengagement_data as gen_snooze_disengagement  # noqa: E402
 from train_icon_model import name_to_ngram_string  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -581,7 +582,7 @@ def evaluate_weekly_forecast_model() -> dict:
 
     df = pd.read_csv(csv_path)
     x = df[gen_weekly_forecast.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
-    y = df["next_week_rate"].to_numpy(dtype=np.float32)
+    y = df["label"].to_numpy(dtype=np.float32)
 
     # 80/20 split — no stratification (continuous regression label).
     _, x_test, _, y_test = train_test_split(
@@ -615,8 +616,8 @@ def evaluate_weekly_forecast_model() -> dict:
     ax.scatter(y_test, y_pred, alpha=0.3, s=8, label="predictions")
     lo, hi = min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())
     ax.plot([lo, hi], [lo, hi], linestyle="--", color="gray", label="perfect fit")
-    ax.set_xlabel("Actual next_week_rate")
-    ax.set_ylabel("Predicted next_week_rate")
+    ax.set_xlabel("Actual label")
+    ax.set_ylabel("Predicted label")
     ax.set_title("Model 6 \u2014 WeeklyForecastRegressor \u2014 Actual vs Predicted")
     ax.legend(loc="upper left")
     fig.tight_layout()
@@ -932,10 +933,98 @@ def evaluate_reminder_lift_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Phase 9.2 — SnoozeDisengagementClassifier
+# ---------------------------------------------------------------------------
+def evaluate_snooze_disengagement_model() -> dict:
+    """
+    Evaluate the SnoozeDisengagementClassifier TFLite model (Phase 9.2).
+
+    Reproduces the same 80/20 stratified split (SEED=42) used in
+    train_snooze_disengagement_model.py and reports accuracy, ROC-AUC, and
+    Macro F1 on the held-out test set.
+    Acceptance gate: Macro F1 >= 0.75.
+    """
+    print("\n=== Phase 9.2 \u2014 SnoozeDisengagementClassifier ===")
+
+    csv_path = gen_snooze_disengagement.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing \u2014 run generate_snooze_disengagement_data.py first."
+        )
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_snooze_disengagement.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["label"].to_numpy(dtype=np.int32)
+
+    # Stratified 80/20 split \u2014 identical to train_snooze_disengagement_model.py.
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED, stratify=y
+    )
+
+    scaler = json.loads(
+        (MODELS_DIR / "snooze_disengagement_scaler.json").read_text(encoding="utf-8")
+    )
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    raw = _tflite_predict(
+        MODELS_DIR / "snooze_disengagement_classifier.tflite",
+        x_test_scaled,
+    )
+    y_prob = raw.ravel()
+    y_pred = (y_prob >= 0.5).astype(np.int32)
+
+    acc = float(np.mean(y_pred == y_test))
+    roc_auc = float(roc_auc_score(y_test, y_prob))
+    macro_f1 = float(f1_score(y_test, y_pred, average="macro"))
+
+    passed = "PASS" if macro_f1 >= 0.75 else "FAIL"
+    print(f"Test accuracy : {acc:.4f}")
+    print(f"ROC-AUC       : {roc_auc:.4f}")
+    print(f"Macro F1      : {macro_f1:.4f}  (threshold >= 0.75 to pass)")
+    print(f"Acceptance    : {passed}")
+
+    # Confusion matrix.
+    cm = confusion_matrix(y_test, y_pred)
+    out_path = PLOTS_DIR / "confusion_snooze_disengagement.png"
+    fig, ax = plt.subplots(figsize=(4, 4))
+    im = ax.imshow(cm, cmap="Blues")
+    ax.set_xticks([0, 1]); ax.set_xticklabels(["Engaged", "Disengaged"])
+    ax.set_yticks([0, 1]); ax.set_yticklabels(["Engaged", "Disengaged"])
+    ax.set_xlabel("Predicted"); ax.set_ylabel("Actual")
+    ax.set_title("Phase 9.2 \u2014 SnoozeDisengagementClassifier")
+    for i in range(2):
+        for j in range(2):
+            ax.text(j, i, str(cm[i, j]), ha="center", va="center",
+                    color="white" if cm[i, j] > cm.max() / 2 else "black")
+    fig.colorbar(im, ax=ax)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"  Confusion matrix saved \u2192 {out_path}")
+
+    report = classification_report(
+        y_test, y_pred, target_names=["Engaged (0)", "Disengaged (1)"]
+    )
+
+    return {
+        "name": "SnoozeDisengagementClassifier",
+        "task": "binary classification",
+        "test_size": int(len(y_test)),
+        "accuracy": acc,
+        "roc_auc": roc_auc,
+        "macro_f1": macro_f1,
+        "report": report,
+        "passed": passed,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift = results
+    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -963,6 +1052,8 @@ def write_summary(results: list) -> Path:
         f"MAE | {spillover['mae']:.4f} | R\u00b2 | {spillover['r2']:.4f} |",
         f"| {reminder_lift['name']} | {reminder_lift['task']} | {reminder_lift['test_size']} | "
         f"Macro F1 | {reminder_lift['macro_f1']:.4f} | ROC-AUC | {reminder_lift['roc_auc']:.4f} |",
+        f"| {snooze_disengagement['name']} | {snooze_disengagement['task']} | {snooze_disengagement['test_size']} | "
+        f"Macro F1 | {snooze_disengagement['macro_f1']:.4f} | ROC-AUC | {snooze_disengagement['roc_auc']:.4f} |",
         "",
         "## Generated plots",
         "",
@@ -976,6 +1067,7 @@ def write_summary(results: list) -> Path:
         "- `scatter_weekly_forecast.png` — Model 6 actual vs predicted scatter",
         "- `scatter_spillover.png` — Phase 8.5 SpilloverRegressor actual vs predicted scatter",
         "- `confusion_reminder_lift.png` — Phase 9.1 ReminderLiftClassifier confusion matrix",
+        "- `confusion_snooze_disengagement.png` — Phase 9.2 SnoozeDisengagementClassifier confusion matrix",
         "",
         "## Model 2 — per-class classification report",
         "",
@@ -993,6 +1085,12 @@ def write_summary(results: list) -> Path:
         "",
         "```",
         reminder_lift["report"].rstrip(),
+        "```",
+        "",
+        "## Phase 9.2 \u2014 SnoozeDisengagementClassifier classification report",
+        "",
+        "```",
+        snooze_disengagement["report"].rstrip(),
         "```",
         "",
     ]
@@ -1013,6 +1111,7 @@ def main() -> None:
         evaluate_weekly_forecast_model(),
         evaluate_spillover_model(),
         evaluate_reminder_lift_model(),
+        evaluate_snooze_disengagement_model(),
     ]
     evaluate_clustering_model()
     summary_path = write_summary(results)

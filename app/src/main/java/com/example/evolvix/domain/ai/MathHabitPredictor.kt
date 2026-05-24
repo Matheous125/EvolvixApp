@@ -610,6 +610,47 @@ class MathHabitPredictor : HabitPredictor {
         }
     }
 
+    // ── Phase 9.2 — Snooze Disengagement Predictor ───────────────────────────
+
+    /**
+     * Rule-based fallback for [predictSnoozeDisengagement] used when TFLite is unavailable.
+     *
+     * Rule chain (mirrors the logit priors in `generate_snooze_disengagement_data.py`):
+     *
+     *   1. Heavy snooze + low engagement → CRITICAL signal (0.85)
+     *      `avgSnoozeCount ≥ 2 AND rate7d < 0.3`
+     *   2. High snooze frequency alone → HIGH signal (0.65)
+     *      `snoozeFrequency ≥ 0.8`
+     *   3. Moderate snooze + low rate → MEDIUM signal (0.50)
+     *      `avgSnoozeCount ≥ 1 AND rate7d < 0.5`
+     *   4. Long active streak — strong protective override (0.10)
+     *      `streak ≥ 14`
+     *   5. Solid recent rate — healthy baseline (0.15)
+     *      `rate7d ≥ 0.7`
+     *   6. Default — mild concern proportional to snooze count (0.20 … 0.35)
+     */
+    override fun predictSnoozeDisengagement(features: SnoozeDisengagementFeatures): Float {
+        val rate7d      = features.completionRateLast7Days.coerceIn(0f, 1f)
+        val avgSnooze   = features.avgSnoozeCountLast14Days.coerceIn(0f, 10f)
+        val snoozeFreq  = features.snoozeFrequencyLast14Days.coerceIn(0f, 1f)
+        val streak      = features.currentStreak
+
+        return when {
+            // Strongest combined signal — mirrors +3.0 logit nudge in training data
+            avgSnooze >= 2f && rate7d < 0.30f -> 0.85f
+            // High snooze frequency alone — mirrors +2.0 nudge
+            snoozeFreq >= 0.80f               -> 0.65f
+            // Long streak is a very strong protective signal — mirrors -3.0 nudge
+            streak >= 14                      -> 0.10f
+            // Moderate snooze + below-average rate — mirrors +1.5 + +1.0 nudges
+            avgSnooze >= 1f && rate7d < 0.50f -> 0.50f
+            // Solid recent rate — mirrors -2.0 nudge
+            rate7d >= 0.70f                   -> 0.15f
+            // Default: mild risk, linearly scaled by snooze count (0 → 0.20, 1 → 0.28, 2 → 0.35)
+            else -> (0.20f + avgSnooze * 0.075f).coerceIn(0.20f, 0.35f)
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

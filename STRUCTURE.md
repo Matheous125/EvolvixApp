@@ -35,6 +35,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── MathHabitPredictor.kt  # Rule-based / statistical implementation of HabitPredictor; pure Kotlin, no Android SDK, fully unit-testable
 │   │   ├── ReminderContext.kt     # 7-field input feature vector for the ReminderTemplateClassifier TFLite model; field order mirrors reminder_scaler.json
 │   │   ├── ReminderLiftFeatures.kt # 8-field input feature vector for the ReminderLiftClassifier TFLite model (Phase 9.1); last field reminderSent ∈ {0,1} allows dual-inference for lift computation
+│   │   ├── SnoozeDisengagementFeatures.kt # 7-field input feature vector for the SnoozeDisengagementClassifier TFLite model (Phase 9.2); field order mirrors snooze_disengagement_scaler.json; avgSnoozeCountLast14Days + snoozeFrequencyLast14Days derived from HabitCompletionEntity.snoozeCount
 │   │   ├── StreakBreakFeatures.kt  # 7-field input feature vector for the StreakBreakClassifier TFLite model (Phase 8.2); field order mirrors streak_break_scaler.json
 │   │   ├── SpilloverFeatures.kt    # 5-field input feature vector for the SpilloverRegressor TFLite model (Phase 8.5); fields: rateA, rateB, hourACompleted, coOccurrenceRate, typicalGapHours
 │   │   ├── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; K-Means clustering via habit_clusters.json (nearest-centroid, no Interpreter); falls back to MathHabitPredictor
@@ -60,6 +61,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── ReminderLift.kt           # Output of ReminderEffectivenessUseCase (Phase 9.1); holds baselineProb, withReminderProb, lift delta, recommendSend flag, and hasSufficientData guard
 │   │   ├── ResilienceScore.kt        # Output of ResilienceScoreUseCase; avg missed periods per recovery event + qualitative rating
 │   │   ├── RoutinePrecision.kt       # Output of RoutinePrecisionUseCase; stddev of completion times in minutes + qualitative rating
+│   │   ├── SnoozeDisengagementRisk.kt # Output of SnoozeDisengagementUseCase (Phase 9.2); wraps raw snooze-disengagement probability into a Rating tier (LOW/MEDIUM/HIGH/CRITICAL) + hasSufficientData guard; shown in Snooze Drift ElevatedCard
 │   │   ├── SortMode.kt               # Enum defining the 7 sort/group modes for the habit list
 │   │   ├── SparklinePoint.kt         # Single chart data point (date + reached flag); output of SparklineUseCase
 │   │   ├── SpilloverPair.kt          # Output of SpilloverUseCase (Phase 8.5); wraps liftDelta ∈ [-0.5,+0.5] into a Direction (BOOST/NEUTRAL/DRAG) for one ordered habit pair
@@ -88,6 +90,7 @@ app/src/main/java/com/example/evolvix
 │       ├── ResilienceScoreUseCase.kt       # Interactor: measures bounce-back speed (avg missed periods per recovery event); delegates to HabitPredictor
 │       ├── RoutinePrecisionUseCase.kt      # Interactor: computes stddev of completion times in minutes (clock-consistency); delegates to HabitPredictor
 │       ├── ScheduleReminderUseCase.kt      # Interactor: schedules/cancels per-habit WorkManager reminder workers with personalised timing (optimalHours or user-set time)
+│       ├── SnoozeDisengagementUseCase.kt   # Interactor: extracts 7 SnoozeDisengagementFeatures from Room data (incl. avgSnoozeCountLast14Days + snoozeFrequencyLast14Days); guards on MIN_REMINDER_COMPLETIONS=5 in 30 days; delegates to HabitPredictor, maps probability → SnoozeDisengagementRisk (Phase 9.2)
 │       ├── SparklineUseCase.kt             # Interactor: produces a List<SparklinePoint> (reached flag per calendar day) for a given habit and date range
 │       ├── StreakBreakUseCase.kt           # Interactor: extracts 7 StreakBreakFeatures, guards against zero-streak, delegates to HabitPredictor, maps probability → StreakBreakRisk (Phase 8.2)
 │       ├── SpilloverUseCase.kt             # Interactor: enumerates (A,B) habit pairs where A completed today, computes 5 SpilloverFeatures from 30-day history, delegates to HabitPredictor.predictSpillover, returns top-3 non-NEUTRAL SpilloverPairs (Phase 8.5)
@@ -107,6 +110,7 @@ app/src/main/java/com/example/evolvix
 │   ├── HabitReminderWorker.kt     # One-shot CoroutineWorker posting a per-habit reminder; selects message template via ReminderTemplateClassifier (TFLite)
 │   ├── NotificationChannels.kt    # Centralised channel registry (singleton object); called before any post to guarantee channels exist
 │   ├── OnboardingPreferences.kt   # SharedPreferences wrapper (singleton object) tracking whether the user has completed the onboarding flow; shared file with SummaryPreferences
+│   ├── SnoozePreferences.kt       # SharedPreferences wrapper (singleton object) for per-habit snooze counter lifecycle (Phase 9.2); file = evolvix_snooze_prefs; key = snooze_count_<habitId>; reset on Done/Skip, increment on Snooze
 │   ├── SummaryDismissReceiver.kt  # BroadcastReceiver tracking swipe-dismissals of the summary notification; auto-disables after 7 consecutive dismissals
 │   └── SummaryPreferences.kt      # SharedPreferences wrapper for daily-summary state: dismissStreak counter + disabled flag
 │
@@ -169,6 +173,7 @@ ml-training/
 ├── generate_icon_data.py           # Synthetic dataset for HabitIconClassifier
 ├── generate_reminder_data.py       # Synthetic dataset for ReminderTemplateClassifier
 ├── generate_reminder_lift_data.py  # Synthetic dataset for ReminderLiftClassifier (Phase 9.1); 80k rows, 8 FEATURE_COLUMNS (reminderSent as binary flag), label = completed_within_30min; +16.2% lift signal
+├── generate_snooze_disengagement_data.py # Synthetic dataset for SnoozeDisengagementClassifier (Phase 9.2); 50k rows, 7 FEATURE_COLUMNS (avgSnoozeCountLast14Days + snoozeFrequencyLast14Days), label = disengaged; ~40.6% positive rate; logit-based priors
 ├── generate_streak_break_data.py   # Synthetic dataset for StreakBreakClassifier (Phase 8.2)
 ├── generate_success_data.py        # Synthetic dataset for HabitSuccessClassifier
 ├── generate_weekly_forecast_data.py # Synthetic dataset for WeeklyForecastRegressor (Phase 8.3); 12 FEATURE_COLUMNS, label = next_week_rate
@@ -178,6 +183,7 @@ ml-training/
 ├── train_icon_model.py             # Trains + exports habit_icon_classifier.tflite + icon_vocab.json
 ├── train_reminder_model.py         # Trains + exports reminder_template_classifier.tflite + reminder_scaler.json
 ├── train_reminder_lift_model.py    # Trains + exports reminder_lift_classifier.tflite + reminder_lift_scaler.json (Phase 9.1); Dense(32,relu)→Dropout(0.2)→Dense(16,relu)→Dense(1,sigmoid); accuracy=80.3%, AUC=0.90, Lift MAE=0.105
+├── train_snooze_disengagement_model.py # Trains + exports snooze_disengagement_classifier.tflite + snooze_disengagement_scaler.json (Phase 9.2); Dense(32,relu)→Dropout(0.2)→Dense(16,relu)→Dense(1,sigmoid); EarlyStopping on val_auc patience=8; threshold Macro F1 ≥ 0.75
 ├── train_streak_break_model.py     # Trains + exports streak_break_classifier.tflite + streak_break_scaler.json
 ├── train_success_model.py          # Trains + exports habit_success_classifier.tflite + success_scaler.json
 ├── train_weekly_forecast_model.py  # Trains + exports weekly_forecast_regressor.tflite + weekly_forecast_scaler.json; MAE loss, sigmoid output, threshold MAE ≤ 0.12 (Phase 8.3)

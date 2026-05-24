@@ -33,5 +33,8 @@ data class HabitCompletionEntity(
     val habitId: Int,                    // References parent habit's ID
     val progressUpdate: LocalDateTime,    // Timestamp of the progress update
     val isTargetReached: Boolean,        // Indicates if this update completed the target
-    val fromReminder: Boolean = false    // Phase 9.1: true when triggered via reminder notification
+    val fromReminder: Boolean = false,   // Phase 9.1: true when triggered via reminder notification
+    val snoozeCount: Int? = null         // Phase 9.2: number of times the reminder was snoozed before
+                                         // this completion. null when fromReminder = false (no reminder
+                                         // context). 0 means a reminder fired but was not snoozed.
 )

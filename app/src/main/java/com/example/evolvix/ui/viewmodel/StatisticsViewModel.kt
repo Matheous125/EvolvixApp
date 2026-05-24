@@ -10,6 +10,7 @@ import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.ReminderLift
+import com.example.evolvix.domain.model.SnoozeDisengagementRisk
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
@@ -20,6 +21,7 @@ import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.BehavioralClusterUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.ReminderEffectivenessUseCase
+import com.example.evolvix.domain.usecase.SnoozeDisengagementUseCase
 import com.example.evolvix.domain.usecase.StreakBreakUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
@@ -68,6 +70,7 @@ class StatisticsViewModel(
     private val behavioralClusterUseCase = BehavioralClusterUseCase(predictor)
     private val spilloverUseCase = SpilloverUseCase(predictor)
     private val reminderEffectivenessUseCase = ReminderEffectivenessUseCase(predictor)
+    private val snoozeDisengagementUseCase = SnoozeDisengagementUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -433,6 +436,46 @@ class StatisticsViewModel(
                 .toSet()
             while (checkDate in reachedDates) { streak++; checkDate = checkDate.minusDays(1) }
             habit.id to reminderEffectivenessUseCase(habitData, habitCompletions, streak)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap()
+    )
+
+    /**
+     * Snooze-drift disengagement risk for every habit, keyed by habit ID (Phase 9.2).
+     *
+     * Combines [HabitDao.getAllHabits] and [HabitDao.getAllCompletions] with
+     * [SnoozeDisengagementUseCase] to produce a probability and a
+     * [SnoozeDisengagementRisk.Rating] tier for each habit.
+     *
+     * Habits with fewer than [SnoozeDisengagementUseCase.MIN_REMINDER_COMPLETIONS] reminder-driven
+     * completions that carry a non-null `snoozeCount` in the past 30 days are included with
+     * [SnoozeDisengagementRisk.hasSufficientData] = false so the UI can render a
+     * "collecting data" placeholder rather than a potentially misleading score.
+     *
+     * ⚠ **Thesis note:** Snooze behaviour is observational. The rating reflects a
+     * correlation between snooze patterns and dropout, not a causal relationship.
+     *
+     * (Pattern: Observer via StateFlow — mirrors [abandonmentRisks]; independently
+     *  collectible so the Snooze Drift card can be skipped when all habits lack data)
+     */
+    val snoozeDisengagementRisks: StateFlow<Map<Int, SnoozeDisengagementRisk>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val today = LocalDate.now()
+        habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
+            habit.id to snoozeDisengagementUseCase(habitData, habitCompletions, streak.current, today)
         }
     }.stateIn(
         scope = viewModelScope,

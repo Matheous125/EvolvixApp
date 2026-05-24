@@ -45,6 +45,7 @@ class TfliteHabitPredictor(
     private val weeklyForecastInterpreter: Interpreter?
     private val spilloverInterpreter: Interpreter?
     private val reminderLiftInterpreter: Interpreter?
+    private val snoozeDisengagementInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -70,6 +71,9 @@ class TfliteHabitPredictor(
     private val reminderLiftMean: FloatArray
     private val reminderLiftScale: FloatArray
 
+    private val snoozeDisengagementMean: FloatArray
+    private val snoozeDisengagementScale: FloatArray
+
     // ── Phase 8.4 — K-Means cluster tables (no Interpreter — JSON + Kotlin math) ──
     private val clusterMean: FloatArray
     private val clusterScale: FloatArray
@@ -94,6 +98,7 @@ class TfliteHabitPredictor(
         weeklyForecastInterpreter = tryLoadModel(context, "weekly_forecast_regressor.tflite")
         spilloverInterpreter = tryLoadModel(context, "spillover_regressor.tflite")
         reminderLiftInterpreter = tryLoadModel(context, "reminder_lift_classifier.tflite")
+        snoozeDisengagementInterpreter = tryLoadModel(context, "snooze_disengagement_classifier.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -123,6 +128,10 @@ class TfliteHabitPredictor(
         val reminderLiftJson = readJsonAsset(context, "reminder_lift_scaler.json")
         reminderLiftMean = reminderLiftJson?.toFloatArray("mean") ?: FloatArray(REMINDER_LIFT_FEATURE_COUNT)
         reminderLiftScale = reminderLiftJson?.toFloatArray("scale") ?: FloatArray(REMINDER_LIFT_FEATURE_COUNT) { 1f }
+
+        val snoozeDisengagementJson = readJsonAsset(context, "snooze_disengagement_scaler.json")
+        snoozeDisengagementMean = snoozeDisengagementJson?.toFloatArray("mean") ?: FloatArray(SNOOZE_DISENGAGEMENT_FEATURE_COUNT)
+        snoozeDisengagementScale = snoozeDisengagementJson?.toFloatArray("scale") ?: FloatArray(SNOOZE_DISENGAGEMENT_FEATURE_COUNT) { 1f }
 
         // habit_clusters.json carries everything needed for K-Means inference —
         // no Interpreter is loaded because nearest-centroid math is done in Kotlin.
@@ -443,6 +452,32 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 9.2 — Snooze Disengagement Predictor ─────────────────────────
+
+    /**
+     * Runs the SnoozeDisengagementClassifier: standard-scales the 7 features, feeds a
+     * (1, 7) float32 tensor to the interpreter, and returns the sigmoid output — the
+     * predicted probability that the habit will receive zero completions in the next 7 days.
+     *
+     * Falls back to [MathHabitPredictor.predictSnoozeDisengagement] when the model is
+     * missing or inference fails (Strategy + Dependency Inversion).
+     */
+    override fun predictSnoozeDisengagement(features: SnoozeDisengagementFeatures): Float {
+        val interp = snoozeDisengagementInterpreter
+            ?: return mathFallback.predictSnoozeDisengagement(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, snoozeDisengagementMean, snoozeDisengagementScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            output[0][0].coerceIn(0f, 1f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictSnoozeDisengagement inference failed; using math fallback", t)
+            mathFallback.predictSnoozeDisengagement(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -562,6 +597,7 @@ class TfliteHabitPredictor(
         private const val CLUSTER_FEATURE_COUNT = 5
         private const val SPILLOVER_FEATURE_COUNT = 5
         private const val REMINDER_LIFT_FEATURE_COUNT = 8
+        private const val SNOOZE_DISENGAGEMENT_FEATURE_COUNT = 7
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }
