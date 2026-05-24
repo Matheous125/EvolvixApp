@@ -157,6 +157,12 @@
     <string name="patterns_no_routine">No consistent completion time detected yet.</string>
     <string name="patterns_recovery_speed">Recovery speed: ~%1$d period(s) after a gap</string>
     <string name="patterns_no_recovery">No recovery events recorded yet.</string>
+    <!-- ── Phase 8.1 — Abandonment Risk card ── -->
+    <string name="card_at_risk_title">⚠️ Habits at Risk</string>
+    <string name="label_rating_high">HIGH</string>
+    <string name="label_rating_critical">CRITICAL</string>
+    <string name="label_risk_pct">%1$d%%</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 

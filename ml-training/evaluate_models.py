@@ -51,6 +51,7 @@ import tensorflow as tf  # noqa: E402
 from sklearn.metrics import (  # noqa: E402
     classification_report,
     confusion_matrix,
+    f1_score,
     roc_auc_score,
     roc_curve,
     top_k_accuracy_score,
@@ -59,6 +60,7 @@ from sklearn.model_selection import train_test_split  # noqa: E402
 
 # Reuse the three generator modules so column orders / label orders cannot
 # drift between training and evaluation.
+import generate_abandonment_data as gen_abandonment  # noqa: E402
 import generate_icon_data as gen_icon  # noqa: E402
 import generate_reminder_data as gen_reminder  # noqa: E402
 import generate_success_data as gen_success  # noqa: E402
@@ -237,6 +239,81 @@ def evaluate_success_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Model 4 — HabitAbandonmentClassifier (Phase 8.1)
+# ---------------------------------------------------------------------------
+def evaluate_abandonment_model() -> dict:
+    print("\n=== Model 4 \u2014 HabitAbandonmentClassifier ===")
+    csv_path = gen_abandonment.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing \u2014 run train_abandonment_model.py first.")
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_abandonment.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["label"].to_numpy(dtype=np.int32)
+
+    # Reproduce the same stratified 80/20 split used in train_abandonment_model.py.
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED, stratify=y
+    )
+
+    scaler = json.loads((MODELS_DIR / "abandonment_scaler.json").read_text())
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    probs = _tflite_predict(
+        MODELS_DIR / "habit_abandonment_classifier.tflite",
+        x_test_scaled,
+    ).ravel()
+    y_pred = (probs >= 0.5).astype(np.int32)
+
+    accuracy = float((y_pred == y_test).mean())
+    auc = float(roc_auc_score(y_test, probs))
+    macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
+
+    print(f"Test accuracy : {accuracy:.4f}")
+    print(f"ROC-AUC       : {auc:.4f}")
+    print(f"Macro F1      : {macro_f1:.4f}  (threshold >= 0.75 to pass)")
+    print(classification_report(
+        y_test, y_pred,
+        target_names=["active (0)", "abandoned (1)"],
+        digits=3, zero_division=0,
+    ))
+
+    # ----- Confusion matrix -----
+    cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+    _plot_confusion_matrix(
+        cm,
+        class_names=["active (0)", "abandoned (1)"],
+        title="Model 4 \u2014 HabitAbandonmentClassifier \u2014 Confusion Matrix",
+        out_path=PLOTS_DIR / "confusion_abandonment.png",
+    )
+
+    # ----- ROC curve -----
+    fpr, tpr, _ = roc_curve(y_test, probs)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.plot(fpr, tpr, label=f"ROC (AUC = {auc:.3f})")
+    ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random")
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title("Model 4 \u2014 HabitAbandonmentClassifier \u2014 ROC curve")
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    fig.savefig(PLOTS_DIR / "roc_abandonment.png", dpi=150)
+    plt.close(fig)
+
+    return {
+        "name": "HabitAbandonmentClassifier",
+        "task": "binary classification",
+        "test_size": int(len(y_test)),
+        "accuracy": accuracy,
+        "roc_auc": auc,
+        "macro_f1": macro_f1,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Model 2 — HabitIconClassifier
 # Replicates the EXACT n-gram + TF-IDF pipeline that Android will run, using
 # only the contents of icon_vocab.json — no Keras TextVectorization layer.
@@ -397,7 +474,7 @@ def evaluate_reminder_model() -> dict:
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder = results
+    success, icon, reminder, abandonment = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -455,6 +532,7 @@ def main() -> None:
         evaluate_success_model(),
         evaluate_icon_model(),
         evaluate_reminder_model(),
+        evaluate_abandonment_model(),
     ]
     summary_path = write_summary(results)
     print(f"\nWrote thesis summary: {summary_path}")

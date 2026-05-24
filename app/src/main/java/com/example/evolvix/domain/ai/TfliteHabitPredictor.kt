@@ -14,16 +14,17 @@ import java.nio.channels.FileChannel
 /**
  * TFLite-backed implementation of [HabitPredictor] (Phase 6.5).
  *
- * Owns three [Interpreter] instances loaded from `app/src/main/assets/`:
- *  - `habit_success_classifier.tflite` — binary success probability (Model 1).
- *  - `habit_icon_classifier.tflite`    — 17-class icon classifier (Model 2).
+ * Owns four [Interpreter] instances loaded from `app/src/main/assets/`:
+ *  - `habit_success_classifier.tflite`     — binary success probability (Model 1).
+ *  - `habit_icon_classifier.tflite`        — 17-class icon classifier (Model 2).
  *  - `reminder_template_classifier.tflite` — 15-class reminder template (Model 3).
+ *  - `habit_abandonment_classifier.tflite` — binary abandonment probability (Phase 8.1).
  *
  * Composition with [mathFallback]:
  *  - All Phase 6.2 / 6.3 statistical methods delegate to [mathFallback] — pure Kotlin
  *    math that the ML models do not replace.
- *  - The four Phase 6.5 ML methods (`predictSuccess`, `findOptimalHours`,
- *    `classifyIcon`, `selectReminderTemplate`) run TFLite inference and degrade
+ *  - The ML methods (`predictSuccess`, `findOptimalHours`, `classifyIcon`,
+ *    `selectReminderTemplate`, `predictAbandonment`) run TFLite inference and degrade
  *    gracefully to [mathFallback] if a model fails to load.
  *
  * (Pattern: **Strategy + Composition over Inheritance + Liskov substitution** —
@@ -39,6 +40,7 @@ class TfliteHabitPredictor(
     private val successInterpreter: Interpreter?
     private val iconInterpreter: Interpreter?
     private val reminderInterpreter: Interpreter?
+    private val abandonmentInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -48,6 +50,9 @@ class TfliteHabitPredictor(
     private val reminderMean: FloatArray
     private val reminderScale: FloatArray
     private val reminderLabels: List<String>
+
+    private val abandonmentMean: FloatArray
+    private val abandonmentScale: FloatArray
 
     private val iconVocabIndex: Map<String, Int>
     private val iconIdfWeights: FloatArray
@@ -60,6 +65,7 @@ class TfliteHabitPredictor(
         successInterpreter = tryLoadModel(context, "habit_success_classifier.tflite")
         iconInterpreter = tryLoadModel(context, "habit_icon_classifier.tflite")
         reminderInterpreter = tryLoadModel(context, "reminder_template_classifier.tflite")
+        abandonmentInterpreter = tryLoadModel(context, "habit_abandonment_classifier.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -69,6 +75,10 @@ class TfliteHabitPredictor(
         reminderMean = reminderJson?.toFloatArray("mean") ?: FloatArray(REMINDER_FEATURE_COUNT)
         reminderScale = reminderJson?.toFloatArray("scale") ?: FloatArray(REMINDER_FEATURE_COUNT) { 1f }
         reminderLabels = reminderJson?.toStringList("label_names") ?: emptyList()
+
+        val abandonmentJson = readJsonAsset(context, "abandonment_scaler.json")
+        abandonmentMean = abandonmentJson?.toFloatArray("mean") ?: FloatArray(ABANDONMENT_FEATURE_COUNT)
+        abandonmentScale = abandonmentJson?.toFloatArray("scale") ?: FloatArray(ABANDONMENT_FEATURE_COUNT) { 1f }
 
         val iconJson = readJsonAsset(context, "icon_vocab.json")
         val vocab = iconJson?.toStringList("vocabulary") ?: emptyList()
@@ -226,6 +236,29 @@ class TfliteHabitPredictor(
         completions: List<HabitCompletionEntity>
     ): Double? = mathFallback.computeProcrastination(habit, completions)
 
+    // ── Phase 8.1 — Habit Abandonment Predictor ───────────────────────────────
+
+    /**
+     * Runs the abandonment classifier: standard-scale the 7 [AbandonmentFeatures],
+     * feed a (1, 7) float32 tensor, and return the sigmoid output as abandonment
+     * probability. Falls back to [MathHabitPredictor.predictAbandonment] when the
+     * model asset is missing or inference fails.
+     */
+    override fun predictAbandonment(features: AbandonmentFeatures): Float {
+        val interp = abandonmentInterpreter ?: return mathFallback.predictAbandonment(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, abandonmentMean, abandonmentScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            output[0][0].coerceIn(0f, 1f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictAbandonment inference failed; using math fallback", t)
+            mathFallback.predictAbandonment(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -320,6 +353,7 @@ class TfliteHabitPredictor(
         private const val TAG = "TfliteHabitPredictor"
         private const val SUCCESS_FEATURE_COUNT = 7
         private const val REMINDER_FEATURE_COUNT = 7
+        private const val ABANDONMENT_FEATURE_COUNT = 7
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

@@ -12,7 +12,9 @@ import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.domain.ai.AiContainer
 import com.example.evolvix.domain.ai.ReminderContext
+import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.HabitData
+import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import kotlinx.coroutines.flow.firstOrNull
 import java.time.LocalDate
@@ -81,6 +83,8 @@ class HabitReminderWorker(
             lastResetDate = habit.lastResetDate
         )
         val streak = CalculateStreakUseCase()(completions, habit.frequency).current
+        // Phase 8.1 — abandonment risk informs the notification gate and template choice.
+        val abandonmentRisk = AbandonmentRiskUseCase(predictor)(habitData, completions, streak)
         val targetReachedToday = completions.any {
             it.isTargetReached && it.progressUpdate.toLocalDate() == today
         }
@@ -90,7 +94,8 @@ class HabitReminderWorker(
             daysSinceLastCompletion = daysSince,
             dayOfWeek = today.dayOfWeek.value,
             hourOfDay = now.hour,
-            isAtRisk = predictor.isStreakAtRisk(habitData, completions),
+            isAtRisk = predictor.isStreakAtRisk(habitData, completions) ||
+                        abandonmentRisk.rating == AbandonmentRisk.Rating.CRITICAL,
             targetReachedToday = targetReachedToday
         )
         val templateKey = predictor.selectReminderTemplate(ctxFeatures)

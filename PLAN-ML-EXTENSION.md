@@ -43,15 +43,15 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 - [x] Update `evaluate_models.py` with precision/recall/F1; aim for F1 ≥ 0.75 on synthetic test split.
 
 ### 8.1.3 Android integration
-- [ ] **Model:** New `domain/ai/AbandonmentFeatures.kt` (8 fields).
-- [ ] **Interface:** Add `fun predictAbandonment(features: AbandonmentFeatures): Float` to `HabitPredictor`.
-- [ ] **Math fallback:** Rule chain in `MathHabitPredictor.predictAbandonment`: `daysSinceLastCompletion >= 7 && rate7d < 0.2` → 0.85; tune to match training priors.
-- [ ] **TFLite impl:** `TfliteHabitPredictor.predictAbandonment` — load and run the new interpreter; fall back to `mathFallback` on failure.
-- [ ] **Domain model:** `domain/model/AbandonmentRisk.kt` — `probability: Float`, `rating: { LOW, MEDIUM, HIGH, CRITICAL }`, `hasSufficientData: Boolean`.
-- [ ] **Use case:** `domain/usecase/AbandonmentRiskUseCase.kt` — extracts features, delegates to predictor, maps probability → rating thresholds.
-- [ ] **ViewModel:** Expose `abandonmentRisks: StateFlow<Map<Int, AbandonmentRisk>>` from `StatisticsViewModel`.
-- [ ] **View:** New "At Risk" `ElevatedCard` in `StatisticsScreen` listing habits with `rating >= HIGH`.
-- [ ] **Notification hook (optional):** Feed `AbandonmentRisk.rating == CRITICAL` into `ReminderContext.isAtRisk` so Model 3 picks `gentle_nudge_at_risk` more aggressively.
+- [x] **Model:** New `domain/ai/AbandonmentFeatures.kt` (8 fields).
+- [x] **Interface:** Add `fun predictAbandonment(features: AbandonmentFeatures): Float` to `HabitPredictor`.
+- [x] **Math fallback:** Rule chain in `MathHabitPredictor.predictAbandonment`: `daysSinceLastCompletion >= 7 && rate7d < 0.2` → 0.85; tune to match training priors.
+- [x] **TFLite impl:** `TfliteHabitPredictor.predictAbandonment` — load and run the new interpreter; fall back to `mathFallback` on failure.
+- [x] **Domain model:** `domain/model/AbandonmentRisk.kt` — `probability: Float`, `rating: { LOW, MEDIUM, HIGH, CRITICAL }`, `hasSufficientData: Boolean`.
+- [x] **Use case:** `domain/usecase/AbandonmentRiskUseCase.kt` — extracts features, delegates to predictor, maps probability → rating thresholds.
+- [x] **ViewModel:** Expose `abandonmentRisks: StateFlow<Map<Int, AbandonmentRisk>>` from `StatisticsViewModel`.
+- [x] **View:** New "At Risk" `ElevatedCard` in `StatisticsScreen` listing habits with `rating >= HIGH`.
+- [x] **Notification hook (optional):** Feed `AbandonmentRisk.rating == CRITICAL` into `ReminderContext.isAtRisk` so Model 3 picks `gentle_nudge_at_risk` more aggressively.
 
 ---
 

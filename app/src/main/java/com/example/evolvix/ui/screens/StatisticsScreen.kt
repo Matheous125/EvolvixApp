@@ -58,6 +58,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyOverview
@@ -133,6 +134,7 @@ fun StatisticsScreen(
     val lifeBalance by viewModel.lifeBalance.collectAsState()
     val perHabit by viewModel.perHabitStats.collectAsState()
     val allCompletions by viewModel.allCompletions.collectAsState()
+    val abandonmentRisks by viewModel.abandonmentRisks.collectAsState()
 
     Scaffold(
         topBar = {
@@ -774,6 +776,87 @@ private fun AiPlaceholderBox(title: String, body: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  PHASE 8.1 — AT RISK CARD
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * ElevatedCard listing habits whose abandonment probability is HIGH or CRITICAL.
+ *
+ * Sorted by descending probability so the most urgent habits appear first.
+ * Only rendered when [entries] is non-empty (caller guards this).
+ *
+ * @param entries (habitName, AbandonmentRisk) pairs for HIGH/CRITICAL habits only.
+ */
+@Composable
+private fun AtRiskCard(entries: List<Pair<String, AbandonmentRisk>>) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.card_at_risk_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(8.dp))
+            entries.forEach { (name, risk) ->
+                AtRiskRow(habitName = name, risk = risk)
+            }
+        }
+    }
+}
+
+/**
+ * Single row inside [AtRiskCard]: habit name, a colour-coded rating chip, and the
+ * raw probability as a percentage.
+ *
+ * CRITICAL uses the full `error` token (deep red); HIGH uses the lighter
+ * `errorContainer` token so the visual hierarchy matches severity.
+ */
+@Composable
+private fun AtRiskRow(habitName: String, risk: AbandonmentRisk) {
+    // Map rating to chip colours; early-return for ratings below HIGH (should not occur).
+    val (chipLabel, chipColor, chipContentColor) = when (risk.rating) {
+        AbandonmentRisk.Rating.CRITICAL -> Triple(
+            stringResource(R.string.label_rating_critical),
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.onError
+        )
+        AbandonmentRisk.Rating.HIGH -> Triple(
+            stringResource(R.string.label_rating_high),
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer
+        )
+        else -> return
+    }
+    val pct = (risk.probability * 100).roundToInt()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = habitName,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        AssistChip(
+            onClick = {},
+            label = { Text(chipLabel, style = MaterialTheme.typography.labelSmall) },
+            colors = AssistChipDefaults.assistChipColors(
+                containerColor = chipColor,
+                labelColor = chipContentColor
+            )
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(R.string.label_risk_pct, pct),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

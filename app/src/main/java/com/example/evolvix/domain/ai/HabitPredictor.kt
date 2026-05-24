@@ -180,4 +180,18 @@ interface HabitPredictor {
         habit: HabitData,
         completions: List<HabitCompletionEntity>
     ): Double?
+
+    // ── Phase 8.1 — Habit Abandonment Predictor ───────────────────────────────
+
+    /**
+     * Returns the probability (0.0 … 1.0) that the habit will receive **zero completions
+     * in the next 14 days**, given a pre-computed [AbandonmentFeatures] vector.
+     *
+     * Backed by `habit_abandonment_classifier.tflite` in [TfliteHabitPredictor];
+     * [MathHabitPredictor] provides a rule-based fallback (Strategy pattern).
+     *
+     * Callers should map the raw probability to [AbandonmentRisk.Rating] via
+     * [AbandonmentRisk.ratingFor] rather than thresholding the float directly.
+     */
+    fun predictAbandonment(features: AbandonmentFeatures): Float
 }

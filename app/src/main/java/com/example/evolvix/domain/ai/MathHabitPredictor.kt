@@ -434,6 +434,42 @@ class MathHabitPredictor : HabitPredictor {
         return skewness
     }
 
+    // ── Phase 8.1 — Habit Abandonment Predictor ───────────────────────────────
+
+    /**
+     * Rule-based fallback for abandonment probability when the TFLite model is
+     * unavailable. Mirrors the logit priors baked into `generate_abandonment_data.py`
+     * so the fallback and the ML model agree directionally.
+     *
+     * Rule chain (evaluated top-to-bottom; first match wins):
+     *   1. 2+ weeks of silence                         → 0.95 (almost certainly quit)
+     *   2. 1-week gap AND very low weekly rate (<0.2)  → 0.85
+     *   3. Long active streak (≥14)                    → 0.05 (very unlikely to quit)
+     *   4. Healthy recent rate (≥0.8) OR streak (≥7)  → 0.10
+     *   5. Very low 30-day rate (<0.1)                 → 0.70
+     *   6. Continuous fallback: linear blend of rates  → [0.10, 0.60]
+     */
+    override fun predictAbandonment(features: AbandonmentFeatures): Float {
+        // Rule 1: 2+ weeks of silence → almost certain abandonment
+        if (features.daysSinceLastCompletion >= 14) return 0.95f
+
+        // Rule 2: 1-week gap AND very low recent rate → strong signal
+        if (features.daysSinceLastCompletion >= 7 && features.completionRateLast7Days < 0.2f) return 0.85f
+
+        // Rule 3: long active streak → very unlikely to abandon
+        if (features.currentStreak >= 14) return 0.05f
+
+        // Rule 4: excellent recent engagement → low risk
+        if (features.completionRateLast7Days >= 0.8f || features.currentStreak >= 7) return 0.10f
+
+        // Rule 5: very low 30-day rate regardless of gap
+        if (features.completionRateLast30Days < 0.1f) return 0.70f
+
+        // Rule 6: continuous blend — higher rate → lower abandonment risk
+        val blendedRate = 0.5f * features.completionRateLast7Days + 0.5f * features.completionRateLast30Days
+        return (0.60f - blendedRate * 0.50f).coerceIn(0.10f, 0.60f)
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

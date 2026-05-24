@@ -6,10 +6,12 @@ import com.example.evolvix.data.local.DatabaseSeeder
 import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.ai.HabitPredictor
+import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyOverview
+import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
@@ -50,6 +52,7 @@ class StatisticsViewModel(
     private val lifeBalanceUseCase = LifeBalanceUseCase()
     private val sparklineUseCase = SparklineUseCase()
     private val calculateStreakUseCase = CalculateStreakUseCase()
+    private val abandonmentRiskUseCase = AbandonmentRiskUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -194,6 +197,43 @@ class StatisticsViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
+
+    /**
+     * Abandonment-risk score for every habit, keyed by habit ID.
+     *
+     * Combines [HabitDao.getAllHabits] and [HabitDao.getAllCompletions] with
+     * [AbandonmentRiskUseCase] to produce a probability and a [AbandonmentRisk.Rating]
+     * tier for each habit. Habits with insufficient data (< 3 completions or age < 7 days)
+     * are included with [AbandonmentRisk.hasSufficientData] = false so the UI can
+     * skip them cleanly.
+     *
+     * The "At Risk" card in StatisticsScreen filters this map for entries where
+     * [AbandonmentRisk.rating] is HIGH or CRITICAL.
+     *
+     * (Pattern: Observer via StateFlow — same upstream pair as [perHabitStats]; streak
+     *  is re-derived here so [abandonmentRisks] is independently collectible)
+     */
+    val abandonmentRisks: StateFlow<Map<Int, AbandonmentRisk>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val today = LocalDate.now()
+        habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
+            habit.id to abandonmentRiskUseCase(habitData, habitCompletions, streak.current, today)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap()
+    )
 
     /**
      * Inserts 5 seed habits (IDs 901–905) with realistic completion histories.
