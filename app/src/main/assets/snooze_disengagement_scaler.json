@@ -1,0 +1,29 @@
+{
+  "feature_columns": [
+    "habitAge",
+    "completionRateLast7Days",
+    "completionRateLast30Days",
+    "currentStreak",
+    "avgSnoozeCountLast14Days",
+    "snoozeFrequencyLast14Days",
+    "frequencyOrdinal"
+  ],
+  "mean": [
+    60.560525,
+    0.6232733944690204,
+    0.625420507722914,
+    7.473375,
+    1.4227,
+    0.35303031899286214,
+    0.39845
+  ],
+  "scale": [
+    60.04162753228049,
+    0.24050240024284922,
+    0.22771662127740555,
+    7.92563506031963,
+    1.3902426802539452,
+    0.3086108767646153,
+    0.6649342805871691
+  ]
+}
