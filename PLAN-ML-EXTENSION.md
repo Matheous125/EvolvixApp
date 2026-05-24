@@ -65,11 +65,11 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 - [x] `train_streak_break_model.py` — same architecture template as Model 1. Export `streak_break_classifier.tflite` + scaler JSON.
 
 ### 8.2.2 Android integration
-- [ ] **Model:** `domain/ai/StreakBreakFeatures.kt` (6–7 fields).
-- [ ] **Interface:** `fun predictStreakBreak(features: StreakBreakFeatures): Float`.
-- [ ] **Math fallback:** Reuse current `isStreakAtRisk` rule + boost from short streak + low rate.
-- [ ] **TFLite impl + use case + domain model** (`StreakBreakRisk`) following the standard checklist.
-- [ ] **View:** Extend the existing streak risk card in `StatisticsScreen` to show probability bar instead of boolean.
+- [x] **Model:** `domain/ai/StreakBreakFeatures.kt` (6–7 fields).
+- [x] **Interface:** `fun predictStreakBreak(features: StreakBreakFeatures): Float`.
+- [x] **Math fallback:** Reuse current `isStreakAtRisk` rule + boost from short streak + low rate.
+- [x] **TFLite impl + use case + domain model** (`StreakBreakRisk`) following the standard checklist.
+- [x] **View:** Extend the existing streak risk card in `StatisticsScreen` to show probability bar instead of boolean.
 
 ---
 

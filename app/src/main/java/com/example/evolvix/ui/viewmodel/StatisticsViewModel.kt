@@ -8,11 +8,13 @@ import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.HabitData
+import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
+import com.example.evolvix.domain.usecase.StreakBreakUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
@@ -53,6 +55,7 @@ class StatisticsViewModel(
     private val sparklineUseCase = SparklineUseCase()
     private val calculateStreakUseCase = CalculateStreakUseCase()
     private val abandonmentRiskUseCase = AbandonmentRiskUseCase(predictor)
+    private val streakBreakUseCase = StreakBreakUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -228,6 +231,40 @@ class StatisticsViewModel(
                 totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
             )
             habit.id to abandonmentRiskUseCase(habitData, habitCompletions, streak.current, today)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap()
+    )
+
+    /**
+     * Streak-break risk score for every habit with an active streak, keyed by habit ID.
+     *
+     * Combines [HabitDao.getAllHabits] and [HabitDao.getAllCompletions] with
+     * [StreakBreakUseCase] to produce a probability and a [StreakBreakRisk.Rating] tier
+     * for each habit. Habits with no active streak or insufficient data are included
+     * with [StreakBreakRisk.hasSufficientData] = false so the UI can render a neutral
+     * placeholder instead of a probability bar.
+     *
+     * (Pattern: Observer via StateFlow — mirrors [abandonmentRisks]; streak is re-derived
+     *  so this flow is independently collectible without coupling to [perHabitStats])
+     */
+    val streakBreakRisks: StateFlow<Map<Int, StreakBreakRisk>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val today = LocalDate.now()
+        habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
+            habit.id to streakBreakUseCase(habitData, habitCompletions, streak.current, today)
         }
     }.stateIn(
         scope = viewModelScope,

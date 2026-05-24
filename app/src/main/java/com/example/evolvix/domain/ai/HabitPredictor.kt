@@ -194,4 +194,26 @@ interface HabitPredictor {
      * [AbandonmentRisk.ratingFor] rather than thresholding the float directly.
      */
     fun predictAbandonment(features: AbandonmentFeatures): Float
+
+    // ── Phase 8.2 — Streak Break Predictor ───────────────────────────────────
+
+    /**
+     * Returns the probability (0.0 … 1.0) that the habit's **active streak will end**
+     * within the next N periods (N = 3 for daily, N = 2 for weekly), given a
+     * pre-computed [StreakBreakFeatures] vector.
+     *
+     * Backed by `streak_break_classifier.tflite` in [TfliteHabitPredictor];
+     * [MathHabitPredictor] provides a rule-based fallback that mirrors the logit
+     * priors from `generate_streak_break_data.py` (Strategy pattern).
+     *
+     * This method must only be called when the habit has an active streak (> 0).
+     * [com.example.evolvix.domain.usecase.StreakBreakUseCase] enforces this guard
+     * and returns a safe LOW result with [com.example.evolvix.domain.model.StreakBreakRisk.hasSufficientData]
+     * = false when the streak is zero or data is insufficient.
+     *
+     * Callers should map the raw probability to [com.example.evolvix.domain.model.StreakBreakRisk.Rating]
+     * via [com.example.evolvix.domain.model.StreakBreakRisk.ratingFor] rather than
+     * thresholding the float directly.
+     */
+    fun predictStreakBreak(features: StreakBreakFeatures): Float
 }

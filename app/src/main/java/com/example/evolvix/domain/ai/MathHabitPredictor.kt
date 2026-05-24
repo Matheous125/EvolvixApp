@@ -470,6 +470,48 @@ class MathHabitPredictor : HabitPredictor {
         return (0.60f - blendedRate * 0.50f).coerceIn(0.10f, 0.60f)
     }
 
+    // ── Phase 8.2 — Streak Break Predictor ───────────────────────────────────
+
+    /**
+     * Rule-based fallback for streak-break probability when the TFLite model is
+     * unavailable. Mirrors the logit priors baked into `generate_streak_break_data.py`
+     * so the fallback and the ML model agree directionally.
+     *
+     * Rule chain (evaluated top-to-bottom; first match wins):
+     *   1. Nascent streak (≤ 2) + very low rate (< 0.30)     → 0.80 (high risk)
+     *   2. Widening gaps (≥ 4 d) + low rate (< 0.40)          → 0.75
+     *   3. Mature streak (≥ 30) + strong rate (≥ 0.80)        → 0.05 (very safe)
+     *   4. Excellent recent rate (≥ 0.85)                     → 0.10
+     *   5. Healthy streak (≥ 14) + decent rate (≥ 0.60)       → 0.10
+     *   6. Very low engagement (rate < 0.20)                   → 0.70
+     *   7. Continuous blend: rate + streak contribution        → [0.10, 0.55]
+     */
+    override fun predictStreakBreak(features: StreakBreakFeatures): Float {
+        val rate = features.completionRateLast7Days
+
+        // Rule 1: barely-started streak already showing poor engagement
+        if (features.currentStreak <= 2 && rate < 0.30f) return 0.80f
+
+        // Rule 2: gaps are widening and engagement is low
+        if (features.recentAvgGapDays >= 4f && rate < 0.40f) return 0.75f
+
+        // Rule 3: mature long streak with consistent rate → very safe
+        if (features.currentStreak >= 30 && rate >= 0.80f) return 0.05f
+
+        // Rule 4: excellent recent rate regardless of streak length
+        if (rate >= 0.85f) return 0.10f
+
+        // Rule 5: established streak with decent rate
+        if (features.currentStreak >= 14 && rate >= 0.60f) return 0.10f
+
+        // Rule 6: very low engagement alone is a strong break signal
+        if (rate < 0.20f) return 0.70f
+
+        // Rule 7: continuous blend — higher rate and longer streak lower the risk
+        val streakContribution = minOf(features.currentStreak, 14) / 14f * 0.15f
+        return (0.55f - rate * 0.40f - streakContribution).coerceIn(0.10f, 0.55f)
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

@@ -63,6 +63,7 @@ from sklearn.model_selection import train_test_split  # noqa: E402
 import generate_abandonment_data as gen_abandonment  # noqa: E402
 import generate_icon_data as gen_icon  # noqa: E402
 import generate_reminder_data as gen_reminder  # noqa: E402
+import generate_streak_break_data as gen_streak_break  # noqa: E402
 import generate_success_data as gen_success  # noqa: E402
 from train_icon_model import name_to_ngram_string  # noqa: E402
 
@@ -314,6 +315,95 @@ def evaluate_abandonment_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Model 5 — StreakBreakClassifier (Phase 8.2)
+# ---------------------------------------------------------------------------
+def evaluate_streak_break_model() -> dict:
+    print("\n=== Model 5 \u2014 StreakBreakClassifier ===")
+    csv_path = gen_streak_break.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing \u2014 run train_streak_break_model.py first.")
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_streak_break.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["label"].to_numpy(dtype=np.int32)
+
+    # Reproduce the same stratified 80/20 split used in train_streak_break_model.py.
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED, stratify=y
+    )
+
+    scaler = json.loads((MODELS_DIR / "streak_break_scaler.json").read_text())
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    probs = _tflite_predict(
+        MODELS_DIR / "streak_break_classifier.tflite",
+        x_test_scaled,
+    ).ravel()
+    y_pred = (probs >= 0.5).astype(np.int32)
+
+    accuracy = float((y_pred == y_test).mean())
+    auc = float(roc_auc_score(y_test, probs))
+    macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
+
+    print(f"Test accuracy : {accuracy:.4f}")
+    print(f"ROC-AUC       : {auc:.4f}")
+    print(f"Macro F1      : {macro_f1:.4f}  (threshold >= 0.75 to pass)")
+    print(classification_report(
+        y_test, y_pred,
+        target_names=["survives (0)", "breaks (1)"],
+        digits=3, zero_division=0,
+    ))
+
+    # ----- Confusion matrix -----
+    cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+    _plot_confusion_matrix(
+        cm,
+        class_names=["survives (0)", "breaks (1)"],
+        title="Model 5 \u2014 StreakBreakClassifier \u2014 Confusion Matrix",
+        out_path=PLOTS_DIR / "confusion_streak_break.png",
+    )
+
+    # ----- ROC curve -----
+    fpr, tpr, _ = roc_curve(y_test, probs)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.plot(fpr, tpr, label=f"ROC (AUC = {auc:.3f})")
+    ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random")
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title("Model 5 \u2014 StreakBreakClassifier \u2014 ROC curve")
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    fig.savefig(PLOTS_DIR / "roc_streak_break.png", dpi=150)
+    plt.close(fig)
+
+    # ----- Precision-Recall curve -----
+    from sklearn.metrics import precision_recall_curve, average_precision_score
+    precision, recall, _ = precision_recall_curve(y_test, probs)
+    ap = float(average_precision_score(y_test, probs))
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.plot(recall, precision, label=f"PR (AP = {ap:.3f})")
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_title("Model 5 \u2014 StreakBreakClassifier \u2014 PR curve")
+    ax.legend(loc="upper right")
+    fig.tight_layout()
+    fig.savefig(PLOTS_DIR / "pr_streak_break.png", dpi=150)
+    plt.close(fig)
+
+    return {
+        "name": "StreakBreakClassifier",
+        "task": "binary classification",
+        "test_size": int(len(y_test)),
+        "accuracy": accuracy,
+        "roc_auc": auc,
+        "macro_f1": macro_f1,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Model 2 — HabitIconClassifier
 # Replicates the EXACT n-gram + TF-IDF pipeline that Android will run, using
 # only the contents of icon_vocab.json — no Keras TextVectorization layer.
@@ -533,6 +623,7 @@ def main() -> None:
         evaluate_icon_model(),
         evaluate_reminder_model(),
         evaluate_abandonment_model(),
+        evaluate_streak_break_model(),
     ]
     summary_path = write_summary(results)
     print(f"\nWrote thesis summary: {summary_path}")

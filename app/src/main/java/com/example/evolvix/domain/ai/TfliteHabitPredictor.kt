@@ -41,6 +41,7 @@ class TfliteHabitPredictor(
     private val iconInterpreter: Interpreter?
     private val reminderInterpreter: Interpreter?
     private val abandonmentInterpreter: Interpreter?
+    private val streakBreakInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -54,6 +55,9 @@ class TfliteHabitPredictor(
     private val abandonmentMean: FloatArray
     private val abandonmentScale: FloatArray
 
+    private val streakBreakMean: FloatArray
+    private val streakBreakScale: FloatArray
+
     private val iconVocabIndex: Map<String, Int>
     private val iconIdfWeights: FloatArray
     private val iconLabels: List<String>
@@ -66,6 +70,7 @@ class TfliteHabitPredictor(
         iconInterpreter = tryLoadModel(context, "habit_icon_classifier.tflite")
         reminderInterpreter = tryLoadModel(context, "reminder_template_classifier.tflite")
         abandonmentInterpreter = tryLoadModel(context, "habit_abandonment_classifier.tflite")
+        streakBreakInterpreter = tryLoadModel(context, "streak_break_classifier.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -79,6 +84,10 @@ class TfliteHabitPredictor(
         val abandonmentJson = readJsonAsset(context, "abandonment_scaler.json")
         abandonmentMean = abandonmentJson?.toFloatArray("mean") ?: FloatArray(ABANDONMENT_FEATURE_COUNT)
         abandonmentScale = abandonmentJson?.toFloatArray("scale") ?: FloatArray(ABANDONMENT_FEATURE_COUNT) { 1f }
+
+        val streakBreakJson = readJsonAsset(context, "streak_break_scaler.json")
+        streakBreakMean = streakBreakJson?.toFloatArray("mean") ?: FloatArray(STREAK_BREAK_FEATURE_COUNT)
+        streakBreakScale = streakBreakJson?.toFloatArray("scale") ?: FloatArray(STREAK_BREAK_FEATURE_COUNT) { 1f }
 
         val iconJson = readJsonAsset(context, "icon_vocab.json")
         val vocab = iconJson?.toStringList("vocabulary") ?: emptyList()
@@ -259,6 +268,29 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 8.2 — Streak Break Predictor ───────────────────────────────────
+
+    /**
+     * Runs the streak-break classifier: standard-scale the 7 [StreakBreakFeatures],
+     * feed a (1, 7) float32 tensor, and return the sigmoid output as break probability.
+     * Falls back to [MathHabitPredictor.predictStreakBreak] when the model asset is
+     * missing or inference fails.
+     */
+    override fun predictStreakBreak(features: StreakBreakFeatures): Float {
+        val interp = streakBreakInterpreter ?: return mathFallback.predictStreakBreak(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, streakBreakMean, streakBreakScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            output[0][0].coerceIn(0f, 1f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictStreakBreak inference failed; using math fallback", t)
+            mathFallback.predictStreakBreak(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -354,6 +386,7 @@ class TfliteHabitPredictor(
         private const val SUCCESS_FEATURE_COUNT = 7
         private const val REMINDER_FEATURE_COUNT = 7
         private const val ABANDONMENT_FEATURE_COUNT = 7
+        private const val STREAK_BREAK_FEATURE_COUNT = 7
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

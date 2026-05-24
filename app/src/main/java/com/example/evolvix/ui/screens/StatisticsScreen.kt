@@ -60,6 +60,7 @@ import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.LifeBalanceEntry
+import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.ui.components.BarChartDay
@@ -135,6 +136,7 @@ fun StatisticsScreen(
     val perHabit by viewModel.perHabitStats.collectAsState()
     val allCompletions by viewModel.allCompletions.collectAsState()
     val abandonmentRisks by viewModel.abandonmentRisks.collectAsState()
+    val streakBreakRisks by viewModel.streakBreakRisks.collectAsState()
 
     Scaffold(
         topBar = {
@@ -183,7 +185,11 @@ fun StatisticsScreen(
                     val perHabitCompletions = remember(allCompletions, stats.habit.id) {
                         allCompletions.filter { it.habitId == stats.habit.id }
                     }
-                    HabitStatsCard(stats = stats, completionsForHabit = perHabitCompletions)
+                    HabitStatsCard(
+                        stats = stats,
+                        completionsForHabit = perHabitCompletions,
+                        streakBreakRisk = streakBreakRisks[stats.habit.id]
+                    )
                 }
             }
         }
@@ -392,7 +398,8 @@ private fun CategoryRow(entry: LifeBalanceEntry) {
 @Composable
 private fun HabitStatsCard(
     stats: PerHabitStats,
-    completionsForHabit: List<HabitCompletionEntity>
+    completionsForHabit: List<HabitCompletionEntity>,
+    streakBreakRisk: StreakBreakRisk?
 ) {
     var expanded by remember { mutableStateOf(false) }
     val habitColor = remember(stats.habit.colorHex) {
@@ -487,7 +494,12 @@ private fun HabitStatsCard(
             // ---- Expanded sections ----
             if (expanded) {
                 Spacer(Modifier.height(16.dp))
-                ExpandedSection(stats = stats, completions = completionsForHabit, color = habitColor)
+                ExpandedSection(
+                    stats = stats,
+                    completions = completionsForHabit,
+                    color = habitColor,
+                    streakBreakRisk = streakBreakRisk
+                )
             }
         }
     }
@@ -525,7 +537,7 @@ private fun StatBox(emoji: String, value: String, label: String, modifier: Modif
  * backed by [MathHabitPredictor] data surfaced through [PerHabitStats].
  */
 @Composable
-private fun ExpandedSection(stats: PerHabitStats, completions: List<HabitCompletionEntity>, color: Color) {
+private fun ExpandedSection(stats: PerHabitStats, completions: List<HabitCompletionEntity>, color: Color, streakBreakRisk: StreakBreakRisk?) {
     var range by remember { mutableStateOf(ChartRange.SEVEN_DAYS) }
 
     val today = remember { LocalDate.now() }
@@ -573,7 +585,7 @@ private fun ExpandedSection(stats: PerHabitStats, completions: List<HabitComplet
         )
 
         Spacer(Modifier.height(16.dp))
-        SmartInsightCard(stats = stats)
+        SmartInsightCard(stats = stats, streakBreakRisk = streakBreakRisk)
         Spacer(Modifier.height(12.dp))
         OptimalTimingCard(optimalHours = stats.optimalHours)
         Spacer(Modifier.height(12.dp))
@@ -655,7 +667,7 @@ private fun AiDataCard(title: String, content: @Composable () -> Unit) {
  * an adaptive difficulty suggestion, all derived from [MathHabitPredictor].
  */
 @Composable
-private fun SmartInsightCard(stats: PerHabitStats) {
+private fun SmartInsightCard(stats: PerHabitStats, streakBreakRisk: StreakBreakRisk?) {
     AiDataCard(title = stringResource(R.string.card_smart_insight_title)) {
         Text(
             // Pass streak.current as both the quantity selector (selects one/few/many/other)
@@ -668,7 +680,34 @@ private fun SmartInsightCard(stats: PerHabitStats) {
             ),
             style = MaterialTheme.typography.bodySmall
         )
-        if (stats.isStreakAtRisk) {
+        // Phase 8.2: ML-backed streak-break probability bar; falls back to the
+        // rule-based Boolean when the model has insufficient data for this habit.
+        if (streakBreakRisk != null && streakBreakRisk.hasSufficientData) {
+            Spacer(Modifier.height(6.dp))
+            val ratingLabel = streakBreakRisk.rating.name
+            val barColor = when (streakBreakRisk.rating) {
+                StreakBreakRisk.Rating.LOW      -> MaterialTheme.colorScheme.primary
+                StreakBreakRisk.Rating.MEDIUM   -> MaterialTheme.colorScheme.tertiary
+                StreakBreakRisk.Rating.HIGH,
+                StreakBreakRisk.Rating.CRITICAL -> MaterialTheme.colorScheme.error
+            }
+            Text(
+                text = "⚠️ Streak break risk: ${(streakBreakRisk.probability * 100).roundToInt()}% ($ratingLabel)",
+                style = MaterialTheme.typography.bodySmall,
+                color = barColor
+            )
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress = { streakBreakRisk.probability },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = barColor,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        } else if (stats.isStreakAtRisk) {
+            // Fallback: rule-based Boolean flag when ML data is not yet sufficient.
             Spacer(Modifier.height(6.dp))
             Text(
                 text = stringResource(R.string.insight_streak_at_risk),
