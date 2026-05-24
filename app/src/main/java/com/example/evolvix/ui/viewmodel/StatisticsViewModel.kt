@@ -14,12 +14,14 @@ import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyForecast
 import com.example.evolvix.domain.model.WeeklyOverview
+import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.BehavioralClusterUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.StreakBreakUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
+import com.example.evolvix.domain.usecase.SpilloverUseCase
 import com.example.evolvix.domain.usecase.WeeklyForecastUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
 import java.time.LocalDateTime
@@ -62,6 +64,7 @@ class StatisticsViewModel(
     private val streakBreakUseCase = StreakBreakUseCase(predictor)
     private val weeklyForecastUseCase = WeeklyForecastUseCase(predictor)
     private val behavioralClusterUseCase = BehavioralClusterUseCase(predictor)
+    private val spilloverUseCase = SpilloverUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -355,6 +358,41 @@ class StatisticsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = emptyMap()
+    )
+
+    /**
+     * Cross-habit spillover insights for today (Phase 8.5).
+     *
+     * For each habit A completed today, [SpilloverUseCase] evaluates all (A, B) ordered
+     * pairs using a 30-day co-occurrence history and the TFLite spillover regressor to
+     * estimate how completing A tends to lift (or drag) adherence to B.
+     *
+     * Returns up to 3 non-NEUTRAL [SpilloverPair]s sorted by |liftDelta| descending.
+     * Emits an empty list when fewer than 2 habits exist or nothing was completed today.
+     *
+     * ⚠ **Observational, not causal:** the View should use hedged language
+     *   (e.g. "tends to boost").
+     *
+     * (Pattern: Observer via StateFlow — same upstream pair as [behavioralClusters];
+     *  independently collectible so the spillover card can be hidden when list is empty)
+     */
+    val spilloverInsights: StateFlow<List<SpilloverPair>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val allHabitData: List<HabitData> = habits.map { h ->
+            HabitData(
+                id = h.id, name = h.name, currentCount = h.currentCount,
+                frequency = h.frequency, target = h.target,
+                totalProgressUpdates = h.totalProgressUpdates,
+                totalTargetReaches = h.totalTargetReaches, lastResetDate = h.lastResetDate
+            )
+        }
+        spilloverUseCase(allHabitData, completions)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyList()
     )
 
     /**

@@ -66,6 +66,7 @@ import generate_abandonment_data as gen_abandonment  # noqa: E402
 import generate_clustering_data as gen_clustering  # noqa: E402
 import generate_icon_data as gen_icon  # noqa: E402
 import generate_reminder_data as gen_reminder  # noqa: E402
+import generate_spillover_data as gen_spillover  # noqa: E402
 import generate_streak_break_data as gen_streak_break  # noqa: E402
 import generate_success_data as gen_success  # noqa: E402
 import generate_weekly_forecast_data as gen_weekly_forecast  # noqa: E402
@@ -755,10 +756,88 @@ def evaluate_clustering_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Phase 8.5 — SpilloverRegressor
+# ---------------------------------------------------------------------------
+def evaluate_spillover_model() -> dict:
+    """
+    Evaluate the SpilloverRegressor TFLite model (Phase 8.5).
+
+    Reproduces the same 80/20 non-stratified split (SEED=42) used in
+    train_spillover_model.py and reports MAE + R² on the held-out test set.
+    A predicted-vs-actual scatter plot is saved to data/plots/.
+    Acceptance gate: MAE <= 0.08.
+    """
+    print("\n=== Phase 8.5 — SpilloverRegressor ===")
+
+    csv_path = gen_spillover.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing — run generate_spillover_data.py first."
+        )
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_spillover.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["lift_delta"].to_numpy(dtype=np.float32)
+
+    # 80/20 split — no stratification (continuous regression label).
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED
+    )
+
+    scaler = json.loads(
+        (MODELS_DIR / "spillover_scaler.json").read_text(encoding="utf-8")
+    )
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    raw = _tflite_predict(
+        MODELS_DIR / "spillover_regressor.tflite",
+        x_test_scaled,
+    )
+    y_pred = raw.ravel()
+
+    mae = float(np.mean(np.abs(y_pred - y_test)))
+    ss_res = float(np.sum((y_test - y_pred) ** 2))
+    ss_tot = float(np.sum((y_test - y_test.mean()) ** 2))
+    r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+
+    passed = "PASS" if mae <= 0.08 else "FAIL"
+    print(f"Test MAE  : {mae:.4f}  (threshold <= 0.08 to pass)")
+    print(f"Test R²   : {r2:.4f}")
+    print(f"Acceptance: {passed}")
+
+    # Scatter plot: actual vs predicted.
+    out_path = PLOTS_DIR / "scatter_spillover.png"
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(y_test, y_pred, alpha=0.25, s=6, label="predictions")
+    lo = min(float(y_test.min()), float(y_pred.min()))
+    hi = max(float(y_test.max()), float(y_pred.max()))
+    ax.plot([lo, hi], [lo, hi], linestyle="--", color="gray", label="perfect fit")
+    ax.set_xlabel("Actual lift_delta")
+    ax.set_ylabel("Predicted lift_delta")
+    ax.set_title("Phase 8.5 \u2014 SpilloverRegressor \u2014 Actual vs Predicted")
+    ax.legend(loc="upper left")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"  Scatter plot saved \u2192 {out_path}")
+
+    return {
+        "name": "SpilloverRegressor",
+        "task": "regression",
+        "test_size": int(len(y_test)),
+        "mae": mae,
+        "r2": r2,
+        "passed": passed,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder, abandonment, streak_break, weekly_forecast = results
+    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -782,6 +861,8 @@ def write_summary(results: list) -> Path:
         f"Top-1 accuracy | {reminder['top1']:.4f} | — | — |",
         f"| {weekly_forecast['name']} | {weekly_forecast['task']} | {weekly_forecast['test_size']} | "
         f"MAE | {weekly_forecast['mae']:.4f} | RMSE | {weekly_forecast['rmse']:.4f} |",
+        f"| {spillover['name']} | {spillover['task']} | {spillover['test_size']} | "
+        f"MAE | {spillover['mae']:.4f} | R² | {spillover['r2']:.4f} |",
         "",
         "## Generated plots",
         "",
@@ -793,6 +874,7 @@ def write_summary(results: list) -> Path:
         "- `confusion_icon.png` — Model 2 confusion matrix (17 classes)",
         "- `confusion_reminder.png` — Model 3 confusion matrix (15 classes)",
         "- `scatter_weekly_forecast.png` — Model 6 actual vs predicted scatter",
+        "- `scatter_spillover.png` — Phase 8.5 SpilloverRegressor actual vs predicted scatter",
         "",
         "## Model 2 — per-class classification report",
         "",
@@ -822,6 +904,7 @@ def main() -> None:
         evaluate_abandonment_model(),
         evaluate_streak_break_model(),
         evaluate_weekly_forecast_model(),
+        evaluate_spillover_model(),
     ]
     evaluate_clustering_model()
     summary_path = write_summary(results)

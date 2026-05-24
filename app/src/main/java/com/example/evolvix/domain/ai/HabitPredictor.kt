@@ -273,4 +273,31 @@ interface HabitPredictor {
      * procrastinationSkew, habitAge, resilienceAvgGap.
      */
     val clusterTrainingMedians: FloatArray
+
+    // ── Phase 8.5 — Cross-Habit Spillover Model ───────────────────────────────
+
+    /**
+     * Predicts the *observational lift* on habit B's same-day completion probability
+     * given that habit A was completed at a specific hour today, as encoded in
+     * [features].
+     *
+     * The returned value is in **[-0.5, +0.5]**:
+     * - Positive → A's completion is associated with a higher chance of B being done.
+     * - Negative → A's completion is associated with a lower chance of B (time-crowding).
+     * - Near 0   → no meaningful association.
+     *
+     * ⚠ **Causal caveat:** This is a *predicted lift estimate* based on historical
+     * co-occurrence patterns, NOT a causal treatment effect. Confounders (high-energy
+     * days, free days) can inflate observed co-occurrence independently of any A→B
+     * mechanism. The output should be presented with hedged language in the UI.
+     *
+     * Backed by `spillover_regressor.tflite` (tanh × 0.5 output layer, MAE-trained)
+     * in [TfliteHabitPredictor]; [MathHabitPredictor] provides a co-occurrence-based
+     * heuristic fallback extending the existing [relatedHabits] logic.
+     *
+     * Callers should wrap the raw float in a [com.example.evolvix.domain.model.SpilloverPair]
+     * via [com.example.evolvix.domain.usecase.SpilloverUseCase], which adds direction
+     * classification and filters out NEUTRAL pairs.
+     */
+    fun predictSpillover(features: SpilloverFeatures): Float
 }

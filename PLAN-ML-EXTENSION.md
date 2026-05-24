@@ -104,11 +104,11 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 - [x] **No TFLite export** — JSON only.
 
 ### 8.4.2 Android integration
-- [ ] **Model:** `domain/ai/ClusterFeatures.kt` (5 fields: rate30d, routinePrecisionStddev, procrastinationSkew, habitAge, resilienceAvgGap).
-- [ ] **Interface:** `fun classifyBehavioralCluster(features: ClusterFeatures): String`.
-- [ ] **Implementation:** Load `habit_clusters.json` in `TfliteHabitPredictor.init`. Classification = argmin of Euclidean distance to centroids. Math fallback = threshold-based bucketing on rate30d alone.
-- [ ] **Domain model:** `BehavioralCluster.kt` — sealed class with 4 cases, each carrying a localized description string key.
-- [ ] **Use case + ViewModel + View card** following the standard checklist.
+- [x] **Model:** `domain/ai/ClusterFeatures.kt` (5 fields: rate30d, routinePrecisionStddev, procrastinationSkew, habitAge, resilienceAvgGap).
+- [x] **Interface:** `fun classifyBehavioralCluster(features: ClusterFeatures): String`.
+- [x] **Implementation:** Load `habit_clusters.json` in `TfliteHabitPredictor.init`. Classification = argmin of Euclidean distance to centroids. Math fallback = threshold-based bucketing on rate30d alone.
+- [x] **Domain model:** `BehavioralCluster.kt` — sealed class with 4 cases, each carrying a localized description string key.
+- [x] **Use case + ViewModel + View card** following the standard checklist.
 
 ---
 
@@ -118,8 +118,8 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 **Why distinct from `HabitClashingUseCase`:** Pearson r captures linear correlation, not directional / temporal lift. This model is asymmetric (A→B may lift, B→A may not) and time-aware.
 
 ### 8.5.1 Python pipeline
-- [ ] `generate_spillover_data.py` — for each habit-pair, build per-day rows: features = (rate of A, rate of B, hour A completed, time gap to potential B), label = "was B completed within the rest of that day."
-- [ ] `train_spillover_model.py` — small MLP outputting the lift delta. Export `.tflite` + scaler.
+- [x] `generate_spillover_data.py` — for each habit-pair, build per-day rows: features = (rate of A, rate of B, hour A completed, time gap to potential B), label = "was B completed within the rest of that day."
+- [x] `train_spillover_model.py` — small MLP outputting the lift delta. Export `.tflite` + scaler.
 
 ### 8.5.2 Android integration
 - [ ] **Model:** `domain/ai/SpilloverFeatures.kt` (5 fields).

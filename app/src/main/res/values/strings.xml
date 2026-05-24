@@ -184,6 +184,12 @@
     <string name="cluster_no_data">Not enough data yet — keep tracking for 14+ days.</string>
     <string name="cluster_insufficient_section">Needs more data</string>
 
+    <!-- Phase 8.5 — Cross-Habit Spillover insights -->
+    <string name="spillover_section_title">🔗 Habit Connections</string>
+    <string name="spillover_section_subtitle">Today\'s completions may influence other habits (observational, not causal).</string>
+    <string name="spillover_boost">Completing %1$s tends to boost %2$s (~%3$d%%).</string>
+    <string name="spillover_drag">Completing %1$s may reduce %2$s adherence (~%3$d%%).</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 

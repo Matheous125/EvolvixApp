@@ -43,6 +43,7 @@ class TfliteHabitPredictor(
     private val abandonmentInterpreter: Interpreter?
     private val streakBreakInterpreter: Interpreter?
     private val weeklyForecastInterpreter: Interpreter?
+    private val spilloverInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -61,6 +62,9 @@ class TfliteHabitPredictor(
 
     private val weeklyForecastMean: FloatArray
     private val weeklyForecastScale: FloatArray
+
+    private val spilloverMean: FloatArray
+    private val spilloverScale: FloatArray
 
     // ── Phase 8.4 — K-Means cluster tables (no Interpreter — JSON + Kotlin math) ──
     private val clusterMean: FloatArray
@@ -84,6 +88,7 @@ class TfliteHabitPredictor(
         abandonmentInterpreter = tryLoadModel(context, "habit_abandonment_classifier.tflite")
         streakBreakInterpreter = tryLoadModel(context, "streak_break_classifier.tflite")
         weeklyForecastInterpreter = tryLoadModel(context, "weekly_forecast_regressor.tflite")
+        spilloverInterpreter = tryLoadModel(context, "spillover_regressor.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -105,6 +110,10 @@ class TfliteHabitPredictor(
         val weeklyForecastJson = readJsonAsset(context, "weekly_forecast_scaler.json")
         weeklyForecastMean = weeklyForecastJson?.toFloatArray("mean") ?: FloatArray(WEEKLY_FORECAST_FEATURE_COUNT)
         weeklyForecastScale = weeklyForecastJson?.toFloatArray("scale") ?: FloatArray(WEEKLY_FORECAST_FEATURE_COUNT) { 1f }
+
+        val spilloverJson = readJsonAsset(context, "spillover_scaler.json")
+        spilloverMean = spilloverJson?.toFloatArray("mean") ?: FloatArray(SPILLOVER_FEATURE_COUNT)
+        spilloverScale = spilloverJson?.toFloatArray("scale") ?: FloatArray(SPILLOVER_FEATURE_COUNT) { 1f }
 
         // habit_clusters.json carries everything needed for K-Means inference —
         // no Interpreter is loaded because nearest-centroid math is done in Kotlin.
@@ -376,6 +385,30 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 8.5 — Cross-Habit Spillover Regressor ──────────────────────────
+
+    /**
+     * Runs the spillover regressor: standard-scale the 5 [SpilloverFeatures], feed
+     * a (1, 5) float32 tensor, and return the tanh × 0.5 output as the lift delta
+     * ∈ [-0.5, +0.5]. Falls back to [MathHabitPredictor.predictSpillover] when the
+     * model asset is missing or inference fails.
+     */
+    override fun predictSpillover(features: SpilloverFeatures): Float {
+        val interp = spilloverInterpreter ?: return mathFallback.predictSpillover(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, spilloverMean, spilloverScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            // Model output is already bounded to [-0.5, +0.5] via the tanh × 0.5 layer.
+            output[0][0].coerceIn(-0.5f, 0.5f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictSpillover inference failed; using math fallback", t)
+            mathFallback.predictSpillover(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -493,6 +526,7 @@ class TfliteHabitPredictor(
         private const val STREAK_BREAK_FEATURE_COUNT = 7
         private const val WEEKLY_FORECAST_FEATURE_COUNT = 12
         private const val CLUSTER_FEATURE_COUNT = 5
+        private const val SPILLOVER_FEATURE_COUNT = 5
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

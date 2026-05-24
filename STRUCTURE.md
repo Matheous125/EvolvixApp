@@ -35,6 +35,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── MathHabitPredictor.kt  # Rule-based / statistical implementation of HabitPredictor; pure Kotlin, no Android SDK, fully unit-testable
 │   │   ├── ReminderContext.kt     # 7-field input feature vector for the ReminderTemplateClassifier TFLite model; field order mirrors reminder_scaler.json
 │   │   ├── StreakBreakFeatures.kt  # 7-field input feature vector for the StreakBreakClassifier TFLite model (Phase 8.2); field order mirrors streak_break_scaler.json
+│   │   ├── SpilloverFeatures.kt    # 5-field input feature vector for the SpilloverRegressor TFLite model (Phase 8.5); fields: rateA, rateB, hourACompleted, coOccurrenceRate, typicalGapHours
 │   │   ├── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; K-Means clustering via habit_clusters.json (nearest-centroid, no Interpreter); falls back to MathHabitPredictor
 │   │   └── WeeklyForecastFeatures.kt # 12-field input feature vector for the WeeklyForecastRegressor TFLite model (Phase 8.3); toFloatArray() returns fields in scaler order
 │   ├── auth/               # Authentication contracts (Dependency Inversion; swappable impl)
@@ -59,6 +60,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── RoutinePrecision.kt       # Output of RoutinePrecisionUseCase; stddev of completion times in minutes + qualitative rating
 │   │   ├── SortMode.kt               # Enum defining the 7 sort/group modes for the habit list
 │   │   ├── SparklinePoint.kt         # Single chart data point (date + reached flag); output of SparklineUseCase
+│   │   ├── SpilloverPair.kt          # Output of SpilloverUseCase (Phase 8.5); wraps liftDelta ∈ [-0.5,+0.5] into a Direction (BOOST/NEUTRAL/DRAG) for one ordered habit pair
 │   │   ├── StreakBreakRisk.kt        # Output of StreakBreakUseCase (Phase 8.2); wraps raw streak-break probability into a Rating tier + data-sufficiency flag
 │   │   ├── StreakResult.kt           # Holds current + best streak counts for a single habit; output of CalculateStreakUseCase
 │   │   ├── StreakRiskAssessment.kt   # Output of StreakRecoveryUseCase; isAtRisk flag, specific at-risk weekdays, data-sufficiency flag
@@ -85,6 +87,7 @@ app/src/main/java/com/example/evolvix
 │       ├── ScheduleReminderUseCase.kt      # Interactor: schedules/cancels per-habit WorkManager reminder workers with personalised timing (optimalHours or user-set time)
 │       ├── SparklineUseCase.kt             # Interactor: produces a List<SparklinePoint> (reached flag per calendar day) for a given habit and date range
 │       ├── StreakBreakUseCase.kt           # Interactor: extracts 7 StreakBreakFeatures, guards against zero-streak, delegates to HabitPredictor, maps probability → StreakBreakRisk (Phase 8.2)
+│       ├── SpilloverUseCase.kt             # Interactor: enumerates (A,B) habit pairs where A completed today, computes 5 SpilloverFeatures from 30-day history, delegates to HabitPredictor.predictSpillover, returns top-3 non-NEUTRAL SpilloverPairs (Phase 8.5)
 │       ├── StreakRecoveryUseCase.kt        # Interactor: detects high-risk streak patterns and which specific weekdays are consistently missed
 │       ├── SuccessProbabilityUseCase.kt    # Interactor: estimates today's completion probability via HabitPredictor (TFLite HabitSuccessClassifier)
 │       ├── WeeklyForecastUseCase.kt        # Interactor: extracts 12 WeeklyForecastFeatures, checks data sufficiency, delegates to HabitPredictor, wraps output in WeeklyForecast (Phase 8.3)
@@ -165,6 +168,7 @@ ml-training/
 ├── generate_streak_break_data.py   # Synthetic dataset for StreakBreakClassifier (Phase 8.2)
 ├── generate_success_data.py        # Synthetic dataset for HabitSuccessClassifier
 ├── generate_weekly_forecast_data.py # Synthetic dataset for WeeklyForecastRegressor (Phase 8.3); 12 FEATURE_COLUMNS, label = next_week_rate
+├── generate_spillover_data.py       # Synthetic dataset for SpilloverRegressor (Phase 8.5); 50k rows, 5 FEATURE_COLUMNS, label = lift_delta ∈ [-0.5,+0.5]
 ├── train_abandonment_model.py      # Trains + exports habit_abandonment_classifier.tflite + abandonment_scaler.json
 ├── train_clustering_model.py       # Trains K-Means (sklearn, no TFLite) + exports habit_clusters.json with centroids, labels, scaler, training medians, silhouette score (Phase 8.4)
 ├── train_icon_model.py             # Trains + exports habit_icon_classifier.tflite + icon_vocab.json
@@ -172,5 +176,6 @@ ml-training/
 ├── train_streak_break_model.py     # Trains + exports streak_break_classifier.tflite + streak_break_scaler.json
 ├── train_success_model.py          # Trains + exports habit_success_classifier.tflite + success_scaler.json
 ├── train_weekly_forecast_model.py  # Trains + exports weekly_forecast_regressor.tflite + weekly_forecast_scaler.json; MAE loss, sigmoid output, threshold MAE ≤ 0.12 (Phase 8.3)
+├── train_spillover_model.py        # Trains + exports spillover_regressor.tflite + spillover_scaler.json; MAE loss, tanh×0.5 output, threshold MAE ≤ 0.08 (Phase 8.5); achieved MAE 0.0426
 └── evaluate_models.py              # Thesis-grade evaluation report: loads .tflite artifacts + habit_clusters.json, reproduces test splits, computes metrics + silhouette + PCA scatter, saves plots to data/plots/
 ```

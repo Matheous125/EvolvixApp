@@ -557,6 +557,34 @@ class MathHabitPredictor : HabitPredictor {
         else                      -> "dormant"
     }
 
+    // ── Phase 8.5 — Cross-Habit Spillover math fallback ──────────────────────
+
+    /**
+     * Co-occurrence-based heuristic estimating the observational lift of completing
+     * habit A on habit B's same-day completion probability.
+     *
+     * Formula (mirrors the generative model in `generate_spillover_data.py`):
+     *   base_lift      = coOccurrenceRate − rateB
+     *   activity       = sqrt(rateA × rateB)   — down-weights sparse pairs
+     *   gap_factor     = 1 − typicalGapHours / 24   — temporal proximity boost
+     *   raw            = base_lift × activity × gap_factor
+     *   result         = clip(raw × 1.6, −0.5, +0.5)
+     *
+     * This is an extension of the existing [relatedHabits] co-occurrence logic —
+     * it reuses the same underlying signal (shared-day frequency) but adds
+     * directionality and temporal proximity weighting.
+     *
+     * ⚠ Causal caveat: output is a correlation-based estimate, not a causal effect.
+     */
+    override fun predictSpillover(features: SpilloverFeatures): Float {
+        val baseLift = features.coOccurrenceRate - features.rateB
+        // sqrt gives a gentler down-weighting than a plain product for sparse pairs.
+        val activity = kotlin.math.sqrt(features.rateA * features.rateB.toDouble()).toFloat()
+        val gapFactor = 1f - (features.typicalGapHours / 24f).coerceIn(0f, 1f)
+        val raw = baseLift * activity * gapFactor
+        return (raw * 1.6f).coerceIn(-0.5f, 0.5f)
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

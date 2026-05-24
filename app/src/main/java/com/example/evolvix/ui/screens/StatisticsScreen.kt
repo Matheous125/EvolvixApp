@@ -31,6 +31,7 @@ import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -64,6 +65,7 @@ import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.BehavioralCluster
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.LifeBalanceEntry
+import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyForecast
@@ -144,6 +146,7 @@ fun StatisticsScreen(
     val streakBreakRisks by viewModel.streakBreakRisks.collectAsState()
     val weeklyForecast by viewModel.weeklyForecast.collectAsState()
     val behavioralClusters by viewModel.behavioralClusters.collectAsState()
+    val spilloverInsights by viewModel.spilloverInsights.collectAsState()
 
     Scaffold(
         topBar = {
@@ -184,12 +187,13 @@ fun StatisticsScreen(
                 )
             }
 
-            // Phase 8.4 — Behavioral Tiers card (shown whenever clusters map is non-empty)
-            if (behavioralClusters.isNotEmpty()) {
+            // Phase 8.4 + 8.5 — Behavioral Tiers + Spillover card (shown when either has data)
+            if (behavioralClusters.isNotEmpty() || spilloverInsights.isNotEmpty()) {
                 item {
                     BehavioralTiersCard(
                         clusters = behavioralClusters,
-                        habitNames = perHabit.associate { it.habit.id to it.habit.name }
+                        habitNames = perHabit.associate { it.habit.id to it.habit.name },
+                        spilloverInsights = spilloverInsights
                     )
                 }
             }
@@ -1050,7 +1054,8 @@ private fun EmptyHabitsHint() {
 @OptIn(ExperimentalLayoutApi::class)
 private fun BehavioralTiersCard(
     clusters: Map<Int, HabitCluster>,
-    habitNames: Map<Int, String>
+    habitNames: Map<Int, String>,
+    spilloverInsights: List<SpilloverPair>
 ) {
     // Tier display order: best to worst, matching the four archetype labels.
     val tierOrder = listOf(
@@ -1183,6 +1188,43 @@ private fun BehavioralTiersCard(
                                 border = AssistChipDefaults.assistChipBorder(enabled = false)
                             )
                         }
+                    }
+                }
+            }
+
+            // ── Phase 8.5 Spillover section (shown only when today produced results) ──
+            if (spilloverInsights.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.spillover_section_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = stringResource(R.string.spillover_section_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                spilloverInsights.forEach { pair ->
+                    val pct = (kotlin.math.abs(pair.liftDelta) * 100).roundToInt()
+                    val (color, text) = when (pair.direction) {
+                        SpilloverPair.Direction.BOOST -> MaterialTheme.colorScheme.primary to
+                            stringResource(R.string.spillover_boost, pair.habitAName, pair.habitBName, pct)
+                        SpilloverPair.Direction.DRAG  -> MaterialTheme.colorScheme.error to
+                            stringResource(R.string.spillover_drag, pair.habitAName, pair.habitBName, pct)
+                        // NEUTRAL pairs are filtered by SpilloverUseCase; defensive fallback only.
+                        SpilloverPair.Direction.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant to ""
+                    }
+                    if (text.isNotEmpty()) {
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = color,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
                     }
                 }
             }
