@@ -35,12 +35,12 @@ These five features require **zero schema changes**. They consume only `HabitEnt
 **Why distinct from Model 1:** Model 1 asks "will the user complete today?" — this asks "is the user about to quit entirely?" Different label, different time horizon, different intervention.
 
 ### 8.1.1 Data foundation (already exists)
-- [ ] Audit `HabitCompletionEntity` to confirm every required feature can be derived (habit age, days-since-last, 7-day rate, 30-day rate, current streak, total target reaches, frequency, pause history).
+- [x] Audit `HabitCompletionEntity` to confirm every required feature can be derived (habit age, days-since-last, 7-day rate, 30-day rate, current streak, total target reaches, frequency, pause history).
 
 ### 8.1.2 Python training pipeline (`ml-training/`)
-- [ ] `generate_abandonment_data.py` — synthesize ~50k habit-state snapshots. Each row = features at time T, label = `1` if no completions in (T, T+14d] else `0`. Bake in realistic priors: low recent rate + high days-since-last → high abandonment.
-- [ ] `train_abandonment_model.py` — small MLP (2 hidden layers, ReLU, sigmoid output). Save `habit_abandonment_classifier.tflite` + `abandonment_scaler.json` to `ml-training/models/`.
-- [ ] Update `evaluate_models.py` with precision/recall/F1; aim for F1 ≥ 0.75 on synthetic test split.
+- [x] `generate_abandonment_data.py` — synthesize ~50k habit-state snapshots. Each row = features at time T, label = `1` if no completions in (T, T+14d] else `0`. Bake in realistic priors: low recent rate + high days-since-last → high abandonment.
+- [x] `train_abandonment_model.py` — small MLP (2 hidden layers, ReLU, sigmoid output). Save `habit_abandonment_classifier.tflite` + `abandonment_scaler.json` to `ml-training/models/`.
+- [x] Update `evaluate_models.py` with precision/recall/F1; aim for F1 ≥ 0.75 on synthetic test split.
 
 ### 8.1.3 Android integration
 - [ ] **Model:** New `domain/ai/AbandonmentFeatures.kt` (8 fields).

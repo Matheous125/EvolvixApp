@@ -84,3 +84,5 @@ ml-training/**/*.pyc
 WORK-INSTRUCTIONS.MD
 PLANNED-FEATURES-CHANGES.MD
 ml-training/diagnose_success.py
+ML-DEVELOPMENT.MD
+LM-FEATURES-NOTES.md

@@ -1,0 +1,29 @@
+{
+  "feature_columns": [
+    "habitAge",
+    "daysSinceLastCompletion",
+    "completionRateLast7Days",
+    "completionRateLast30Days",
+    "currentStreak",
+    "totalCompletions",
+    "frequencyOrdinal"
+  ],
+  "mean": [
+    60.739609375,
+    4.2284375,
+    0.6198287216273008,
+    0.6228468430939644,
+    7.515484375,
+    27.1764375,
+    0.403
+  ],
+  "scale": [
+    60.31416443172595,
+    5.796661544249981,
+    0.2406665528088188,
+    0.22845084887790376,
+    7.935896151925007,
+    38.38239091443573,
+    0.666987443660044
+  ]
+}
