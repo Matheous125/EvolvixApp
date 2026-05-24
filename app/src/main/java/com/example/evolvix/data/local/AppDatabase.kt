@@ -9,6 +9,7 @@ import com.example.evolvix.data.model.AchievementEntity
 import com.example.evolvix.data.model.DailySummaryEntity
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.data.model.HabitTargetHistoryEntity
 
 @TypeConverters(Converters::class)
 @Database(
@@ -16,15 +17,17 @@ import com.example.evolvix.data.model.HabitCompletionEntity
         HabitEntity::class,
         HabitCompletionEntity::class,
         AchievementEntity::class,
-        DailySummaryEntity::class
+        DailySummaryEntity::class,
+        HabitTargetHistoryEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao
     abstract fun achievementDao(): AchievementDao
     abstract fun dailySummaryDao(): DailySummaryDao
+    abstract fun targetHistoryDao(): TargetHistoryDao
 
     companion object {
         @Volatile

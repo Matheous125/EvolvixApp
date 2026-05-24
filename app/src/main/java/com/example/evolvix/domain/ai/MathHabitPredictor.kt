@@ -651,6 +651,38 @@ class MathHabitPredictor : HabitPredictor {
         }
     }
 
+    // ── Phase 9.3 — Target Change Effectiveness Regressor ────────────────────
+
+    /**
+     * Rule-chain fallback for [predictTargetDelta] used when TFLite is unavailable.
+     *
+     * Mirrors the generative priors in `generate_target_change_data.py` exactly,
+     * so both implementations produce consistent recommendations at the boundary:
+     *
+     *   1. Strong over-completion → +2.0  (raise the bar significantly)
+     *      `rate30d ≥ 0.90 AND avgProgressRatio30d ≥ 1.20 AND habitAgeDays ≥ 21`
+     *   2. Moderate over-completion → +1.0  (nudge up)
+     *      `rate30d ≥ 0.78 AND avgProgressRatio30d ≥ 1.02`
+     *   3. Strong under-performance → -2.0  (ease significantly)
+     *      `rate30d ≤ 0.22 AND avgProgressRatio30d ≤ 0.45`
+     *   4. Moderate under-performance → -1.0  (ease slightly)
+     *      `rate30d ≤ 0.40 AND avgProgressRatio30d ≤ 0.72`
+     *   5. Default → 0.0  (target is well-calibrated)
+     */
+    override fun predictTargetDelta(features: TargetChangeFeatures): Float {
+        val r30  = features.rate30d.coerceIn(0f, 1f)
+        val apr  = features.avgProgressRatio30d.coerceIn(0f, 3f)
+        val age  = features.habitAgeDays
+
+        return when {
+            r30 >= 0.90f && apr >= 1.20f && age >= 21 ->  2.0f
+            r30 >= 0.78f && apr >= 1.02f              ->  1.0f
+            r30 <= 0.22f && apr <= 0.45f              -> -2.0f
+            r30 <= 0.40f && apr <= 0.72f              -> -1.0f
+            else                                      ->  0.0f
+        }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

@@ -69,6 +69,7 @@ import com.example.evolvix.domain.model.ReminderLift
 import com.example.evolvix.domain.model.SnoozeDisengagementRisk
 import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.model.StreakBreakRisk
+import com.example.evolvix.domain.model.TargetAdjustment
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyForecast
 import com.example.evolvix.domain.model.WeeklyOverview
@@ -134,7 +135,9 @@ fun StatisticsScreen(
             dao = AppDatabase.getDatabase(LocalContext.current).habitDao(),
             // Phase 6.5.6: inject the TFLite-backed predictor via the process-wide
             // singleton so all ViewModels share one Interpreter instance.
-            predictor = com.example.evolvix.domain.ai.AiContainer.predictor(LocalContext.current)
+            predictor = com.example.evolvix.domain.ai.AiContainer.predictor(LocalContext.current),
+            // Phase 9.3: pass the DAO so TargetAdjustmentUseCase can read the audit log.
+            targetHistoryDao = AppDatabase.getDatabase(LocalContext.current).targetHistoryDao()
         )
     )
 ) {
@@ -151,6 +154,7 @@ fun StatisticsScreen(
     val spilloverInsights by viewModel.spilloverInsights.collectAsState()
     val reminderLifts by viewModel.reminderLifts.collectAsState()
     val snoozeDisengagementRisks by viewModel.snoozeDisengagementRisks.collectAsState()
+    val targetAdjustments by viewModel.targetAdjustments.collectAsState()
 
     Scaffold(
         topBar = {
@@ -227,6 +231,19 @@ fun StatisticsScreen(
                 }
             if (snoozeDriftEntries.isNotEmpty()) {
                 item { SnoozeDriftCard(entries = snoozeDriftEntries) }
+            }
+
+            // Phase 9.3 — Target Calibration card (shown when ≥1 habit has a non-zero suggestion)
+            val targetAdjustmentEntries = targetAdjustments.entries
+                .filter { (_, adj) -> adj.hasSufficientData && adj.delta != 0 }
+                .sortedByDescending { (_, adj) -> kotlin.math.abs(adj.delta) }
+                .mapNotNull { (habitId, adj) ->
+                    val name = perHabit.find { it.habit.id == habitId }?.habit?.name
+                        ?: return@mapNotNull null
+                    name to adj
+                }
+            item {
+                TargetCalibrationCard(entries = targetAdjustmentEntries)
             }
 
             if (perHabit.isEmpty()) {
@@ -1233,6 +1250,134 @@ private fun SnoozeDriftRow(habitName: String, risk: SnoozeDisengagementRisk) {
             text = stringResource(R.string.label_risk_pct, pct),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  TARGET CALIBRATION CARD (Phase 9.3)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * ElevatedCard displaying ML-suggested target changes for habits with sufficient history.
+ *
+ * When [entries] is non-empty (≥1 habit with `hasSufficientData = true` and `delta ≠ 0`),
+ * each row shows the habit name, a delta arrow ("↑ +2" / "↓ -1"), the "current → suggested"
+ * target count, and a confidence chip.  When [entries] is empty, a placeholder encouraging
+ * more logging is displayed instead.
+ *
+ * ⚠ Recommendations are observational — a higher 30-day rate correlates with room to
+ * raise targets, but individual habits vary.  The subtitle surfaces this for the thesis.
+ *
+ * @param entries (habitName, [TargetAdjustment]) pairs sorted by |delta| descending.
+ */
+@Composable
+private fun TargetCalibrationCard(entries: List<Pair<String, TargetAdjustment>>) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.target_adjustment_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.target_adjustment_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            if (entries.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.target_adjustment_no_data),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                entries.forEach { (name, adj) ->
+                    TargetCalibrationRow(habitName = name, adjustment = adj)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Single row inside [TargetCalibrationCard]: habit name, delta arrow label,
+ * "current → suggested" target values, and a confidence chip.
+ *
+ * Confidence colour mapping (M3 tokens):
+ * - HIGH   → primary / onPrimary
+ * - MEDIUM → secondary / onSecondary
+ * - LOW    → surfaceVariant / onSurfaceVariant
+ *
+ * @param habitName  Display name of the habit.
+ * @param adjustment [TargetAdjustment] containing delta, currentTarget, suggestedTarget, and confidence.
+ */
+@Composable
+private fun TargetCalibrationRow(habitName: String, adjustment: TargetAdjustment) {
+    val arrowLabel = if (adjustment.delta > 0) {
+        stringResource(R.string.target_adjustment_arrow_up, adjustment.delta)
+    } else {
+        stringResource(R.string.target_adjustment_arrow_down, adjustment.delta)
+    }
+    val arrowColor = if (adjustment.delta > 0) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.error
+    }
+    val (chipLabel, chipColor, chipContentColor) = when (adjustment.confidence) {
+        TargetAdjustment.Confidence.HIGH -> Triple(
+            "HIGH",
+            MaterialTheme.colorScheme.primary,
+            MaterialTheme.colorScheme.onPrimary
+        )
+        TargetAdjustment.Confidence.MEDIUM -> Triple(
+            "MEDIUM",
+            MaterialTheme.colorScheme.secondary,
+            MaterialTheme.colorScheme.onSecondary
+        )
+        TargetAdjustment.Confidence.LOW -> Triple(
+            "LOW",
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = habitName,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = stringResource(
+                R.string.target_adjustment_current_to_suggested,
+                adjustment.currentTarget,
+                adjustment.suggestedTarget
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = arrowLabel,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = arrowColor
+        )
+        Spacer(Modifier.width(6.dp))
+        AssistChip(
+            onClick = {},
+            label = { Text(chipLabel, style = MaterialTheme.typography.labelSmall) },
+            colors = AssistChipDefaults.assistChipColors(
+                containerColor = chipColor,
+                labelColor = chipContentColor
+            )
         )
     }
 }

@@ -346,4 +346,31 @@ interface HabitPredictor {
      * than thresholding the float directly.
      */
     fun predictSnoozeDisengagement(features: SnoozeDisengagementFeatures): Float
+
+    // ── Phase 9.3 — Target Change Effectiveness Regressor ────────────────────
+
+    /**
+     * Predicts the optimal target delta (continuous ∈ [-2.0, +2.0]) for a single habit,
+     * given a pre-computed [TargetChangeFeatures] vector.
+     *
+     * The raw float represents how many repetitions the target should shift:
+     * - Positive → user is consistently over-completing; raise the bar.
+     * - Negative → user is struggling; ease the target.
+     * - Near 0   → target is well-calibrated.
+     *
+     * The caller ([com.example.evolvix.domain.usecase.TargetAdjustmentUseCase]) rounds
+     * the output to the nearest integer in {-2, -1, 0, +1, +2} and wraps it in a
+     * [com.example.evolvix.domain.model.TargetAdjustment] together with confidence and
+     * the suggested concrete target value.
+     *
+     * ⚠ **Causal caveat:** This is an *observational recommender*, not a counterfactual
+     * treatment-effect estimator. The model predicts which target correlates with
+     * sustained high performance given the current habit state.
+     *
+     * Backed by `target_change_regressor.tflite` (8-feature MLP, tanh×2 output layer)
+     * in [TfliteHabitPredictor]; [MathHabitPredictor] provides a rule-chain fallback
+     * that mirrors the training priors from `generate_target_change_data.py`
+     * (Strategy + Dependency Inversion).
+     */
+    fun predictTargetDelta(features: TargetChangeFeatures): Float
 }

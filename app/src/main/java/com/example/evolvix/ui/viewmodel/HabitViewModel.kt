@@ -9,6 +9,8 @@ import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.data.model.HabitTemplate
 import com.example.evolvix.data.model.defaultHabitTemplates
 import com.example.evolvix.data.local.HabitDao
+import com.example.evolvix.data.local.TargetHistoryDao
+import com.example.evolvix.data.model.HabitTargetHistoryEntity
 import com.example.evolvix.domain.model.FormError
 import com.example.evolvix.domain.model.HabitUiState
 import com.example.evolvix.domain.model.SortMode
@@ -30,7 +32,12 @@ import android.util.Log
  *
  * @property habitDao Data access object for habit operations
  */
-class HabitViewModel(application: Application, private val habitDao: HabitDao) : AndroidViewModel(application) {
+class HabitViewModel(
+    application: Application,
+    private val habitDao: HabitDao,
+    // Phase 9.3: audit log for target changes; used by TargetAdjustmentUseCase.
+    private val targetHistoryDao: TargetHistoryDao
+) : AndroidViewModel(application) {
 
     // Pure-function interactor — no dependencies beyond its inputs.
     // Instantiated once here and reused on every combine emission.
@@ -439,6 +446,10 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
         viewModelScope.launch {
             try {
                 val existingHabit = habitDao.getHabitById(id) ?: throw Exception("Habit not found")
+                // Phase 9.3: detect a target change, bump targetVersion, and log to history.
+                val targetChanged = existingHabit.target != target
+                val newTargetVersion = if (targetChanged) existingHabit.targetVersion + 1
+                                       else existingHabit.targetVersion
                 val updatedHabit = existingHabit.copy(
                     name = name,
                     target = target,
@@ -448,9 +459,23 @@ class HabitViewModel(application: Application, private val habitDao: HabitDao) :
                     categories = categories,
                     iconKey = iconKey,
                     reminderEnabled = reminderEnabled,
-                    reminderTime = reminderTime
+                    reminderTime = reminderTime,
+                    targetVersion = newTargetVersion
                 )
                 habitDao.updateHabit(updatedHabit)
+                if (targetChanged) {
+                    // Insert an audit row so TargetAdjustmentUseCase can derive
+                    // previousDelta and periodsSinceLastChange features.
+                    targetHistoryDao.insert(
+                        HabitTargetHistoryEntity(
+                            habitId = id,
+                            oldTarget = existingHabit.target,
+                            newTarget = target,
+                            changedAt = java.time.LocalDateTime.now(),
+                            version = newTargetVersion
+                        )
+                    )
+                }
                 // Phase 7.1 — (re)schedule the reminder for the new slot or cancel if disabled.
                 scheduleReminderUseCase.schedule(updatedHabit)
                 onSuccess()

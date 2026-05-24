@@ -72,6 +72,7 @@ import generate_streak_break_data as gen_streak_break  # noqa: E402
 import generate_success_data as gen_success  # noqa: E402
 import generate_weekly_forecast_data as gen_weekly_forecast  # noqa: E402
 import generate_snooze_disengagement_data as gen_snooze_disengagement  # noqa: E402
+import generate_target_change_data as gen_target_change  # noqa: E402
 from train_icon_model import name_to_ngram_string  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -1021,10 +1022,110 @@ def evaluate_snooze_disengagement_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Phase 9.3 — TargetChangeRegressor
+# Regression: predicts the optimal target delta ∈ [-2, +2].
+# Acceptance criterion: MAE ≤ 0.50 on the rounded-integer delta.
+# ---------------------------------------------------------------------------
+def evaluate_target_change_model() -> dict:
+    """
+    Evaluate the TargetChangeRegressor TFLite model (Phase 9.3).
+
+    Reproduces the same 80/20 random split (SEED=42, no stratification because
+    the label is continuous) used in train_target_change_model.py and reports:
+      - MAE and RMSE on the raw continuous prediction
+      - MAE on the rounded-to-int delta prediction
+      - A confusion matrix of rounded_pred vs rounded_true (5-class: -2…+2)
+      - An actual-vs-predicted scatter plot saved to data/plots/
+
+    Acceptance gate: rounded-delta MAE ≤ 0.50.
+    """
+    print("\n=== Phase 9.3 — TargetChangeRegressor ===")
+
+    csv_path = gen_target_change.output_path()
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing — run generate_target_change_data.py first."
+        )
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_target_change.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["ideal_delta"].to_numpy(dtype=np.float32)
+
+    # 80/20 split — no stratification (continuous regression target).
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED
+    )
+
+    scaler = json.loads(
+        (MODELS_DIR / "target_change_scaler.json").read_text(encoding="utf-8")
+    )
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    raw_preds = _tflite_predict(
+        MODELS_DIR / "target_change_regressor.tflite",
+        x_test_scaled,
+    ).ravel()  # continuous ∈ [-2, 2]
+
+    # Round to nearest integer delta, clamp to [-2, 2].
+    y_pred_rounded = np.clip(np.round(raw_preds).astype(np.int32), -2, 2)
+    y_true_rounded = np.clip(np.round(y_test).astype(np.int32), -2, 2)
+
+    mae_raw = float(np.mean(np.abs(raw_preds - y_test)))
+    rmse_raw = float(np.sqrt(np.mean((raw_preds - y_test) ** 2)))
+    mae_rounded = float(np.mean(np.abs(y_pred_rounded - y_true_rounded)))
+
+    passed = "PASS" if mae_rounded <= 0.50 else "FAIL"
+    print(f"MAE  (raw continuous) : {mae_raw:.4f}")
+    print(f"RMSE (raw continuous) : {rmse_raw:.4f}")
+    print(f"MAE  (rounded delta)  : {mae_rounded:.4f}  (threshold <= 0.50 to pass)")
+    print(f"Acceptance            : {passed}")
+
+    # ----- Confusion matrix of rounded delta (-2 … +2) -----
+    class_names = ["-2", "-1", "0", "+1", "+2"]
+    labels = [-2, -1, 0, 1, 2]
+    cm = confusion_matrix(y_true_rounded, y_pred_rounded, labels=labels)
+    _plot_confusion_matrix(
+        cm,
+        class_names=class_names,
+        title="Phase 9.3 — TargetChangeRegressor — Rounded-Delta Confusion Matrix",
+        out_path=PLOTS_DIR / "confusion_target_change.png",
+    )
+    print(f"  Confusion matrix saved → {PLOTS_DIR / 'confusion_target_change.png'}")
+
+    # ----- Actual vs predicted scatter -----
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(y_test, raw_preds, alpha=0.3, s=8, label="Test samples")
+    lims = [-2.2, 2.2]
+    ax.plot(lims, lims, linestyle="--", color="gray", label="Perfect prediction")
+    ax.set_xlim(lims); ax.set_ylim(lims)
+    ax.set_xlabel("Actual delta")
+    ax.set_ylabel("Predicted delta (raw)")
+    ax.set_title("Phase 9.3 — TargetChangeRegressor — Actual vs Predicted")
+    ax.legend(loc="upper left")
+    fig.tight_layout()
+    scatter_path = PLOTS_DIR / "scatter_target_change.png"
+    fig.savefig(scatter_path, dpi=150)
+    plt.close(fig)
+    print(f"  Scatter plot saved → {scatter_path}")
+
+    return {
+        "name": "TargetChangeRegressor",
+        "task": "regression (delta ∈ [-2,+2])",
+        "test_size": int(len(y_test)),
+        "mae_raw": mae_raw,
+        "rmse_raw": rmse_raw,
+        "mae_rounded": mae_rounded,
+        "passed": passed,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement = results
+    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement, target_change = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -1054,6 +1155,8 @@ def write_summary(results: list) -> Path:
         f"Macro F1 | {reminder_lift['macro_f1']:.4f} | ROC-AUC | {reminder_lift['roc_auc']:.4f} |",
         f"| {snooze_disengagement['name']} | {snooze_disengagement['task']} | {snooze_disengagement['test_size']} | "
         f"Macro F1 | {snooze_disengagement['macro_f1']:.4f} | ROC-AUC | {snooze_disengagement['roc_auc']:.4f} |",
+        f"| {target_change['name']} | {target_change['task']} | {target_change['test_size']} | "
+        f"MAE (rounded) | {target_change['mae_rounded']:.4f} | RMSE (raw) | {target_change['rmse_raw']:.4f} |",
         "",
         "## Generated plots",
         "",
@@ -1068,6 +1171,8 @@ def write_summary(results: list) -> Path:
         "- `scatter_spillover.png` — Phase 8.5 SpilloverRegressor actual vs predicted scatter",
         "- `confusion_reminder_lift.png` — Phase 9.1 ReminderLiftClassifier confusion matrix",
         "- `confusion_snooze_disengagement.png` — Phase 9.2 SnoozeDisengagementClassifier confusion matrix",
+        "- `confusion_target_change.png` — Phase 9.3 TargetChangeRegressor rounded-delta confusion matrix",
+        "- `scatter_target_change.png` — Phase 9.3 TargetChangeRegressor actual vs predicted scatter",
         "",
         "## Model 2 — per-class classification report",
         "",
@@ -1112,6 +1217,7 @@ def main() -> None:
         evaluate_spillover_model(),
         evaluate_reminder_lift_model(),
         evaluate_snooze_disengagement_model(),
+        evaluate_target_change_model(),
     ]
     evaluate_clustering_model()
     summary_path = write_summary(results)

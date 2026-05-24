@@ -46,6 +46,8 @@ class TfliteHabitPredictor(
     private val spilloverInterpreter: Interpreter?
     private val reminderLiftInterpreter: Interpreter?
     private val snoozeDisengagementInterpreter: Interpreter?
+    // Phase 9.3 — TargetAdjustmentRegressor
+    private val targetChangeInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -74,6 +76,10 @@ class TfliteHabitPredictor(
     private val snoozeDisengagementMean: FloatArray
     private val snoozeDisengagementScale: FloatArray
 
+    // Phase 9.3
+    private val targetChangeMean: FloatArray
+    private val targetChangeScale: FloatArray
+
     // ── Phase 8.4 — K-Means cluster tables (no Interpreter — JSON + Kotlin math) ──
     private val clusterMean: FloatArray
     private val clusterScale: FloatArray
@@ -99,6 +105,7 @@ class TfliteHabitPredictor(
         spilloverInterpreter = tryLoadModel(context, "spillover_regressor.tflite")
         reminderLiftInterpreter = tryLoadModel(context, "reminder_lift_classifier.tflite")
         snoozeDisengagementInterpreter = tryLoadModel(context, "snooze_disengagement_classifier.tflite")
+        targetChangeInterpreter = tryLoadModel(context, "target_change_regressor.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -132,6 +139,11 @@ class TfliteHabitPredictor(
         val snoozeDisengagementJson = readJsonAsset(context, "snooze_disengagement_scaler.json")
         snoozeDisengagementMean = snoozeDisengagementJson?.toFloatArray("mean") ?: FloatArray(SNOOZE_DISENGAGEMENT_FEATURE_COUNT)
         snoozeDisengagementScale = snoozeDisengagementJson?.toFloatArray("scale") ?: FloatArray(SNOOZE_DISENGAGEMENT_FEATURE_COUNT) { 1f }
+
+        // Phase 9.3 — TargetAdjustmentRegressor scaler
+        val targetChangeJson = readJsonAsset(context, "target_change_scaler.json")
+        targetChangeMean = targetChangeJson?.toFloatArray("mean") ?: FloatArray(TARGET_CHANGE_FEATURE_COUNT)
+        targetChangeScale = targetChangeJson?.toFloatArray("scale") ?: FloatArray(TARGET_CHANGE_FEATURE_COUNT) { 1f }
 
         // habit_clusters.json carries everything needed for K-Means inference —
         // no Interpreter is loaded because nearest-centroid math is done in Kotlin.
@@ -478,6 +490,32 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 9.3 — Target Change Effectiveness Regressor ────────────────────
+
+    /**
+     * Runs the TargetAdjustmentRegressor: standard-scales the 8 [TargetChangeFeatures],
+     * feeds a (1, 8) float32 tensor to the interpreter, and returns the tanh×2.0 output
+     * coerced to [-2.0, +2.0].
+     *
+     * Falls back to [MathHabitPredictor.predictTargetDelta] when the model is missing
+     * or inference fails (Strategy + Dependency Inversion).
+     */
+    override fun predictTargetDelta(features: TargetChangeFeatures): Float {
+        val interp = targetChangeInterpreter
+            ?: return mathFallback.predictTargetDelta(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, targetChangeMean, targetChangeScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            output[0][0].coerceIn(-2f, 2f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictTargetDelta inference failed; using math fallback", t)
+            mathFallback.predictTargetDelta(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -598,6 +636,7 @@ class TfliteHabitPredictor(
         private const val SPILLOVER_FEATURE_COUNT = 5
         private const val REMINDER_LIFT_FEATURE_COUNT = 8
         private const val SNOOZE_DISENGAGEMENT_FEATURE_COUNT = 7
+        private const val TARGET_CHANGE_FEATURE_COUNT = 8   // Phase 9.3
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

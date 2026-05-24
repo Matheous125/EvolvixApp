@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.evolvix.data.local.DatabaseSeeder
 import com.example.evolvix.data.local.HabitDao
+import com.example.evolvix.data.local.TargetHistoryDao
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.AbandonmentRisk
@@ -12,6 +13,7 @@ import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.ReminderLift
 import com.example.evolvix.domain.model.SnoozeDisengagementRisk
 import com.example.evolvix.domain.model.StreakBreakRisk
+import com.example.evolvix.domain.model.TargetAdjustment
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyForecast
@@ -23,6 +25,7 @@ import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.ReminderEffectivenessUseCase
 import com.example.evolvix.domain.usecase.SnoozeDisengagementUseCase
 import com.example.evolvix.domain.usecase.StreakBreakUseCase
+import com.example.evolvix.domain.usecase.TargetAdjustmentUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
 import com.example.evolvix.domain.usecase.SpilloverUseCase
@@ -55,7 +58,9 @@ import java.time.LocalDate
  */
 class StatisticsViewModel(
     private val dao: HabitDao,
-    private val predictor: HabitPredictor
+    private val predictor: HabitPredictor,
+    // Phase 9.3: needed by TargetAdjustmentUseCase to read the target-change audit log.
+    private val targetHistoryDao: TargetHistoryDao
 ) : ViewModel() {
 
     // Pure-function interactors — stateless, safe to reuse across Flow emissions.
@@ -71,6 +76,8 @@ class StatisticsViewModel(
     private val spilloverUseCase = SpilloverUseCase(predictor)
     private val reminderEffectivenessUseCase = ReminderEffectivenessUseCase(predictor)
     private val snoozeDisengagementUseCase = SnoozeDisengagementUseCase(predictor)
+    // Phase 9.3 — requires TargetHistoryDao because it reads the target-change audit log.
+    private val targetAdjustmentUseCase = TargetAdjustmentUseCase(predictor, targetHistoryDao)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -476,6 +483,48 @@ class StatisticsViewModel(
                 totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
             )
             habit.id to snoozeDisengagementUseCase(habitData, habitCompletions, streak.current, today)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap()
+    )
+
+    /**
+     * ML-based target-adjustment recommendations keyed by habit ID (Phase 9.3).
+     *
+     * For each active habit, calls [TargetAdjustmentUseCase] which:
+     * 1. Derives eight features from the 30/7-day completion windows and the
+     *    [TargetHistoryDao] audit log ([TargetAdjustmentUseCase.invoke] is `suspend`;
+     *    this is safe here because the `combine` transform block is a suspend scope).
+     * 2. Runs [TargetAdjustmentRegressor] (TFLite or math fallback) → raw delta ∈ [-2, 2].
+     * 3. Rounds and wraps in [TargetAdjustment] with confidence and sufficiency flag.
+     *
+     * Habits with fewer than 5 completions are included with
+     * [TargetAdjustment.hasSufficientData] = false so the UI can show a placeholder.
+     *
+     * ⚠ **Thesis note:** The recommendation is observational — it should be presented
+     * as a suggestion, not a command.
+     *
+     * (Pattern: Observer via StateFlow — mirrors [snoozeDisengagementRisks];
+     *  independently collectible so the Target Adjustment card can be shown or hidden
+     *  without affecting other Statistics cards)
+     */
+    val targetAdjustments: StateFlow<Map<Int, TargetAdjustment>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val today = LocalDate.now()
+        habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
+            habit.id to targetAdjustmentUseCase(habitData, habitCompletions, streak.current, today)
         }
     }.stateIn(
         scope = viewModelScope,

@@ -145,7 +145,8 @@ fun AppContent() {
     val habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
             application = context.applicationContext as android.app.Application,
-            habitDao = AppDatabase.getDatabase(context).habitDao()
+            habitDao = AppDatabase.getDatabase(context).habitDao(),
+            targetHistoryDao = AppDatabase.getDatabase(context).targetHistoryDao()
         )
     )
     // Activity-scoped ViewModel — shared with AchievementsScreen and AchievementBanner.

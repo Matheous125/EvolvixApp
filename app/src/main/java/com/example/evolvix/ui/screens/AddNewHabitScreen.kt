@@ -250,7 +250,8 @@ fun AddNewHabitScreen(
     habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
             application = LocalContext.current.applicationContext as Application,
-            habitDao = AppDatabase.getDatabase(LocalContext.current).habitDao()
+            habitDao = AppDatabase.getDatabase(LocalContext.current).habitDao(),
+            targetHistoryDao = AppDatabase.getDatabase(LocalContext.current).targetHistoryDao()
         )
     )
 ) {

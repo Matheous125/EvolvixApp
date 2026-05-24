@@ -56,5 +56,12 @@ data class HabitEntity(
     /** Sort position of the group itself in MANUAL mode (Phase B — group-level drag). */
     val groupSortOrder: Int = 0,
     /** The "every N" multiplier for [frequency] (e.g. 2 for "every 2 weeks"). Defaults to 1. */
-    val frequencyN: Int = 1
+    val frequencyN: Int = 1,
+    /**
+     * Phase 9.3: monotonically-incrementing counter tracking how many times the habit's
+     * target has been changed. Starts at 1 (original target). Incremented by
+     * [HabitViewModel.updateHabit] whenever [target] changes, and written onto every
+     * new [HabitCompletionEntity] so per-version completion rates can be derived.
+     */
+    val targetVersion: Int = 1
 )

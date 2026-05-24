@@ -200,6 +200,14 @@
     <string name="snooze_drift_title">😴 Snooze Drift</string>
     <string name="snooze_drift_subtitle">Habits where frequent snoozing correlates with disengagement risk (observational, not causal).</string>
 
+    <!-- Phase 9.3 — Target Calibration -->
+    <string name="target_adjustment_title">🎯 Target Calibration</string>
+    <string name="target_adjustment_subtitle">ML-suggested target changes based on your 30-day performance (observational recommendation).</string>
+    <string name="target_adjustment_no_data">Collecting performance data… keep logging to unlock this insight.</string>
+    <string name="target_adjustment_arrow_up">↑ +%d</string>
+    <string name="target_adjustment_arrow_down">↓ %d</string>
+    <string name="target_adjustment_current_to_suggested">%d → %d</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 
