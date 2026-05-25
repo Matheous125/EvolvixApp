@@ -780,6 +780,22 @@ class MathHabitPredictor : HabitPredictor {
             .associate { (reason, prob) -> reason to prob }
     }
 
+    // ── Phase 9.6 — Engagement Window Predictor (zero-model fallback) ────────
+
+    /**
+     * Zero-model fallback for [predictEngagementHour].
+     *
+     * Returns [EngagementWindowFeatures.recentAvgStartHour14d] directly — i.e. the
+     * simple 14-day mean session-start hour already computed from Room data.
+     * This is the best single-number estimate without a trained model and is used:
+     *   (a) when `engagement_window_regressor.tflite` fails to load, and
+     *   (b) in [MathHabitPredictor] where no TFLite interpreter is present.
+     *
+     * The returned value is clamped to [0.0, 23.0] to stay within a valid hour range.
+     */
+    override fun predictEngagementHour(features: EngagementWindowFeatures): Float =
+        features.recentAvgStartHour14d.coerceIn(0f, 23f)
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

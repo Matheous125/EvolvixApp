@@ -433,4 +433,31 @@ interface HabitPredictor {
      * returning a probability map without a neural network (Strategy + Dependency Inversion).
      */
     fun predictSkipReason(features: SkipReasonFeatures): Map<com.example.evolvix.data.model.SkipReason, Float>
+
+    // ── Phase 9.6 — Engagement Window Predictor ───────────────────────────────
+
+    /**
+     * Predicts the **hour-of-day** (continuous ∈ [0.0, 24.0)) at which the user is
+     * most likely to open the app next, given recent session statistics encoded in
+     * [features].
+     *
+     * The returned value is the raw sigmoid × 24 output of the
+     * `engagement_window_regressor.tflite` model. Callers should round it to an integer
+     * hour and wrap it in an [com.example.evolvix.domain.model.EngagementWindow] via
+     * [com.example.evolvix.domain.usecase.EngagementWindowUseCase], which adds the
+     * confidence score and the data-sufficiency guard.
+     *
+     * ⚠ **Thesis note — observational caveat:** The output reflects *when the user
+     * typically opens the app*, NOT *when they would respond optimally to a push
+     * notification*. [com.example.evolvix.domain.usecase.ScheduleReminderUseCase]
+     * uses this value only when [com.example.evolvix.domain.model.EngagementWindow.hasSufficientData]
+     * is true AND [com.example.evolvix.domain.model.EngagementWindow.confidence] ≥
+     * [com.example.evolvix.domain.model.EngagementWindow.CONFIDENCE_THRESHOLD].
+     *
+     * Backed by `engagement_window_regressor.tflite` (8-feature MLP, sigmoid × 24
+     * output layer, MAE-trained) in [TfliteHabitPredictor]; [MathHabitPredictor]
+     * returns [EngagementWindowFeatures.recentAvgStartHour14d] as a zero-model
+     * fallback (Strategy + Dependency Inversion).
+     */
+    fun predictEngagementHour(features: EngagementWindowFeatures): Float
 }

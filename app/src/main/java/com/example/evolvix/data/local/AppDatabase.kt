@@ -9,6 +9,7 @@ import com.example.evolvix.data.model.AchievementEntity
 import com.example.evolvix.data.model.DailySummaryEntity
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.data.model.AppSessionEntity
 import com.example.evolvix.data.model.HabitSkipEntity
 import com.example.evolvix.data.model.HabitTargetHistoryEntity
 
@@ -20,9 +21,10 @@ import com.example.evolvix.data.model.HabitTargetHistoryEntity
         AchievementEntity::class,
         DailySummaryEntity::class,
         HabitTargetHistoryEntity::class,
-        HabitSkipEntity::class
+        HabitSkipEntity::class,
+        AppSessionEntity::class
     ],
-    version = 20, // Phase 9.5: added habit_skips table. Reinstall app.
+    version = 21, // Phase 9.6: added app_sessions table. Reinstall app.
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,6 +33,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun dailySummaryDao(): DailySummaryDao
     abstract fun targetHistoryDao(): TargetHistoryDao
     abstract fun habitSkipDao(): HabitSkipDao
+    abstract fun appSessionDao(): AppSessionDao
 
     companion object {
         @Volatile

@@ -75,6 +75,7 @@ import generate_snooze_disengagement_data as gen_snooze_disengagement  # noqa: E
 import generate_target_change_data as gen_target_change  # noqa: E402
 import generate_difficulty_data as gen_difficulty  # noqa: E402
 import generate_skip_reason_data as gen_skip_reason  # noqa: E402
+import generate_engagement_window_data as gen_engagement_window  # noqa: E402
 from train_icon_model import name_to_ngram_string  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -1322,10 +1323,96 @@ def evaluate_skip_reason_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Phase 9.6 — EngagementWindowRegressor
+# Regression model predicting the hour-of-day (0…23.99) when the user is
+# most likely to open the app next. Acceptance gate: MAE ≤ 1.5 h.
+# ---------------------------------------------------------------------------
+def evaluate_engagement_window_model() -> dict:
+    """
+    Evaluate the EngagementWindowRegressor TFLite model (Phase 9.6).
+
+    Reproduces the same 80/20 random split (SEED=42, no stratification because
+    the label is a continuous hour-of-day float) used in
+    train_engagement_window_model.py and reports:
+      - MAE and RMSE on the raw continuous hour prediction
+      - Naive MAE baseline (always predict the mean training hour)
+      - An actual-vs-predicted scatter plot saved to data/plots/
+
+    Acceptance gate: MAE ≤ 1.5 h.
+    """
+    print("\n=== Phase 9.6 \u2014 EngagementWindowRegressor ===")
+
+    csv_path = HERE / "data" / "engagement_window_dataset.csv"
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing \u2014 run generate_engagement_window_data.py first."
+        )
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_engagement_window.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df[gen_engagement_window.LABEL_COLUMN].to_numpy(dtype=np.float32)
+
+    # 80/20 split \u2014 no stratification (continuous regression label).
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED
+    )
+
+    scaler = json.loads(
+        (MODELS_DIR / "engagement_window_scaler.json").read_text(encoding="utf-8")
+    )
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    raw_preds = _tflite_predict(
+        MODELS_DIR / "engagement_window_regressor.tflite",
+        x_test_scaled,
+    ).ravel()  # continuous \u2208 [0, 24)
+
+    mae = float(np.mean(np.abs(raw_preds - y_test)))
+    rmse = float(np.sqrt(np.mean((raw_preds - y_test) ** 2)))
+
+    # Naive baseline: always predict the mean of y_test.
+    naive_mae = float(np.mean(np.abs(np.full_like(y_test, y_test.mean()) - y_test)))
+
+    passed = "PASS" if mae <= 1.5 else "FAIL"
+    print(f"Test MAE      : {mae:.4f} h  (threshold <= 1.5 h, {passed})")
+    print(f"Test RMSE     : {rmse:.4f} h")
+    print(f"Naive MAE     : {naive_mae:.4f} h  (always predict mean hour {y_test.mean():.1f})")
+    print(f"MAE lift      : {naive_mae - mae:.4f} h")
+
+    # ----- Actual vs predicted scatter -----
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(y_test, raw_preds, alpha=0.15, s=5, label="Test samples")
+    ax.plot([0, 24], [0, 24], linestyle="--", color="gray", label="Perfect prediction")
+    ax.set_xlim(-0.5, 24.5)
+    ax.set_ylim(-0.5, 24.5)
+    ax.set_xlabel("Actual next_session_hour")
+    ax.set_ylabel("Predicted next_session_hour")
+    ax.set_title("Phase 9.6 \u2014 EngagementWindowRegressor \u2014 Actual vs Predicted")
+    ax.legend(loc="upper left")
+    fig.tight_layout()
+    scatter_path = PLOTS_DIR / "scatter_engagement_window.png"
+    fig.savefig(scatter_path, dpi=150)
+    plt.close(fig)
+    print(f"  Scatter plot saved \u2192 {scatter_path}")
+
+    return {
+        "name": "EngagementWindowRegressor",
+        "task": "regression (hour \u2208 [0, 24))",
+        "test_size": int(len(y_test)),
+        "mae": mae,
+        "rmse": rmse,
+        "naive_mae": naive_mae,
+        "passed": passed,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement, target_change, difficulty, skip_reason = results
+    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement, target_change, difficulty, skip_reason, engagement_window = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -1361,6 +1448,8 @@ def write_summary(results: list) -> Path:
         f"MAE | {difficulty['mae']:.4f} | RMSE | {difficulty['rmse']:.4f} |",
         f"| {skip_reason['name']} | {skip_reason['task']} | {skip_reason['test_size']} | "
         f"Accuracy | {skip_reason['accuracy']:.4f} | Macro F1 | {skip_reason['macro_f1']:.4f} |",
+        f"| {engagement_window['name']} | {engagement_window['task']} | {engagement_window['test_size']} | "
+        f"MAE | {engagement_window['mae']:.4f} h | RMSE | {engagement_window['rmse']:.4f} h |",
         "",
         "## Generated plots",
         "",
@@ -1415,6 +1504,12 @@ def write_summary(results: list) -> Path:
         skip_reason["report"].rstrip(),
         "```",
         "",
+        "## Phase 9.6 \u2014 EngagementWindowRegressor evaluation",
+        "",
+        f"Acceptance gate: MAE \u2264 1.5 h \u2014 **{engagement_window['passed']}** "
+        f"(MAE = {engagement_window['mae']:.4f} h, RMSE = {engagement_window['rmse']:.4f} h, "
+        f"naive baseline MAE = {engagement_window['naive_mae']:.4f} h).",
+        "",
     ]
 
     out = PLOTS_DIR / "metrics_summary.md"
@@ -1437,6 +1532,7 @@ def main() -> None:
         evaluate_target_change_model(),
         evaluate_difficulty_model(),
         evaluate_skip_reason_model(),
+        evaluate_engagement_window_model(),
     ]
     evaluate_clustering_model()
     summary_path = write_summary(results)

@@ -9,6 +9,7 @@ import androidx.work.workDataOf
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.domain.ai.AiContainer
+import com.example.evolvix.domain.model.EngagementWindow
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.notifications.HabitReminderWorker
 import kotlinx.coroutines.flow.firstOrNull
@@ -111,6 +112,26 @@ class ScheduleReminderUseCase(private val context: Context) {
      * not as a permanent floor.
      */
     private suspend fun smartMinuteOfDay(habit: HabitEntity): Long {
+        // Phase 9.6 — Engagement Window override: when the regressor has sufficient
+        // session history AND confidence ≥ CONFIDENCE_THRESHOLD, prefer the user's
+        // predicted active hour over the 30-day average target-reach time. The double
+        // guard (sufficiency + confidence) prevents cold-start or noisy predictions
+        // from overriding the data-driven timing for established habits.
+        // Only applies to non-user-set reminders (this method is not called when
+        // habit.reminderTime is non-null).
+        try {
+            val sessionDao = AppDatabase.getDatabase(context).appSessionDao()
+            val predictor = AiContainer.predictor(context)
+            val window = EngagementWindowUseCase(sessionDao, predictor).execute()
+            if (window.hasSufficientData && window.confidence >= EngagementWindow.CONFIDENCE_THRESHOLD) {
+                Log.d(TAG, "Engagement-window override for habit ${habit.id}: hour=${window.predictedHour}")
+                return (window.predictedHour * 60L)
+                    .coerceIn(SCHEDULE_EARLIEST_MINUTE, SCHEDULE_LATEST_MINUTE)
+            }
+        } catch (_: Exception) {
+            // Fall through to the existing completion-history logic on any error.
+        }
+
         val dao = AppDatabase.getDatabase(context).habitDao()
         val since = LocalDateTime.now().minusDays(30)
         val avg = try {

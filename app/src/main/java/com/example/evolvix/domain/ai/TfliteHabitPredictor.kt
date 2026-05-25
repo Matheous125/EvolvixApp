@@ -52,6 +52,8 @@ class TfliteHabitPredictor(
     private val difficultyInterpreter: Interpreter?
     // Phase 9.5 — SkipReasonClassifier
     private val skipReasonInterpreter: Interpreter?
+    // Phase 9.6 — EngagementWindowRegressor
+    private val engagementWindowInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -94,6 +96,10 @@ class TfliteHabitPredictor(
     /** Ordered list of [com.example.evolvix.data.model.SkipReason] names as stored in `skip_reason_scaler.json`. */
     private val skipReasonClassLabels: List<String>
 
+    // Phase 9.6
+    private val engagementWindowMean: FloatArray
+    private val engagementWindowScale: FloatArray
+
     // ── Phase 8.4 — K-Means cluster tables (no Interpreter — JSON + Kotlin math) ──
     private val clusterMean: FloatArray
     private val clusterScale: FloatArray
@@ -122,6 +128,7 @@ class TfliteHabitPredictor(
         targetChangeInterpreter = tryLoadModel(context, "target_change_regressor.tflite")
         difficultyInterpreter = tryLoadModel(context, "perceived_difficulty_regressor.tflite")
         skipReasonInterpreter = tryLoadModel(context, "skip_reason_classifier.tflite")
+        engagementWindowInterpreter = tryLoadModel(context, "engagement_window_regressor.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -171,6 +178,11 @@ class TfliteHabitPredictor(
         skipReasonMean = skipReasonJson?.toFloatArray("mean") ?: FloatArray(SKIP_REASON_FEATURE_COUNT)
         skipReasonScale = skipReasonJson?.toFloatArray("scale") ?: FloatArray(SKIP_REASON_FEATURE_COUNT) { 1f }
         skipReasonClassLabels = skipReasonJson?.toStringList("class_labels") ?: emptyList()
+
+        // Phase 9.6 — EngagementWindowRegressor scaler
+        val engagementWindowJson = readJsonAsset(context, "engagement_window_scaler.json")
+        engagementWindowMean = engagementWindowJson?.toFloatArray("mean") ?: FloatArray(ENGAGEMENT_WINDOW_FEATURE_COUNT)
+        engagementWindowScale = engagementWindowJson?.toFloatArray("scale") ?: FloatArray(ENGAGEMENT_WINDOW_FEATURE_COUNT) { 1f }
 
         // habit_clusters.json carries everything needed for K-Means inference —
         // no Interpreter is loaded because nearest-centroid math is done in Kotlin.
@@ -625,6 +637,34 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 9.6 — Engagement Window Regressor ─────────────────────────────
+
+    /**
+     * TFLite inference for [HabitPredictor.predictEngagementHour].
+     *
+     * Runs the 8-feature MLP through `engagement_window_regressor.tflite` (sigmoid × 24
+     * output layer) with StandardScaler normalisation from `engagement_window_scaler.json`.
+     * Returns the raw float ∈ [0.0, 24.0); callers round to an integer hour.
+     *
+     * Graceful degradation: null interpreter or any runtime exception
+     * → fallback to [MathHabitPredictor.predictEngagementHour] (Strategy + Dependency Inversion).
+     */
+    override fun predictEngagementHour(features: EngagementWindowFeatures): Float {
+        val interp = engagementWindowInterpreter
+            ?: return mathFallback.predictEngagementHour(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, engagementWindowMean, engagementWindowScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(1) }
+            interp.run(input, output)
+            output[0][0].coerceIn(0f, 23.99f)
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictEngagementHour inference failed; using math fallback", t)
+            mathFallback.predictEngagementHour(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -749,6 +789,7 @@ class TfliteHabitPredictor(
         private const val DIFFICULTY_FEATURE_COUNT = 8       // Phase 9.4
         private const val SKIP_REASON_FEATURE_COUNT = 8       // Phase 9.5
         private const val SKIP_REASON_CLASS_COUNT = 6         // Phase 9.5
+        private const val ENGAGEMENT_WINDOW_FEATURE_COUNT = 8   // Phase 9.6
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

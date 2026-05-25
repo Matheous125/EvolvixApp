@@ -2,6 +2,7 @@ package com.example.evolvix.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.evolvix.data.local.AppSessionDao
 import com.example.evolvix.data.local.DatabaseSeeder
 import com.example.evolvix.data.local.HabitDao
 import com.example.evolvix.data.local.HabitSkipDao
@@ -9,6 +10,7 @@ import com.example.evolvix.data.local.TargetHistoryDao
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.AbandonmentRisk
+import com.example.evolvix.domain.model.EngagementWindow
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.PerceivedDifficultyEstimate
@@ -24,6 +26,7 @@ import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.BehavioralClusterUseCase
+import com.example.evolvix.domain.usecase.EngagementWindowUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.DifficultyEstimateUseCase
 import com.example.evolvix.domain.usecase.SkipReasonPredictorUseCase
@@ -40,6 +43,7 @@ import java.time.LocalDateTime
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -67,7 +71,9 @@ class StatisticsViewModel(
     // Phase 9.3: needed by TargetAdjustmentUseCase to read the target-change audit log.
     private val targetHistoryDao: TargetHistoryDao,
     // Phase 9.5: needed by SkipReasonPredictorUseCase to read skip history.
-    private val habitSkipDao: HabitSkipDao
+    private val habitSkipDao: HabitSkipDao,
+    // Phase 9.6: needed by EngagementWindowUseCase to read the app-session log.
+    private val appSessionDao: AppSessionDao
 ) : ViewModel() {
 
     // Pure-function interactors — stateless, safe to reuse across Flow emissions.
@@ -89,6 +95,31 @@ class StatisticsViewModel(
     private val difficultyEstimateUseCase = DifficultyEstimateUseCase(predictor)
     // Phase 9.5 — Skip Reason Classifier
     private val skipReasonPredictorUseCase = SkipReasonPredictorUseCase(predictor)
+    // Phase 9.6 — Engagement Window Regressor
+    private val engagementWindowUseCase = EngagementWindowUseCase(appSessionDao, predictor)
+
+    /**
+     * Predicted hour at which the user is most likely to open the app next (Phase 9.6).
+     *
+     * Executes [EngagementWindowUseCase] once when the Statistics screen subscribes.
+     * Returns [EngagementWindow.insufficient] immediately when fewer than
+     * [EngagementWindow.MIN_SESSIONS] sessions have been recorded (cold-start guard).
+     *
+     * ⚠ **Thesis note — observational caveat:** The predicted hour reflects *when the
+     * user typically opens the app*, not *when they would respond optimally to a
+     * notification*. The View must use hedged language (e.g. "usually active around").
+     *
+     * (Pattern: one-shot suspend flow → StateFlow; re-executes on each WhileSubscribed
+     *  subscription, which is sufficient because session data changes only between
+     *  app open/close events, not within a single Statistics-screen visit)
+     */
+    val engagementWindow: StateFlow<EngagementWindow> = flow {
+        emit(engagementWindowUseCase.execute())
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = EngagementWindow.insufficient
+    )
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,

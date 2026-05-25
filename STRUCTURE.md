@@ -11,7 +11,8 @@ app/src/main/java/com/example/evolvix
 ├── data/                   # The "Model" Layer - Data & Persistence
 │   ├── local/              # Room Database
 │   │   ├── AchievementDao.kt    # DAO for achievement persistence; includes one-shot batch query for retraction
-│   │   ├── AppDatabase.kt       # Room Database setup (singleton via companion object); version = 20 after Phase 9.5 schema change (adds habit_skips table)
+│   │   ├── AppDatabase.kt       # Room Database setup (singleton via companion object); version = 21 after Phase 9.6 (adds app_sessions table; reinstall required); appSessionDao() abstract accessor added
+│   │   ├── AppSessionDao.kt     # DAO for the app_sessions table (Phase 9.6); methods: insert(session):Long, update(session), getSince(since:LocalDateTime):Flow<List<AppSessionEntity>>, getRecent(limit:Int):List<AppSessionEntity>, count():Int
 │   │   ├── Converters.kt        # Type converters for Room (LocalDate, LocalDateTime, etc.); Phase 9.5 adds SkipReason ↔ String converters
 │   │   ├── DailySummaryDao.kt   # DAO for daily summary inbox cards; Flow-based reads for SummaryInboxViewModel + unread-badge count
 │   │   ├── DatabaseSeeder.kt    # Dev-only seeder inserting 5 test habits (IDs 901–905) with realistic AI-scenario completion histories
@@ -21,6 +22,7 @@ app/src/main/java/com/example/evolvix
 │   │   └── TargetHistoryDao.kt  # DAO for the HabitTargetHistoryEntity table (Phase 9.3); insert + Flow-based read of per-habit target-change history; used by TargetAdjustmentUseCase to derive previousDelta and periodsSinceLastChange features
 │   └── model/              # Database entity + in-memory data classes
 │       ├── AchievementEntity.kt      # Room entity for the achievements table
+│       ├── AppSessionEntity.kt       # Room entity for the app_sessions table (Phase 9.6); fields: id (PK autoGenerate), startedAt: LocalDateTime, endedAt: LocalDateTime? (null while session is in-progress), screensVisited: List<String> (pipe-delimited via Converters.fromStringList); index on startedAt; DB version 21
 │       ├── DailySummaryEntity.kt     # Room entity for one daily-summary inbox card; unique index on date; tracks read/unread state (Phase 7.2)
 │       ├── HabitCompletionEntity.kt  # Room entity for individual habit completion records; Phase 9.4 adds perceivedDifficulty: Int? (nullable, default null) for user star-chip ratings
 │       ├── HabitEntity.kt            # Room entity for habits (name, target, frequency, category, color, reminderTime, etc.)
@@ -36,6 +38,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── AiContainer.kt         # Process-wide singleton provider for HabitPredictor (analogous to AppDatabase.getDatabase); lazy init with double-checked locking
 │   │   ├── ClusterFeatures.kt     # 5-field input feature vector for K-Means Behavioral Clustering (Phase 8.4); field order mirrors habit_clusters.json → feature_columns; null-substitution done by BehavioralClusterUseCase before construction
 │   │   ├── DifficultyFeatures.kt  # 8-field input feature vector for the PerceivedDifficultyRegressor TFLite model (Phase 9.4); field order mirrors perceived_difficulty_scaler.json; fields: dayOfWeek, hourOfDay, currentStreak, completionRateLast7Days, completionRateLast30Days, habitAgeDays, targetCount, avgProgressRatio30d
+│   │   ├── EngagementWindowFeatures.kt # 8-field input feature vector for the EngagementWindowRegressor TFLite model (Phase 9.6); field order mirrors engagement_window_scaler.json; fields: dayOfWeek, isWeekend, recentAvgStartHour14d, recentStddevStartHour14d, sessionCountLast7d, avgSessionLengthMinutes, daysSinceFirstSession, prevSessionStartHour; toFloatArray() returns all 8 in exact scaler order
 │   │   ├── HabitFeatures.kt       # 7-field input feature vector for the HabitSuccessClassifier TFLite model; field order mirrors success_scaler.json
 │   │   ├── HabitPredictor.kt      # Interface defining all predictive + passive-analytics contracts (success probability, optimal time, routine precision, behavioral clustering, etc.); Phase 9.4 adds predictPerceivedDifficulty(DifficultyFeatures): Float; Phase 9.5 adds predictSkipReason(SkipReasonFeatures): Map<SkipReason,Float>
 │   │   ├── MathHabitPredictor.kt  # Rule-based / statistical implementation of HabitPredictor; pure Kotlin, no Android SDK, fully unit-testable; Phase 9.5 adds predictSkipReason: 6 logit priors softmax-normalised
@@ -56,6 +59,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── AchievementDefinition.kt  # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
 │   │   ├── BehavioralCluster.kt      # Sealed class hierarchy for 4 K-Means behavioral tiers (Phase 8.4): EffortlessRoutine, ConsistentEffort, Struggling, Dormant; also contains HabitCluster wrapper
 │   │   ├── DifficultyAdjustment.kt   # Output of AdaptiveDifficultyUseCase; bundles delta (+1/0/-1), rolling rate, current and suggested target
+│   │   ├── EngagementWindow.kt        # Output of EngagementWindowUseCase (Phase 9.6); fields: predictedHour: Int [0–23], rawPredictedHour: Float, confidence: Float [0–1], hasSufficientData: Boolean; companion: MIN_SESSIONS=14, CONFIDENCE_THRESHOLD=0.6f, confidenceFrom(stddevHours): Float, insufficient sentinel instance
 │   │   ├── PerceivedDifficultyEstimate.kt # Output of DifficultyEstimateUseCase (Phase 9.4); fields: predicted: Float [1,5], rounded: Int, rating: Rating (EASY/MODERATE/HARD/VERY_HARD), recentAvgRated: Float? (last 14d user ratings, null until MIN_RATINGS=5), hasSufficientData: Boolean (MIN_COMPLETIONS=10 guard)
 │   │   ├── FormError.kt              # Domain model for inline form validation errors (e.g. duplicate habit name)
 │   │   ├── HabitClash.kt             # Output of HabitClashingUseCase; a pair of negatively-correlated (Pearson r) habits
@@ -89,6 +93,7 @@ app/src/main/java/com/example/evolvix
 │       ├── CalculateStreakUseCase.kt        # Interactor: computes current + best streak; pure function with injectable today date
 │       ├── ComposeDailySummaryUseCase.kt   # Interactor: pure function composing today's raw data into a DailySummaryEntity for notification + inbox (Phase 7.2)
 │       ├── DifficultyEstimateUseCase.kt    # Interactor: extracts 8 DifficultyFeatures from the 30 most-recent completions (MIN_COMPLETIONS=10 guard); computes recentAvgRated from last-14-day user ratings (MIN_RATINGS=5); delegates to HabitPredictor.predictPerceivedDifficulty; returns PerceivedDifficultyEstimate (Phase 9.4)
+│       ├── EngagementWindowUseCase.kt      # Interactor (Phase 9.6): derives 8 EngagementWindowFeatures from AppSessionDao (MIN_SESSIONS=14 cold-start guard), delegates to HabitPredictor.predictEngagementHour, wraps result in EngagementWindow with confidenceFrom(stddevHours); also called by ScheduleReminderUseCase.smartMinuteOfDay to override reminder time when confidence ≥ CONFIDENCE_THRESHOLD
 │       ├── EvaluateAchievementsUseCase.kt  # Interactor: (habits, completions) → Set<UnlockedAchievement>; runs all 50 achievement rules (Strategy pattern)
 │       ├── ExportHistoryUseCase.kt         # Interactor: serializes a habit's completion history to JSON; triggers ACTION_CREATE_DOCUMENT
 │       ├── HabitClashingUseCase.kt         # Interactor: detects negatively-correlated habit pairs via Pearson r; delegates to HabitPredictor
@@ -125,7 +130,8 @@ app/src/main/java/com/example/evolvix
 │   ├── HabitReminderWorker.kt     # One-shot CoroutineWorker posting a per-habit reminder; selects message template via ReminderTemplateClassifier (TFLite)
 │   ├── NotificationChannels.kt    # Centralised channel registry (singleton object); called before any post to guarantee channels exist
 │   ├── OnboardingPreferences.kt   # SharedPreferences wrapper (singleton object) tracking whether the user has completed the onboarding flow; shared file with SummaryPreferences
-│   ├── RecordHabitActionWorker.kt  # CoroutineWorker (Phase 9.6.2): persists Done/Skip notification taps reliably via WorkManager; reads KEY_HABIT_ID, KEY_ACTION (DONE/SKIP), KEY_SNOOZE_COUNT, optional KEY_SKIP_REASON; applies ShouldResetHabitUseCase before incrementing; setExpedited(RUN_AS_NON_EXPEDITED_WORK_REQUEST); unique work name = record_action_<habitId>_<timestamp>
+│   ├── RecordHabitActionWorker.kt  # CoroutineWorker (Phase 9.6.2): persists Done/Skip notification taps reliably via WorkManager
+│   ├── SessionTracker.kt           # Singleton (object : DefaultLifecycleObserver) attached to ProcessLifecycleOwner (Phase 9.6); onStart inserts a new AppSessionEntity row (endedAt=null); onStop updates the row with endedAt=now and screensVisited snapshot; logScreen(route) appends to a capped (MAX_SCREENS=32) synchronized LinkedHashSet; all Room ops run on Dispatchers.IO; initialized once from MainActivity.onCreate via SessionTracker.init(applicationContext)
 │   ├── SkipReasonPickerActivity.kt # ComponentActivity (Phase 9.5 / 9.6.3): transparent Activity (Theme.Evolvix.Dialog, excludeFromRecents, launchMode=singleTop, taskAffinity="") hosting a ModalBottomSheet launched via PendingIntent.getActivity() from HabitReminderWorker and from MainScreen context menu; shows 6 FilterChips (SkipReason.displayLabel); on selection → enqueues RecordHabitActionWorker(ACTION_SKIP, reason.name); on dismiss → enqueues NO_REASON
 │   ├── SnoozePreferences.kt       # SharedPreferences wrapper (singleton object) for per-habit snooze counter lifecycle (Phase 9.2); file = evolvix_snooze_prefs; key = snooze_count_<habitId>; reset on Done/Skip, increment on Snooze
 │   ├── SummaryDismissReceiver.kt  # BroadcastReceiver tracking swipe-dismissals of the summary notification; auto-disables after 7 consecutive dismissals
@@ -171,11 +177,11 @@ app/src/main/java/com/example/evolvix
 │       ├── HistoryViewModelFactory.kt      # Factory for HistoryViewModel (injects HabitDao + habitId)
 │       ├── SettingsViewModel.kt            # AndroidViewModel managing ThemeMode (SharedPreferences) and daily-summary WorkManager worker toggling
 │       ├── SettingsViewModelFactory.kt     # Factory for SettingsViewModel (injects Application context)
-│       ├── StatisticsViewModel.kt          # Combines habits+completions Flows; runs all analytics use cases; exposes overview, lifeBalance, perHabitStats, AI cards as StateFlows; Phase 9.4 adds difficultyEstimates; Phase 9.5 adds skipReasonPredictions: StateFlow<Map<Int, SkipReasonPrediction>>
-│       ├── StatisticsViewModelFactory.kt   # Factory for StatisticsViewModel; Phase 9.5 adds habitSkipDao: HabitSkipDao parameter
+│       ├── StatisticsViewModel.kt          # Combines habits+completions Flows; runs all analytics use cases; exposes overview, lifeBalance, perHabitStats, AI cards as StateFlows; Phase 9.4 adds difficultyEstimates; Phase 9.5 adds skipReasonPredictions: StateFlow<Map<Int, SkipReasonPrediction>>; Phase 9.6 adds appSessionDao: AppSessionDao constructor param + engagementWindow: StateFlow<EngagementWindow> (one-shot flow via EngagementWindowUseCase, WhileSubscribed 5 s)
+│       ├── StatisticsViewModelFactory.kt   # Factory for StatisticsViewModel; Phase 9.5 adds habitSkipDao: HabitSkipDao parameter; Phase 9.6 adds appSessionDao: AppSessionDao parameter
 │       └── SummaryInboxViewModel.kt        # AndroidViewModel exposing DailySummaryEntity list + unreadCount StateFlow; resets dismissStreak on open
 │
-└── MainActivity.kt         # Entry point; sets up NavGraph, AiContainer, NotificationChannels; handles deep-link from summary notification
+└── MainActivity.kt         # Entry point; sets up NavGraph, AiContainer, NotificationChannels; handles deep-link from summary notification; Phase 9.6 adds SessionTracker.init(applicationContext) in onCreate and a DisposableEffect nav-destination listener calling SessionTracker.logScreen(route) for screen tracking
 ```
 
 ## ml-training/
@@ -197,6 +203,7 @@ ml-training/
 ├── generate_target_change_data.py   # Synthetic dataset for TargetAdjustmentRegressor (Phase 9.3); 8 FEATURE_COLUMNS matching TargetChangeFeatures, label = ideal_delta ∈ [-2.0,+2.0]
 ├── generate_weekly_forecast_data.py # Synthetic dataset for WeeklyForecastRegressor (Phase 8.3); 12 FEATURE_COLUMNS, label = next_week_rate
 ├── generate_difficulty_data.py      # Synthetic dataset for PerceivedDifficultyRegressor (Phase 9.4); 8 FEATURE_COLUMNS matching DifficultyFeatures, label = perceived_difficulty ∈ [1.0,5.0] (float)
+├── generate_engagement_window_data.py # Synthetic dataset for EngagementWindowRegressor (Phase 9.6); 50k rows, 8 FEATURE_COLUMNS (dayOfWeek→prevSessionStartHour), label = actual_start_hour ∈ [0,23]; logit-based per-user hour priors, weekend shift, jitter noise
 ├── generate_skip_reason_data.py     # Synthetic dataset for SkipReasonClassifier (Phase 9.5); 50k rows, 8 FEATURE_COLUMNS (habitAge→recentSkipRate14d), label = 0–5 (SkipReason ordinal); class imbalance: SICK/TRAVELING intentionally rare
 ├── generate_spillover_data.py       # Synthetic dataset for SpilloverRegressor (Phase 8.5); 50k rows, 5 FEATURE_COLUMNS, label = lift_delta ∈ [-0.5,+0.5]
 ├── train_abandonment_model.py      # Trains + exports habit_abandonment_classifier.tflite + abandonment_scaler.json
@@ -211,6 +218,7 @@ ml-training/
 ├── train_spillover_model.py        # Trains + exports spillover_regressor.tflite + spillover_scaler.json; MAE loss, tanh×0.5 output, threshold MAE ≤ 0.08 (Phase 8.5); achieved MAE 0.0426
 ├── train_target_change_model.py    # Trains + exports target_change_regressor.tflite + target_change_scaler.json (Phase 9.3); regression on ideal_delta ∈ [-2.0,+2.0]; Dense(64,relu)→Dropout(0.2)→Dense(32,relu)→Dense(1,linear); output coerced by caller to nearest int
 ├── train_difficulty_model.py       # Trains + exports perceived_difficulty_regressor.tflite + perceived_difficulty_scaler.json (Phase 9.4); Dense(64,relu)→Dropout(0.2)→Dense(32,relu)→Dense(1,linear); MAE loss, output coerced to [1.0,5.0]; threshold MAE ≤ 0.5
+├── train_engagement_window_model.py # Trains + exports engagement_window_regressor.tflite + engagement_window_scaler.json (Phase 9.6); 8-feature MLP: Dense(32,relu)→Dropout(0.2)→Dense(16,relu)→Dense(1,sigmoid)→Lambda(x*24); MAE loss; threshold MAE ≤ 1.5 h; achieved MAE 1.0487 h
 ├── train_skip_reason_model.py      # Trains + exports skip_reason_classifier.tflite + skip_reason_scaler.json (Phase 9.5); 6-class softmax MLP: Dense(64,relu)→Dropout(0.2)→Dense(32,relu)→Dense(6,softmax); class_weight=balanced; threshold Macro F1 ≥ 0.35; achieved accuracy=49.3%, Macro F1=0.377
-└── evaluate_models.py              # Thesis-grade evaluation report: loads .tflite artifacts + habit_clusters.json, reproduces test splits, computes metrics + silhouette + PCA scatter, saves plots to data/plots/; Phase 9.4 adds PerceivedDifficultyRegressor block; Phase 9.5 adds SkipReasonClassifier block (confusion matrix + per-class report, Macro F1 gate ≥ 0.35)
+└── evaluate_models.py              # Thesis-grade evaluation report: loads .tflite artifacts + habit_clusters.json, reproduces test splits, computes metrics + silhouette + PCA scatter, saves plots to data/plots/; Phase 9.4 adds PerceivedDifficultyRegressor block; Phase 9.5 adds SkipReasonClassifier block (confusion matrix + per-class report, Macro F1 gate ≥ 0.35); Phase 9.6 adds EngagementWindowRegressor block (MAE/RMSE vs naive baseline, scatter_engagement_window.png, MAE gate ≤ 1.5 h)
 ```

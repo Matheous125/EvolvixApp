@@ -51,6 +51,7 @@ import com.example.evolvix.navigation.Screen
 import com.example.evolvix.notifications.DailySummaryWorker
 import com.example.evolvix.notifications.NotificationChannels
 import com.example.evolvix.notifications.OnboardingPreferences
+import com.example.evolvix.notifications.SessionTracker
 import com.example.evolvix.ui.components.AchievementBanner
 import com.example.evolvix.ui.components.FullScreenConfettiOverlay
 import com.example.evolvix.ui.theme.EvolvixTheme
@@ -79,6 +80,10 @@ class MainActivity : AppCompatActivity() {
         // point referenced by PLAN.md §6.5.6: TfliteHabitPredictor(applicationContext,
         // MathHabitPredictor()) is constructed exactly here (inside AiContainer).
         AiContainer.predictor(applicationContext)
+
+        // Phase 9.6 — start recording app sessions for EngagementWindowRegressor training data.
+        // Attaches SessionTracker to ProcessLifecycleOwner (once per process lifetime).
+        SessionTracker.init(applicationContext)
 
         // Phase 7 wiring — runs once on every cold start.
         //  • create notification channels so workers never hit "channel missing"
@@ -197,6 +202,18 @@ fun AppContent() {
     }
 
     val navController = rememberNavController()
+
+    // Phase 9.6 — log each navigation destination so SessionTracker can persist
+    // the screens visited list per session row in app_sessions.
+    // DisposableEffect ensures the listener is removed if AppContent leaves composition.
+    androidx.compose.runtime.DisposableEffect(navController) {
+        val listener = androidx.navigation.NavController.OnDestinationChangedListener { _, destination, _ ->
+            SessionTracker.logScreen(destination.route ?: "unknown")
+        }
+        navController.addOnDestinationChangedListener(listener)
+        onDispose { navController.removeOnDestinationChangedListener(listener) }
+    }
+
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 

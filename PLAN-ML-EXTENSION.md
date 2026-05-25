@@ -209,13 +209,13 @@ These two are deeply linked; ship them together.
 ## Phase 9.6 — `AppSessionEntity` table → Engagement Window Predictor
 
 ### 9.6.1 Data collection
-- [ ] **Model:** New entity `AppSessionEntity(id, startedAt, endedAt, screensVisited: List<String>)`. New `AppSessionDao`.
-- [ ] **Lifecycle hook:** In `MainActivity`, observe `ProcessLifecycleOwner` — log `startedAt` on `ON_START` and update `endedAt` + screensVisited on `ON_STOP`. Track screen visits via a `NavController.OnDestinationChangedListener` writing to a `currentScreensVisited: MutableList<String>` held in a singleton `SessionTracker`.
+- [x] **Model:** New entity `AppSessionEntity(id, startedAt, endedAt, screensVisited: List<String>)`. New `AppSessionDao`.
+- [x] **Lifecycle hook:** In `MainActivity`, observe `ProcessLifecycleOwner` — log `startedAt` on `ON_START` and update `endedAt` + screensVisited on `ON_STOP`. Track screen visits via a `NavController.OnDestinationChangedListener` writing to a `currentScreensVisited: MutableList<String>` held in a singleton `SessionTracker`.
 
 ### 9.6.2 ML feature: Engagement Window Predictor
-- [ ] **Goal:** Predict the user's natural daily app-open window. Use it to schedule reminders just before that window so the user sees the notification when they would have checked the app anyway.
-- [ ] **Python pipeline:** Regression model (output: hour-of-day with highest open probability). Standard checklist.
-- [ ] **Integration:** Optional override in `ScheduleReminderUseCase` — if engagement window is well-defined, use it instead of `findOptimalHours`.
+- [x] **Goal:** Predict the user's natural daily app-open window. Use it to schedule reminders just before that window so the user sees the notification when they would have checked the app anyway.
+- [x] **Python pipeline:** Regression model (output: hour-of-day with highest open probability). Standard checklist.
+- [x] **Integration:** Optional override in `ScheduleReminderUseCase` — if engagement window is well-defined, use it instead of `findOptimalHours`.
 
 ---
 

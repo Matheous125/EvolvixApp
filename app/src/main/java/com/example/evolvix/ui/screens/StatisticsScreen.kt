@@ -63,6 +63,7 @@ import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.BehavioralCluster
+import com.example.evolvix.domain.model.EngagementWindow
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.LifeBalanceEntry
 import com.example.evolvix.domain.model.ReminderLift
@@ -142,7 +143,9 @@ fun StatisticsScreen(
             // Phase 9.3: pass the DAO so TargetAdjustmentUseCase can read the audit log.
             targetHistoryDao = AppDatabase.getDatabase(LocalContext.current).targetHistoryDao(),
             // Phase 9.5: pass the DAO so SkipReasonPredictorUseCase can read skip history.
-            habitSkipDao = AppDatabase.getDatabase(LocalContext.current).habitSkipDao()
+            habitSkipDao = AppDatabase.getDatabase(LocalContext.current).habitSkipDao(),
+            // Phase 9.6: pass the DAO so EngagementWindowUseCase can read session logs.
+            appSessionDao = AppDatabase.getDatabase(LocalContext.current).appSessionDao()
         )
     )
 ) {
@@ -164,6 +167,8 @@ fun StatisticsScreen(
     val difficultyEstimates by viewModel.difficultyEstimates.collectAsState()
     // Phase 9.5: predicted skip reason per habit from SkipReasonPredictorUseCase.
     val skipReasonPredictions by viewModel.skipReasonPredictions.collectAsState()
+    // Phase 9.6: predicted most-likely active hour from EngagementWindowUseCase.
+    val engagementWindow by viewModel.engagementWindow.collectAsState()
 
     Scaffold(
         topBar = {
@@ -271,6 +276,11 @@ fun StatisticsScreen(
                         habitNames = perHabit.associate { it.habit.id to it.habit.name }
                     )
                 }
+            }
+
+            // Phase 9.6 — Engagement Window card (always shown; cold-start placeholder inside)
+            item {
+                EngagementWindowCard(window = engagementWindow)
             }
 
             if (perHabit.isEmpty()) {
@@ -1893,5 +1903,80 @@ private fun SkipReasonForecastRow(
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  ENGAGEMENT WINDOW CARD (Phase 9.6)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * Displays the user's predicted most-likely app-open hour from the
+ * [com.example.evolvix.domain.usecase.EngagementWindowUseCase].
+ *
+ * Two states:
+ * - **Cold-start ([EngagementWindow.hasSufficientData] = false):** shows a friendly
+ *   message asking the user to keep using the app until
+ *   [EngagementWindow.MIN_SESSIONS] sessions have been recorded.
+ * - **Data available:** shows the predicted hour (formatted as 24-hour clock or AM/PM)
+ *   and a confidence bar.
+ *
+ * ⚠ **Observational caveat:** the label uses hedged language ("usually active around")
+ * so the user understands this reflects *observation*, not a prescription.
+ *
+ * (Pattern: stateless, pure composable — all state lives in [StatisticsViewModel])
+ *
+ * @param window The [EngagementWindow] domain object produced by [EngagementWindowUseCase].
+ */
+@Composable
+private fun EngagementWindowCard(window: EngagementWindow) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Your Active Hour",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "When you’re most likely to open the app, based on your session history (Phase 9.6).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if (!window.hasSufficientData) {
+                Text(
+                    text = "Not enough data yet — keep using Evolvix! " +
+                        "Predictions appear after ${EngagementWindow.MIN_SESSIONS} sessions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                // Format as HH:00 (24-hour) — simple and unambiguous for a thesis demo.
+                val hourLabel = String.format("%02d:00", window.predictedHour)
+                Text(
+                    text = "Usually active around $hourLabel",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(8.dp))
+                // Confidence bar
+                LinearProgressIndicator(
+                    progress = { window.confidence },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                )
+                Spacer(Modifier.height(2.dp))
+                val confidencePct = (window.confidence * 100).roundToInt()
+                Text(
+                    text = "$confidencePct% confidence",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
