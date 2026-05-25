@@ -29,24 +29,31 @@
             </intent-filter>
         </activity>
 
-        <!-- Phase 7.1 — receives Done / Skip / Snooze action taps from habit reminder notifications. -->
+        <!-- Phase 7.1 — receives Done / Snooze action taps from habit reminder notifications.
+             ACTION_SKIP is intentionally absent: the Skip button routes directly to
+             SkipReasonPickerActivity via PendingIntent.getActivity() (Phase 9.5 / 9.6.3). -->
         <receiver
             android:name=".notifications.HabitActionReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.example.evolvix.action.DONE" />
-                <action android:name="com.example.evolvix.action.SKIP" />
                 <action android:name="com.example.evolvix.action.SNOOZE" />
             </intent-filter>
         </receiver>
 
-        <!-- Phase 9.5 — translucent Activity hosting the skip-reason ModalBottomSheet.
-             Launched by HabitActionReceiver when the user taps the "Skip" notification action.
-             FLAG_ACTIVITY_NEW_TASK is required because the launch originates from a BroadcastReceiver. -->
+        <!-- Phase 9.5 / 9.6.3 — Transparent Activity hosting the skip-reason ModalBottomSheet.
+             Launched directly by PendingIntent.getActivity() from HabitReminderWorker when the
+             user taps the "Skip" notification action. No MainActivity involvement.
+             - excludeFromRecents: dialog must not appear as a separate card in the recents switcher.
+             - launchMode=singleTop: prevents stacking multiple instances if tapped quickly.
+             - taskAffinity="": isolates the Activity from the main app's back stack. -->
         <activity
             android:name=".notifications.SkipReasonPickerActivity"
             android:exported="false"
-            android:theme="@style/Theme.Evolvix"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Evolvix.Dialog"
             android:windowSoftInputMode="adjustResize" />
 
         <!-- Phase 7.2 v2 — receives the deleteIntent fired when the user swipes away

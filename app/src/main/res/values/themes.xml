@@ -2,4 +2,19 @@
 <resources>
 
     <style name="Theme.Evolvix" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <!--
+        Phase 9.6.3 — Transparent Activity theme for SkipReasonPickerActivity.
+        windowIsTranslucent lets the home screen / current app show through;
+        the ModalBottomSheet scrim draws on top of it, creating the overlay effect.
+        windowIsFloating must stay false so the window occupies the full screen
+        and the bottom sheet anchors correctly to the bottom edge.
+    -->
+    <style name="Theme.Evolvix.Dialog" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">false</item>
+    </style>
+
 </resources>

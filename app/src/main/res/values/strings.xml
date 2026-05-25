@@ -348,6 +348,8 @@
     <string name="reminder_action_done">Done</string>
     <string name="reminder_action_skip">Skip</string>
     <string name="reminder_action_snooze">Snooze 15 min</string>
+    <!-- Phase 9.6.3 — Title shown at the top of the skip-reason bottom sheet. -->
+    <string name="skip_reason_title">Why are you skipping?</string>
 
     <!-- Phase 7 — Reminder notification body templates. The single %1$s placeholder
          is the habit name; selected by HabitPredictor.selectReminderTemplate(). -->

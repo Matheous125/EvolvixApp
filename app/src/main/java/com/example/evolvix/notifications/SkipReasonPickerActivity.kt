@@ -28,15 +28,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.example.evolvix.data.local.AppDatabase
-import com.example.evolvix.data.model.HabitSkipEntity
+import com.example.evolvix.R
+import androidx.work.ExistingWorkPolicy
+import androidx.work.WorkManager
 import com.example.evolvix.data.model.SkipReason
 import com.example.evolvix.ui.theme.EvolvixTheme
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.time.LocalDateTime
 
 /**
  * Translucent trampoline Activity (Phase 9.5) that hosts the skip-reason
@@ -52,8 +50,8 @@ import java.time.LocalDateTime
  *  1. [HabitActionReceiver] launches this Activity with [FLAG_ACTIVITY_NEW_TASK].
  *  2. The window background is set to transparent; the bottom sheet fills the scrim.
  *  3. The user taps one of the six [FilterChip]s or dismisses the sheet.
- *  4. A [HabitSkipEntity] is inserted on the IO dispatcher (fire-and-forget,
- *     mirroring the pattern in [HabitActionReceiver.recordCompletion]).
+ *  4. [RecordHabitActionWorker] is enqueued via WorkManager — write survives process death
+ *     (Phase 9.6.2 hardening; replaces the old fire-and-forget coroutine).
  *  5. The Activity finishes immediately; nothing lingers in the back stack.
  *
  * Default on dismiss (back gesture / tap outside sheet) = [SkipReason.NO_REASON].
@@ -109,22 +107,19 @@ class SkipReasonPickerActivity : ComponentActivity() {
     }
 
     /**
-     * Inserts a [HabitSkipEntity] on the IO dispatcher.
-     * Fire-and-forget: the Activity finishes immediately after this call, but Room's
-     * internal executor completes the write independently.
+     * Enqueues a [RecordHabitActionWorker] to persist the skip reason.
+     * WorkManager guarantees the write survives process death (Phase 9.6.2).
      */
     private fun recordSkip(habitId: Int, reason: SkipReason) {
-        CoroutineScope(Dispatchers.IO).launch {
-            AppDatabase.getDatabase(applicationContext)
-                .habitSkipDao()
-                .insert(
-                    HabitSkipEntity(
-                        habitId = habitId,
-                        skippedAt = LocalDateTime.now(),
-                        reason = reason
-                    )
-                )
-        }
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            RecordHabitActionWorker.uniqueName(habitId),
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            RecordHabitActionWorker.buildRequest(
+                habitId    = habitId,
+                action     = RecordHabitActionWorker.ACTION_SKIP,
+                skipReason = reason.name
+            )
+        )
     }
 }
 
@@ -143,7 +138,7 @@ private fun SkipReasonSheetContent(onReasonSelected: (SkipReason) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Why are you skipping?",
+            text = stringResource(R.string.skip_reason_title),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(vertical = 16.dp)
         )
