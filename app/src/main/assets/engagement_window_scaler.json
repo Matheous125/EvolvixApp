@@ -1,0 +1,32 @@
+{
+  "feature_columns": [
+    "dayOfWeek",
+    "isWeekend",
+    "recentAvgStartHour14d",
+    "stddevStartHour14d",
+    "sessionCountLast7d",
+    "avgSessionLengthMin",
+    "daysSinceFirstSession",
+    "prevSessionStartHour"
+  ],
+  "mean": [
+    2.998075,
+    0.284375,
+    14.192977389752865,
+    1.3512281495943665,
+    5.014325,
+    7.292861119902134,
+    60.880275,
+    14.073586000233888
+  ],
+  "scale": [
+    1.9976038882557614,
+    0.4511162370996006,
+    6.86035472291624,
+    0.4875861242592894,
+    2.24128753050014,
+    4.7549639368104,
+    59.87053566592112,
+    6.72159675345363
+  ]
+}
