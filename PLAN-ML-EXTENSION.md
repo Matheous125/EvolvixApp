@@ -195,14 +195,14 @@ These two are deeply linked; ship them together.
 ## Phase 9.5 — `HabitSkipEntity` table → Skip Reason Classifier
 
 ### 9.5.1 Data collection
-- [ ] **Model:** New entity `HabitSkipEntity(id, habitId, skippedAt, reason: SkipReason)`. New enum `SkipReason { TOO_TIRED, TOO_BUSY, FORGOT, SICK, TRAVELING, NO_REASON }`. New `HabitSkipDao` with insert + flow queries.
-- [ ] **Notification flow:** Update `HabitActionReceiver` Skip action — open a tiny bottom-sheet activity with 6 reason chips. Default = `NO_REASON` if dismissed.
-- [ ] **In-app:** Add a "Skip" item to `HabitContextMenu` with the same reason picker.
+- [x] **Model:** New entity `HabitSkipEntity(id, habitId, skippedAt, reason: SkipReason)`. New enum `SkipReason { TOO_TIRED, TOO_BUSY, FORGOT, SICK, TRAVELING, NO_REASON }`. New `HabitSkipDao` with insert + flow queries.
+- [x] **Notification flow:** Update `HabitActionReceiver` Skip action — open a tiny bottom-sheet activity with 6 reason chips. Default = `NO_REASON` if dismissed.
+- [x] **In-app:** Add a "Skip" item to `HabitContextMenu` with the same reason picker.
 
 ### 9.5.2 ML feature: Skip Reason Predictor + Resilience v2
-- [ ] **Goal A:** Given habit state + time, predict the most likely upcoming skip reason. Used proactively (e.g. on a Friday evening for a Saturday gym habit, predict `TOO_TIRED` and pre-send a gentle reminder).
-- [ ] **Goal B:** Upgrade `ResilienceScoreUseCase` — exclude `SICK` and `TRAVELING` skips from gap math; only "voluntary" skips count against resilience.
-- [ ] **Python pipeline:** Multi-class classifier (6 classes). Standard checklist.
+- [x] **Goal A:** Given habit state + time, predict the most likely upcoming skip reason. Used proactively (e.g. on a Friday evening for a Saturday gym habit, predict `TOO_TIRED` and pre-send a gentle reminder).
+- [x] **Goal B:** Upgrade `ResilienceScoreUseCase` — exclude `SICK` and `TRAVELING` skips from gap math; only "voluntary" skips count against resilience.
+- [x] **Python pipeline:** Multi-class classifier (6 classes). Standard checklist.
 
 ---
 

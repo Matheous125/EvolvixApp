@@ -7,6 +7,7 @@ import android.content.Intent
 import androidx.work.WorkManager
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.domain.usecase.ShouldResetHabitUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,20 +62,34 @@ class HabitActionReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             val dao = AppDatabase.getDatabase(context).habitDao()
             val habit = dao.getHabitById(habitId) ?: return@launch
-            val newCount = habit.currentCount + 1
-            val targetHit = newCount == habit.target
+            val now = LocalDateTime.now()
+
+            // Phase 9.6.1: Apply the same reset predicate used by HabitViewModel so that
+            // a Done tap from a closed-app notification advances lastResetDate when needed.
+            // Without this, checkAndResetProgress() on next launch would see a stale
+            // lastResetDate and zero out the count we are about to write.
+            val baseHabit = if (ShouldResetHabitUseCase()(habit, now)) {
+                val reset = habit.copy(currentCount = 0, lastResetDate = now)
+                dao.updateHabit(reset)
+                reset
+            } else {
+                habit
+            }
+
+            val newCount = baseHabit.currentCount + 1
+            val targetHit = newCount == baseHabit.target
             dao.updateHabit(
-                habit.copy(
+                baseHabit.copy(
                     currentCount = newCount,
-                    totalProgressUpdates = habit.totalProgressUpdates + 1,
-                    totalTargetReaches = if (targetHit) habit.totalTargetReaches + 1
-                                         else habit.totalTargetReaches
+                    totalProgressUpdates = baseHabit.totalProgressUpdates + 1,
+                    totalTargetReaches = if (targetHit) baseHabit.totalTargetReaches + 1
+                                         else baseHabit.totalTargetReaches
                 )
             )
             dao.insertCompletion(
                 HabitCompletionEntity(
                     habitId = habitId,
-                    progressUpdate = LocalDateTime.now(),
+                    progressUpdate = now,
                     isTargetReached = targetHit,
                     fromReminder = true,       // Phase 9.1: completion triggered by reminder tap
                     snoozeCount = snoozeCount  // Phase 9.2: number of snoozes before completing

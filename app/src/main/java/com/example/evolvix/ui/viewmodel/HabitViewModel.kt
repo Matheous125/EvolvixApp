@@ -16,6 +16,7 @@ import com.example.evolvix.domain.model.HabitUiState
 import com.example.evolvix.domain.model.SortMode
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.ScheduleReminderUseCase
+import com.example.evolvix.domain.usecase.ShouldResetHabitUseCase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -705,7 +706,6 @@ class HabitViewModel(
                 // collecting indefinitely like a Room Flow would.
                 val habitList = habitDao.getAllHabitsOnce()
                 val now = LocalDateTime.now()
-                val today = now.toLocalDate()
                 val nowMillis = System.currentTimeMillis()
 
                     habitList.forEach { habit ->
@@ -716,46 +716,9 @@ class HabitViewModel(
                             habitDao.updateHabit(habit.copy(pausedUntil = null))
                         }
 
-                        val lastReset = habit.lastResetDate.toLocalDate()
-                        // n is the "every N" multiplier stored on the habit (defaults to 1).
-                        val n = habit.frequencyN.coerceAtLeast(1)
-
-                        val shouldReset = when (habit.frequency) {
-                            HabitFrequency.Daily -> {
-                                // Reset on every Nth new day after the last reset.
-                                val nextReset = lastReset.plusDays(n.toLong())
-                                !today.isBefore(nextReset)
-                            }
-
-                            HabitFrequency.Weekly -> {
-                                // Reset on the Nth Monday strictly after the last reset date.
-                                // Days until the next Monday (strictly after lastReset, not on it).
-                                val daysToNextMonday = when (lastReset.dayOfWeek.value) {
-                                    1 -> 7L // last reset was Monday → next Monday is 7 days later
-                                    else -> (8 - lastReset.dayOfWeek.value).toLong()
-                                }
-                                val firstMonday = lastReset.plusDays(daysToNextMonday)
-                                // The Nth Monday from that first Monday (1st Monday = +0 extra weeks).
-                                val nextReset = firstMonday.plusWeeks((n - 1).toLong())
-                                !today.isBefore(nextReset)
-                            }
-
-                            HabitFrequency.Monthly -> {
-                                // Reset on the 1st day of every Nth month after the last reset.
-                                // Anchor = the 1st of the month immediately following the last reset.
-                                val anchorFirstDay = lastReset.plusMonths(1).withDayOfMonth(1)
-                                val nextReset = anchorFirstDay.plusMonths((n - 1).toLong())
-                                !today.isBefore(nextReset)
-                            }
-
-                            HabitFrequency.Yearly -> {
-                                // Reset on January 1st of every Nth year after the last reset.
-                                // Anchor = January 1st of the year immediately following the last reset.
-                                val anchorYear = lastReset.year + 1
-                                val nextReset = LocalDate.of(anchorYear + (n - 1), 1, 1)
-                                !today.isBefore(nextReset)
-                            }
-                        }
+                        // Delegate reset predicate to ShouldResetHabitUseCase — single source of
+                        // truth shared with HabitActionReceiver (notification-tap path).
+                        val shouldReset = ShouldResetHabitUseCase()(habit, now)
 
                         if (shouldReset) {
                             habitDao.updateHabit(habit.copy(
@@ -764,7 +727,7 @@ class HabitViewModel(
                             ))
                             Log.d(
                                 "HabitViewModel",
-                                "Reset progress for habit: ${habit.name} (every $n ${habit.frequency})"
+                                "Reset progress for habit: ${habit.name} (every ${habit.frequencyN} ${habit.frequency})"
                             )
                         }
                     }

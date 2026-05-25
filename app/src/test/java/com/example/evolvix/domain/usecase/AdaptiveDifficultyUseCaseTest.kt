@@ -55,21 +55,21 @@ class AdaptiveDifficultyUseCaseTest {
     fun `delta is plus 1 when all 14 days in the window are completed`() {
         // Rate = 14/14 = 100 % ≥ 90 % → delta = +1.
         val completions = (1L..14L).map { completion(it) }
-        assertEquals(1, useCase(habit, completions, today).delta)
+        assertEquals(1, useCase(habit, completions, today = today).delta)
     }
 
     @Test
     fun `delta is minus 1 when only 5 of 14 days are completed`() {
         // Rate = 5/14 ≈ 35.7 % ≤ 40 % → delta = -1.
         val completions = (1L..5L).map { completion(it) }
-        assertEquals(-1, useCase(habit, completions, today).delta)
+        assertEquals(-1, useCase(habit, completions, today = today).delta)
     }
 
     @Test
     fun `delta is 0 when completion rate is between 40 and 90 percent`() {
         // Rate = 8/14 ≈ 57 % → delta = 0.
         val completions = (1L..8L).map { completion(it) }
-        assertEquals(0, useCase(habit, completions, today).delta)
+        assertEquals(0, useCase(habit, completions, today = today).delta)
     }
 
     // ── Data sufficiency ──────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ class AdaptiveDifficultyUseCaseTest {
     fun `hasSufficientData is false for a monthly habit within the 14-day window`() {
         // Monthly: totalPeriods = (14 / 30) = 0 → coerceAtLeast(1) = 1 < MIN_PERIODS (5).
         val monthlyHabit = habit.copy(frequency = HabitFrequency.Monthly)
-        assertFalse(useCase(monthlyHabit, emptyList(), today).hasSufficientData)
+        assertFalse(useCase(monthlyHabit, emptyList(), today = today).hasSufficientData)
     }
 
     // ── Suggested target constraints ──────────────────────────────────────────
@@ -88,14 +88,14 @@ class AdaptiveDifficultyUseCaseTest {
         // habit.target = 1, rate ≤ 40 % → delta = -1 → suggestedTarget would be 0 → clamped to 1.
         val lowTargetHabit = habit.copy(target = 1)
         val completions = (1L..5L).map { completion(it) } // 35.7 % → delta = -1
-        val result = useCase(lowTargetHabit, completions, today)
+        val result = useCase(lowTargetHabit, completions, today = today)
         assertTrue("suggestedTarget must be ≥ 1", result.suggestedTarget >= 1)
     }
 
     @Test
     fun `suggestedTarget equals currentTarget plus delta`() {
         val completions = (1L..14L).map { completion(it) } // 100 % → delta = +1
-        val result = useCase(habit, completions, today)
+        val result = useCase(habit, completions, today = today)
         assertEquals(result.currentTarget + result.delta, result.suggestedTarget)
     }
 
@@ -105,6 +105,6 @@ class AdaptiveDifficultyUseCaseTest {
     fun `rollingRate is 0_5 when exactly half the window days are completed`() {
         // 7 of 14 days → 7 / 14 = 0.5.
         val completions = (1L..7L).map { completion(it) }
-        assertEquals(0.5f, useCase(habit, completions, today).rollingRate, 0.001f)
+        assertEquals(0.5f, useCase(habit, completions, today = today).rollingRate, 0.001f)
     }
 }
