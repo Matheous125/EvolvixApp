@@ -110,7 +110,9 @@ class HabitReminderWorker(
         // entirely to ScheduleReminderUseCase. Snooze bypasses both checks because
         // the user explicitly asked to be reminded again.
         val periodTargetReached = habit.currentCount >= habit.target
-        val shouldFire = isSnoozed || (!periodTargetReached && ctxFeatures.isAtRisk)
+        // Debug-test mode bypasses the smart gate entirely so the notification
+        // always fires regardless of streak-at-risk state or period completion.
+        val shouldFire = isDebugTest || isSnoozed || (!periodTargetReached && ctxFeatures.isAtRisk)
 
         // ── Build PendingIntents for the three action buttons ──
         val doneIntent = PendingIntent.getBroadcast(
@@ -121,10 +123,14 @@ class HabitReminderWorker(
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val skipIntent = PendingIntent.getBroadcast(
+        val skipIntent = PendingIntent.getActivity(
             ctx, habitId * 10 + 2,
-            Intent(ctx, HabitActionReceiver::class.java).apply {
-                action = HabitActionReceiver.ACTION_SKIP
+            // Phase 9.5 fix: use getActivity() so Android's notification-action exemption
+            // allows the picker to launch even when the app is fully killed.
+            // getActivity() from a PendingIntent tapped by the user is always allowed;
+            // startActivity() called from BroadcastReceiver.onReceive() is not (API 29+).
+            Intent(ctx, SkipReasonPickerActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 putExtra(HabitActionReceiver.EXTRA_HABIT_ID, habitId)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

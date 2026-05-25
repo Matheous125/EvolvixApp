@@ -40,6 +40,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- Phase 9.5 — translucent Activity hosting the skip-reason ModalBottomSheet.
+             Launched by HabitActionReceiver when the user taps the "Skip" notification action.
+             FLAG_ACTIVITY_NEW_TASK is required because the launch originates from a BroadcastReceiver. -->
+        <activity
+            android:name=".notifications.SkipReasonPickerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Evolvix"
+            android:windowSoftInputMode="adjustResize" />
+
         <!-- Phase 7.2 v2 — receives the deleteIntent fired when the user swipes away
              the daily-summary notification without tapping it. Used to count dismissals
              and auto-disable the summary after 7 consecutive ignores. -->

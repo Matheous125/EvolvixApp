@@ -5,6 +5,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import com.example.evolvix.data.model.HabitFrequency
+import com.example.evolvix.data.model.SkipReason
 
 /**
  * Room database type converters for custom data types.
@@ -77,4 +78,11 @@ class Converters {
 
     @TypeConverter
     fun toLocalDate(value: String?): LocalDate? = value?.let { LocalDate.parse(it) }
+
+    // ── Phase 9.5 — SkipReason converters (used by HabitSkipEntity.reason) ──
+    @TypeConverter
+    fun fromSkipReason(reason: SkipReason): String = reason.name
+
+    @TypeConverter
+    fun toSkipReason(value: String): SkipReason = SkipReason.valueOf(value)
 }

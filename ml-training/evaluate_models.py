@@ -74,6 +74,7 @@ import generate_weekly_forecast_data as gen_weekly_forecast  # noqa: E402
 import generate_snooze_disengagement_data as gen_snooze_disengagement  # noqa: E402
 import generate_target_change_data as gen_target_change  # noqa: E402
 import generate_difficulty_data as gen_difficulty  # noqa: E402
+import generate_skip_reason_data as gen_skip_reason  # noqa: E402
 from train_icon_model import name_to_ngram_string  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -1231,10 +1232,100 @@ def evaluate_difficulty_model() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Phase 9.5 — SkipReasonClassifier
+# 6-class softmax classifier predicting the most likely skip reason given
+# 8 behavioral context features. Noise classes (SICK, TRAVELING) are rare by
+# design — Macro F1 ≥ 0.35 is the acceptance threshold.
+# ---------------------------------------------------------------------------
+def evaluate_skip_reason_model() -> dict:
+    """
+    Evaluate the SkipReasonClassifier TFLite model (Phase 9.5).
+
+    Reproduces the same stratified 80/20 split (SEED=42) used in
+    train_skip_reason_model.py and reports:
+      - Test accuracy
+      - Macro F1 (acceptance gate: ≥ 0.35)
+      - Per-class precision, recall, F1 via sklearn classification_report
+      - 6×6 confusion matrix saved to data/plots/
+
+    SICK and TRAVELING are intentionally rare (noise classes); Macro F1 is
+    expected to be lower than binary/few-class models — this is documented
+    in the thesis as an observational caveats section.
+    """
+    print("\n=== Phase 9.5 — SkipReasonClassifier ===")
+
+    csv_path = HERE / "data" / "skip_reason_dataset.csv"
+    if not csv_path.exists():
+        raise FileNotFoundError(
+            f"{csv_path} missing — run generate_skip_reason_data.py first."
+        )
+
+    df = pd.read_csv(csv_path)
+    x = df[gen_skip_reason.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y = df["label"].to_numpy(dtype=np.int32)
+
+    # Same split as training (SEED=42, stratified).
+    _, x_test, _, y_test = train_test_split(
+        x, y, test_size=0.2, random_state=SEED, stratify=y
+    )
+
+    scaler = json.loads(
+        (MODELS_DIR / "skip_reason_scaler.json").read_text(encoding="utf-8")
+    )
+    mean = np.array(scaler["mean"], dtype=np.float32)
+    scale = np.array(scaler["scale"], dtype=np.float32)
+    x_test_scaled = (x_test - mean) / scale
+
+    # Raw softmax output shape: (n_test, 6).
+    probs = _tflite_predict(
+        MODELS_DIR / "skip_reason_classifier.tflite",
+        x_test_scaled,
+    )
+    y_pred = probs.argmax(axis=1).astype(np.int32)
+
+    accuracy = float((y_pred == y_test).mean())
+    macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
+    passed = "PASS" if macro_f1 >= 0.35 else "FAIL"
+
+    print(f"Test accuracy : {accuracy:.4f}")
+    print(f"Macro F1      : {macro_f1:.4f}  (threshold >= 0.35, {passed})")
+
+    class_names = gen_skip_reason.CLASS_LABELS
+    report = classification_report(
+        y_test,
+        y_pred,
+        target_names=class_names,
+        zero_division=0,
+    )
+    print("\nPer-class classification report:")
+    print(report)
+
+    # ----- Confusion matrix -----
+    cm = confusion_matrix(y_test, y_pred, labels=list(range(len(class_names))))
+    _plot_confusion_matrix(
+        cm,
+        class_names=class_names,
+        title="Phase 9.5 — SkipReasonClassifier — Confusion Matrix",
+        out_path=PLOTS_DIR / "confusion_skip_reason.png",
+    )
+    print(f"  Confusion matrix saved → {PLOTS_DIR / 'confusion_skip_reason.png'}")
+
+    return {
+        "name": "SkipReasonClassifier",
+        "task": "6-class classification",
+        "test_size": int(len(y_test)),
+        "accuracy": accuracy,
+        "macro_f1": macro_f1,
+        "passed": passed,
+        "report": report,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Markdown summary (thesis-ready table).
 # ---------------------------------------------------------------------------
 def write_summary(results: list) -> Path:
-    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement, target_change, difficulty = results
+    success, icon, reminder, abandonment, streak_break, weekly_forecast, spillover, reminder_lift, snooze_disengagement, target_change, difficulty, skip_reason = results
 
     lines = [
         "# Thesis ML Evaluation Summary",
@@ -1268,6 +1359,8 @@ def write_summary(results: list) -> Path:
         f"MAE (rounded) | {target_change['mae_rounded']:.4f} | RMSE (raw) | {target_change['rmse_raw']:.4f} |",
         f"| {difficulty['name']} | {difficulty['task']} | {difficulty['test_size']} | "
         f"MAE | {difficulty['mae']:.4f} | RMSE | {difficulty['rmse']:.4f} |",
+        f"| {skip_reason['name']} | {skip_reason['task']} | {skip_reason['test_size']} | "
+        f"Accuracy | {skip_reason['accuracy']:.4f} | Macro F1 | {skip_reason['macro_f1']:.4f} |",
         "",
         "## Generated plots",
         "",
@@ -1286,6 +1379,7 @@ def write_summary(results: list) -> Path:
         "- `scatter_target_change.png` — Phase 9.3 TargetChangeRegressor actual vs predicted scatter",
         "- `confusion_difficulty.png` — Phase 9.4 PerceivedDifficultyRegressor rounded-bucket confusion matrix",
         "- `scatter_difficulty.png` — Phase 9.4 PerceivedDifficultyRegressor actual vs predicted scatter",
+        "- `confusion_skip_reason.png` — Phase 9.5 SkipReasonClassifier 6-class confusion matrix",
         "",
         "## Model 2 — per-class classification report",
         "",
@@ -1311,6 +1405,16 @@ def write_summary(results: list) -> Path:
         snooze_disengagement["report"].rstrip(),
         "```",
         "",
+        "## Phase 9.5 \u2014 SkipReasonClassifier per-class classification report",
+        "",
+        f"Acceptance gate: Macro F1 \u2265 0.35 — **{skip_reason['passed']}** "
+        f"({skip_reason['macro_f1']:.4f}). SICK and TRAVELING are intentionally "
+        "rare noise classes; their low recall is expected and documented.",
+        "",
+        "```",
+        skip_reason["report"].rstrip(),
+        "```",
+        "",
     ]
 
     out = PLOTS_DIR / "metrics_summary.md"
@@ -1332,6 +1436,7 @@ def main() -> None:
         evaluate_snooze_disengagement_model(),
         evaluate_target_change_model(),
         evaluate_difficulty_model(),
+        evaluate_skip_reason_model(),
     ]
     evaluate_clustering_model()
     summary_path = write_summary(results)

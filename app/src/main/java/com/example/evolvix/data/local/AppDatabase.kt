@@ -9,6 +9,7 @@ import com.example.evolvix.data.model.AchievementEntity
 import com.example.evolvix.data.model.DailySummaryEntity
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.data.model.HabitSkipEntity
 import com.example.evolvix.data.model.HabitTargetHistoryEntity
 
 @TypeConverters(Converters::class)
@@ -18,9 +19,10 @@ import com.example.evolvix.data.model.HabitTargetHistoryEntity
         HabitCompletionEntity::class,
         AchievementEntity::class,
         DailySummaryEntity::class,
-        HabitTargetHistoryEntity::class
+        HabitTargetHistoryEntity::class,
+        HabitSkipEntity::class
     ],
-    version = 19, // Phase 9.4: added perceivedDifficulty column to habit_completions. Reinstall app.
+    version = 20, // Phase 9.5: added habit_skips table. Reinstall app.
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,6 +30,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun achievementDao(): AchievementDao
     abstract fun dailySummaryDao(): DailySummaryDao
     abstract fun targetHistoryDao(): TargetHistoryDao
+    abstract fun habitSkipDao(): HabitSkipDao
 
     companion object {
         @Volatile

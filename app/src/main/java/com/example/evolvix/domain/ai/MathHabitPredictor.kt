@@ -703,6 +703,83 @@ class MathHabitPredictor : HabitPredictor {
         return (base + penalty).coerceIn(1f, 5f)
     }
 
+    // ── Phase 9.5 — Skip Reason Classifier (rule-based prior) ────────────────
+
+    /**
+     * Rule-based prior for [predictSkipReason].
+     *
+     * Mirrors the logit priors from `generate_skip_reason_data.py` but expressed as
+     * unnormalized scores which are then softmax-normalised before returning. This
+     * ensures the output is a valid probability distribution over all six
+     * [com.example.evolvix.data.model.SkipReason] values even without a TFLite model.
+     *
+     * Rules (directly matching the Python generator's logit priors):
+     * - TOO_TIRED  : elevated late evening / night (hour ≥ 20 or ≤ 5) and on Fri/Sun.
+     * - TOO_BUSY   : elevated weekday work hours (Mon–Wed, 9–18) and weekly habits.
+     * - FORGOT     : elevated for very new habits (age < 14 d) and zero-streak.
+     * - SICK       : low flat prior — not predictable from behavioral features.
+     * - TRAVELING  : low flat prior with mild weekend lift.
+     * - NO_REASON  : moderate base; strongest when no other signal is dominant.
+     *
+     * This fallback intentionally reflects the *prior* distribution, not a learned
+     * discriminative boundary — the TFLite model provides the refinement.
+     */
+    override fun predictSkipReason(
+        features: SkipReasonFeatures
+    ): Map<com.example.evolvix.data.model.SkipReason, Float> {
+        val scores = FloatArray(6)
+
+        // TOO_TIRED (index 0)
+        scores[0] = -0.3f
+        if (features.hourOfDay >= 20 || features.hourOfDay <= 5) scores[0] += 2.0f
+        if (features.dayOfWeek == 5 || features.dayOfWeek == 7)  scores[0] += 1.5f
+        if (features.completionRateLast7Days < 0.30f)             scores[0] += 1.0f
+        if (features.hourOfDay in 8..12)                          scores[0] -= 1.5f
+
+        // TOO_BUSY (index 1)
+        scores[1] = -0.2f
+        if (features.dayOfWeek in 1..3 && features.hourOfDay in 9..18) scores[1] += 2.0f
+        if (features.currentStreak >= 10 && features.recentSkipRate14d > 0.2f) scores[1] += 1.5f
+        if (features.frequencyOrdinal == 1)                        scores[1] += 1.0f
+        if (features.dayOfWeek == 6 || features.dayOfWeek == 7)   scores[1] -= 1.0f
+
+        // FORGOT (index 2)
+        scores[2] = 0.0f
+        if (features.habitAge < 14)                               scores[2] += 2.5f
+        if (features.recentSkipRate14d > 0.40f)                   scores[2] += 1.5f
+        if (features.currentStreak == 0)                          scores[2] += 1.0f
+        if (features.hourOfDay in 0..7)                           scores[2] += 0.5f
+        if (features.currentStreak >= 14)                         scores[2] -= 2.0f
+        if (features.completionRateLast7Days >= 0.70f)            scores[2] -= 1.0f
+
+        // SICK (index 3) — low flat prior; illness is not behaviorally predictable
+        scores[3] = -1.5f + 0.5f
+        if (features.habitAge > 180) scores[3] += 0.3f
+
+        // TRAVELING (index 4) — lowest flat prior with weekend lift
+        scores[4] = -1.8f
+        if (features.dayOfWeek in 5..7)     scores[4] += 1.0f
+        if (features.frequencyOrdinal >= 1) scores[4] += 0.5f
+        if (features.habitAge > 90)         scores[4] += 0.3f
+
+        // NO_REASON (index 5) — catch-all; wins when all other signals are weak
+        scores[5] = 0.2f
+        if (features.completionRateLast30Days in 0.35f..0.65f)     scores[5] += 1.5f
+        if (features.recentSkipRate14d in 0.10f..0.40f)            scores[5] += 1.0f
+        if (features.hourOfDay in 20..23)                           scores[5] -= 1.5f
+        if (features.habitAge < 14)                                 scores[5] -= 1.0f
+
+        // Softmax normalisation so values sum to 1.0
+        val maxScore = scores.max()
+        val expScores = FloatArray(6) { kotlin.math.exp((scores[it] - maxScore).toDouble()).toFloat() }
+        val sumExp = expScores.sum()
+        val probs = FloatArray(6) { expScores[it] / sumExp }
+
+        return com.example.evolvix.data.model.SkipReason.entries
+            .zip(probs.toList())
+            .associate { (reason, prob) -> reason to prob }
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     /**

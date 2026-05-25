@@ -40,6 +40,9 @@ import com.example.evolvix.ui.viewmodel.HabitViewModel
 import com.example.evolvix.ui.viewmodel.SummaryInboxViewModel
 import com.example.evolvix.ui.viewmodel.SummaryInboxViewModelFactory
 import com.example.evolvix.BuildConfig
+import android.content.Intent
+import com.example.evolvix.notifications.HabitActionReceiver
+import com.example.evolvix.notifications.SkipReasonPickerActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Inbox
@@ -381,6 +384,22 @@ fun MainScreen(
                                         if (firstId != null) {
                                             com.example.evolvix.notifications.DebugTriggers
                                                 .fireReminderSoon(appCtx, firstId)
+                                        }
+                                    }
+                                )
+                                // Phase 9.5: launch the SkipReasonPickerActivity directly,
+                                // bypassing the notification action receiver, for UI testing.
+                                DropdownMenuItem(
+                                    text = { Text("Test skip reason picker") },
+                                    onClick = {
+                                        debugMenuExpanded = false
+                                        val firstId = allHabitsUiState.firstOrNull()?.id
+                                        if (firstId != null) {
+                                            val intent = Intent(appCtx, SkipReasonPickerActivity::class.java).apply {
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                putExtra(com.example.evolvix.notifications.HabitActionReceiver.EXTRA_HABIT_ID, firstId)
+                                            }
+                                            appCtx.startActivity(intent)
                                         }
                                     }
                                 )
@@ -1414,10 +1433,20 @@ private fun HabitRow(
     reorderMode: Boolean,
     onTriggerReorder: () -> Unit
 ) {
+    val context = LocalContext.current
     // Long press opens the 7-action DropdownMenu (IDEAS.MD §4.4)
     HabitContextMenu(
         habit = habit,
         onMarkProgress = { viewModel.incrementHabitCompletion(habit.id) },
+        onSkip = {
+            // Phase 9.5: launch the translucent SkipReasonPickerActivity so the user
+            // can tag today's skip with a reason from the main-screen context menu.
+            val pickerIntent = Intent(context, SkipReasonPickerActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra(HabitActionReceiver.EXTRA_HABIT_ID, habit.id)
+            }
+            context.startActivity(pickerIntent)
+        },
         onNavigateToStatistics = onNavigateToStatistics,
         onPauseUntil = { until -> viewModel.pauseHabit(habit.id, until) },
         onResume = { viewModel.resumeHabit(habit.id) },

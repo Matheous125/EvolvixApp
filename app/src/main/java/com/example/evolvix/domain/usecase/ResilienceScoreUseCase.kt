@@ -1,6 +1,7 @@
 package com.example.evolvix.domain.usecase
 
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.data.model.HabitSkipEntity
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.ResilienceScore
@@ -17,6 +18,14 @@ import com.example.evolvix.domain.model.ResilienceScore
  * The underlying algorithm (in [MathHabitPredictor]) walks the sorted list of
  * "target reached" period keys and measures gaps between consecutive ones.
  * Each gap > 1 period is a "recovery event"; the average gap length is returned.
+ *
+ * **Phase 9.5 — involuntary-skip compensation:** Skips whose
+ * [com.example.evolvix.data.model.SkipReason.isInvoluntary] flag is true
+ * ([com.example.evolvix.data.model.SkipReason.SICK] and
+ * [com.example.evolvix.data.model.SkipReason.TRAVELING]) are injected as virtual
+ * "target reached" completions before the resilience computation. This prevents
+ * illness or travel from inflating the user's average recovery time — a gap caused
+ * by an involuntary reason should not penalize the resilience score.
  *
  * Qualification tiers for [ResilienceScore.Rating]:
  * - **EXCELLENT** — avg < 1.5 periods  (near-instant recovery)
@@ -43,16 +52,36 @@ class ResilienceScoreUseCase(
     /**
      * Computes a [ResilienceScore] for [habit] given its [completions] history.
      *
-     * @param habit       Domain model of the habit to evaluate (provides frequency for period math).
-     * @param completions All historical completion records for this habit.
+     * @param habit             Domain model of the habit (provides frequency for period math).
+     * @param completions       All historical completion records for this habit.
+     * @param involuntarySkips  Skip records classified as [com.example.evolvix.data.model.SkipReason.SICK]
+     *                          or [com.example.evolvix.data.model.SkipReason.TRAVELING] from
+     *                          [HabitSkipDao]. Each record whose [HabitSkipEntity.reason] has
+     *                          [com.example.evolvix.data.model.SkipReason.isInvoluntary] = true is
+     *                          injected as a virtual "target reached" completion so the gap-averaging
+     *                          algorithm ignores those periods. Defaults to empty (no compensation).
      * @return [ResilienceScore] with avg missed periods, event count, and qualitative rating,
      *         or `null` if there are no recovery events to measure.
      */
     operator fun invoke(
         habit: HabitData,
-        completions: List<HabitCompletionEntity>
+        completions: List<HabitCompletionEntity>,
+        involuntarySkips: List<HabitSkipEntity> = emptyList()
     ): ResilienceScore? {
-        val avgMissed = predictor.computeResilience(habit, completions) ?: return null
+        // Inject each involuntary skip as a virtual "target reached" completion so the
+        // resilience algorithm treats that period as fulfilled rather than a gap.
+        val virtualCompletions: List<HabitCompletionEntity> = involuntarySkips
+            .filter { it.reason.isInvoluntary }
+            .map { skip ->
+                HabitCompletionEntity(
+                    habitId = skip.habitId,
+                    progressUpdate = skip.skippedAt,
+                    isTargetReached = true
+                )
+            }
+
+        val effectiveCompletions = completions + virtualCompletions
+        val avgMissed = predictor.computeResilience(habit, effectiveCompletions) ?: return null
 
         val rating = when {
             avgMissed < THRESHOLD_EXCELLENT -> ResilienceScore.Rating.EXCELLENT
@@ -66,7 +95,7 @@ class ResilienceScoreUseCase(
         // to (distinct reached periods - 1) only when every consecutive pair had a gap.
         // The safe lower bound is 1 when avgMissed is non-null (at least one gap was observed).
         val recoveryEventCount = if (avgMissed > 0.0) {
-            completions
+            effectiveCompletions
                 .filter { it.isTargetReached }
                 .map { it.progressUpdate.toLocalDate() }
                 .distinct()

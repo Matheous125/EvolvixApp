@@ -398,4 +398,39 @@ interface HabitPredictor {
      * (`5 − 4 × rate30d`, clipped to [1,5]) (Strategy + Dependency Inversion).
      */
     fun predictPerceivedDifficulty(features: DifficultyFeatures): Float
+
+    // ── Phase 9.5 — Skip Reason Classifier ────────────────────────────────────
+
+    /**
+     * Returns a probability distribution over the six [com.example.evolvix.data.model.SkipReason]
+     * classes, given a pre-computed [SkipReasonFeatures] vector.
+     *
+     * The returned map contains exactly one entry per [SkipReason] enum constant.
+     * Values are softmax probabilities in [0.0, 1.0] summing to ≈ 1.0.
+     * The caller ([com.example.evolvix.domain.usecase.SkipReasonPredictorUseCase]) wraps
+     * the map in a [com.example.evolvix.domain.model.SkipReasonPrediction] via
+     * [com.example.evolvix.domain.model.SkipReasonPrediction.fromSoftmax].
+     *
+     * Returning the **full distribution** (not just argmax) is intentional:
+     * [com.example.evolvix.data.model.SkipReason.SICK] and
+     * [com.example.evolvix.data.model.SkipReason.TRAVELING] are inherently unpredictable
+     * from behavioral features, so when confidence is low the View layer can present all
+     * reason chips without a pre-selected highlight (see
+     * [com.example.evolvix.domain.model.SkipReasonPrediction.LOW_CONFIDENCE_THRESHOLD]).
+     *
+     * ⚠ **Thesis note (observational caveat):** Predictions reflect learned
+     * associations between context features (hour, day, rate) and past skip reasons —
+     * not causal explanations of why skipping occurs. Present as "predicted skip reason
+     * given current context."
+     *
+     * ⚠ **Noise-class caveat:** SICK and TRAVELING have low per-class F1 (~0.05–0.15)
+     * because illness and travel cannot be anticipated from behavioral features. This is
+     * expected and correct; a high-uncertainty output for those two classes is the model
+     * behaving as designed, not a defect.
+     *
+     * Backed by `skip_reason_classifier.tflite` (8-feature MLP, 6-way softmax output)
+     * in [TfliteHabitPredictor]; [MathHabitPredictor] provides a rule-based prior
+     * returning a probability map without a neural network (Strategy + Dependency Inversion).
+     */
+    fun predictSkipReason(features: SkipReasonFeatures): Map<com.example.evolvix.data.model.SkipReason, Float>
 }

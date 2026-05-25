@@ -50,6 +50,8 @@ class TfliteHabitPredictor(
     private val targetChangeInterpreter: Interpreter?
     // Phase 9.4 — PerceivedDifficultyRegressor
     private val difficultyInterpreter: Interpreter?
+    // Phase 9.5 — SkipReasonClassifier
+    private val skipReasonInterpreter: Interpreter?
 
     // ── Pre-loaded normalization tables (parallel-indexed with feature vectors) ──
 
@@ -86,6 +88,12 @@ class TfliteHabitPredictor(
     private val difficultyMean: FloatArray
     private val difficultyScale: FloatArray
 
+    // Phase 9.5
+    private val skipReasonMean: FloatArray
+    private val skipReasonScale: FloatArray
+    /** Ordered list of [com.example.evolvix.data.model.SkipReason] names as stored in `skip_reason_scaler.json`. */
+    private val skipReasonClassLabels: List<String>
+
     // ── Phase 8.4 — K-Means cluster tables (no Interpreter — JSON + Kotlin math) ──
     private val clusterMean: FloatArray
     private val clusterScale: FloatArray
@@ -113,6 +121,7 @@ class TfliteHabitPredictor(
         snoozeDisengagementInterpreter = tryLoadModel(context, "snooze_disengagement_classifier.tflite")
         targetChangeInterpreter = tryLoadModel(context, "target_change_regressor.tflite")
         difficultyInterpreter = tryLoadModel(context, "perceived_difficulty_regressor.tflite")
+        skipReasonInterpreter = tryLoadModel(context, "skip_reason_classifier.tflite")
 
         val successJson = readJsonAsset(context, "success_scaler.json")
         successMean = successJson?.toFloatArray("mean") ?: FloatArray(SUCCESS_FEATURE_COUNT)
@@ -156,6 +165,12 @@ class TfliteHabitPredictor(
         val difficultyJson = readJsonAsset(context, "perceived_difficulty_scaler.json")
         difficultyMean = difficultyJson?.toFloatArray("mean") ?: FloatArray(DIFFICULTY_FEATURE_COUNT)
         difficultyScale = difficultyJson?.toFloatArray("scale") ?: FloatArray(DIFFICULTY_FEATURE_COUNT) { 1f }
+
+        // Phase 9.5 — SkipReasonClassifier scaler + class labels
+        val skipReasonJson = readJsonAsset(context, "skip_reason_scaler.json")
+        skipReasonMean = skipReasonJson?.toFloatArray("mean") ?: FloatArray(SKIP_REASON_FEATURE_COUNT)
+        skipReasonScale = skipReasonJson?.toFloatArray("scale") ?: FloatArray(SKIP_REASON_FEATURE_COUNT) { 1f }
+        skipReasonClassLabels = skipReasonJson?.toStringList("class_labels") ?: emptyList()
 
         // habit_clusters.json carries everything needed for K-Means inference —
         // no Interpreter is loaded because nearest-centroid math is done in Kotlin.
@@ -558,6 +573,58 @@ class TfliteHabitPredictor(
         }
     }
 
+    // ── Phase 9.5 — Skip Reason Classifier ────────────────────────────────────
+
+    /**
+     * TFLite inference for [HabitPredictor.predictSkipReason].
+     *
+     * Runs the 8-feature MLP through `skip_reason_classifier.tflite` (6-way softmax
+     * output). Features are standard-scaled using `skip_reason_scaler.json` before
+     * inference. The raw `float[6]` output is mapped to
+     * [com.example.evolvix.data.model.SkipReason] values using [skipReasonClassLabels]
+     * (the `class_labels` array in the scaler JSON), preserving the exact ordering that
+     * the Python training script used.
+     *
+     * Graceful degradation: null interpreter, label mismatch, or any runtime exception
+     * → fallback to [MathHabitPredictor.predictSkipReason] (Strategy + Dependency Inversion).
+     *
+     * ⚠ SICK and TRAVELING produce low per-class F1 by design; high output entropy on
+     * those two classes is expected and correct — not an inference bug.
+     */
+    override fun predictSkipReason(
+        features: SkipReasonFeatures
+    ): Map<com.example.evolvix.data.model.SkipReason, Float> {
+        val interp = skipReasonInterpreter
+            ?: return mathFallback.predictSkipReason(features)
+        return try {
+            val raw = features.toFloatArray()
+            val scaled = standardScale(raw, skipReasonMean, skipReasonScale)
+            val input = Array(1) { scaled }
+            val output = Array(1) { FloatArray(SKIP_REASON_CLASS_COUNT) }
+            interp.run(input, output)
+            val probs = output[0]
+
+            // Map each output index → SkipReason enum by name via class_labels.
+            buildMap {
+                probs.forEachIndexed { idx, prob ->
+                    val name = skipReasonClassLabels.getOrNull(idx)
+                    val reason = name?.let {
+                        runCatching { com.example.evolvix.data.model.SkipReason.valueOf(it) }.getOrNull()
+                    }
+                    if (reason != null) put(reason, prob.coerceIn(0f, 1f))
+                }
+                // Fill in any missing enum values with 0.0 (should not happen unless
+                // the scaler JSON is truncated, but guards against partial failures).
+                com.example.evolvix.data.model.SkipReason.entries.forEach { r ->
+                    putIfAbsent(r, 0f)
+                }
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "predictSkipReason inference failed; using math fallback", t)
+            mathFallback.predictSkipReason(features)
+        }
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /**
@@ -680,6 +747,8 @@ class TfliteHabitPredictor(
         private const val SNOOZE_DISENGAGEMENT_FEATURE_COUNT = 7
         private const val TARGET_CHANGE_FEATURE_COUNT = 8   // Phase 9.3
         private const val DIFFICULTY_FEATURE_COUNT = 8       // Phase 9.4
+        private const val SKIP_REASON_FEATURE_COUNT = 8       // Phase 9.5
+        private const val SKIP_REASON_CLASS_COUNT = 6         // Phase 9.5
         private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }

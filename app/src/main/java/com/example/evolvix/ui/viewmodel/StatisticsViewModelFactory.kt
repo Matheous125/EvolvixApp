@@ -3,6 +3,7 @@ package com.example.evolvix.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.evolvix.data.local.HabitDao
+import com.example.evolvix.data.local.HabitSkipDao
 import com.example.evolvix.data.local.TargetHistoryDao
 import com.example.evolvix.domain.ai.HabitPredictor
 
@@ -19,16 +20,18 @@ import com.example.evolvix.domain.ai.HabitPredictor
  * @property dao              Data Access Object passed through to the ViewModel.
  * @property predictor        AI strategy passed through to the ViewModel (Phase 6.5).
  * @property targetHistoryDao DAO for the target-change audit log (Phase 9.3).
+ * @property habitSkipDao     DAO for skip records (Phase 9.5).
  */
 class StatisticsViewModelFactory(
     private val dao: HabitDao,
     private val predictor: HabitPredictor,
-    private val targetHistoryDao: TargetHistoryDao
+    private val targetHistoryDao: TargetHistoryDao,
+    private val habitSkipDao: HabitSkipDao
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(StatisticsViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return StatisticsViewModel(dao, predictor, targetHistoryDao) as T
+            return StatisticsViewModel(dao, predictor, targetHistoryDao, habitSkipDao) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

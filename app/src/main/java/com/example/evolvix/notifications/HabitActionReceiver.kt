@@ -42,11 +42,9 @@ class HabitActionReceiver : BroadcastReceiver() {
                 SnoozePreferences.reset(context.applicationContext, habitId)
                 recordCompletion(context.applicationContext, habitId, snoozes)
             }
-            ACTION_SKIP   -> {
-                // Phase 9.2: a skip ends the reminder cycle; reset the counter so the
-                // next reminder starts from zero rather than accumulating across cycles.
-                SnoozePreferences.reset(context.applicationContext, habitId)
-            }
+            // ACTION_SKIP is intentionally absent: the Skip notification button now uses
+            // PendingIntent.getActivity() → SkipReasonPickerActivity directly, bypassing
+            // this receiver. The activity handles notification cancellation + snooze reset.
             ACTION_SNOOZE -> snooze(context.applicationContext, habitId)
         }
     }

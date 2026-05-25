@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.evolvix.data.local.DatabaseSeeder
 import com.example.evolvix.data.local.HabitDao
+import com.example.evolvix.data.local.HabitSkipDao
 import com.example.evolvix.data.local.TargetHistoryDao
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.ai.HabitPredictor
@@ -11,6 +12,7 @@ import com.example.evolvix.domain.model.AbandonmentRisk
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.PerceivedDifficultyEstimate
+import com.example.evolvix.domain.model.SkipReasonPrediction
 import com.example.evolvix.domain.model.ReminderLift
 import com.example.evolvix.domain.model.SnoozeDisengagementRisk
 import com.example.evolvix.domain.model.StreakBreakRisk
@@ -24,6 +26,7 @@ import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
 import com.example.evolvix.domain.usecase.BehavioralClusterUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
 import com.example.evolvix.domain.usecase.DifficultyEstimateUseCase
+import com.example.evolvix.domain.usecase.SkipReasonPredictorUseCase
 import com.example.evolvix.domain.usecase.ReminderEffectivenessUseCase
 import com.example.evolvix.domain.usecase.SnoozeDisengagementUseCase
 import com.example.evolvix.domain.usecase.StreakBreakUseCase
@@ -62,7 +65,9 @@ class StatisticsViewModel(
     private val dao: HabitDao,
     private val predictor: HabitPredictor,
     // Phase 9.3: needed by TargetAdjustmentUseCase to read the target-change audit log.
-    private val targetHistoryDao: TargetHistoryDao
+    private val targetHistoryDao: TargetHistoryDao,
+    // Phase 9.5: needed by SkipReasonPredictorUseCase to read skip history.
+    private val habitSkipDao: HabitSkipDao
 ) : ViewModel() {
 
     // Pure-function interactors — stateless, safe to reuse across Flow emissions.
@@ -82,6 +87,8 @@ class StatisticsViewModel(
     private val targetAdjustmentUseCase = TargetAdjustmentUseCase(predictor, targetHistoryDao)
     // Phase 9.4 — Perceived Difficulty Regressor
     private val difficultyEstimateUseCase = DifficultyEstimateUseCase(predictor)
+    // Phase 9.5 — Skip Reason Classifier
+    private val skipReasonPredictorUseCase = SkipReasonPredictorUseCase(predictor)
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -571,6 +578,64 @@ class StatisticsViewModel(
                 totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
             )
             habit.id to difficultyEstimateUseCase(habitData, habitCompletions, streak.current, today)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = emptyMap()
+    )
+
+    /**
+     * Predicted skip-reason distribution for every habit, keyed by habit ID (Phase 9.5).
+     *
+     * For each habit, [SkipReasonPredictorUseCase] derives the 8 [SkipReasonFeatures]
+     * from the completions history and the last-14-days skip records, then delegates
+     * 6-class softmax inference to the injected [HabitPredictor].
+     *
+     * The resulting [SkipReasonPrediction] exposes:
+     *  - [SkipReasonPrediction.distribution] — full softmax map for all 6 classes.
+     *  - [SkipReasonPrediction.topReason] — enum value with the highest probability.
+     *  - [SkipReasonPrediction.topConfidence] — used to decide whether to pre-select a chip.
+     *  - [SkipReasonPrediction.hasSufficientData] — false when fewer than
+     *    [SkipReasonPredictorUseCase.MIN_SKIPS] skip records exist for this habit.
+     *
+     * The [SkipReasonForecastCard] in StatisticsScreen filters out habits with
+     * [SkipReasonPrediction.hasSufficientData] = false.
+     *
+     * ⚠ **Observational caveat (thesis):** Outputs reflect learned associations between
+     * context features and skip reasons — not causal diagnoses. Present as "predicted
+     * skip reason given current context" in all thesis documentation.
+     *
+     * (Pattern: Observer via StateFlow — same upstream habits/completions pair;
+     *  skip records are fetched inside the combine suspend block via [HabitSkipDao.getAllRecent])
+     */
+    val skipReasonPredictions: StateFlow<Map<Int, SkipReasonPrediction>> = combine(
+        dao.getAllHabits(),
+        dao.getAllCompletions()
+    ) { habits, completions ->
+        val today = LocalDate.now()
+        // getAllRecent is a suspend function — safe to call here because the combine
+        // transform lambda runs in a coroutine context (viewModelScope).
+        val since14d = LocalDateTime.now().minusDays(14)
+        val allRecentSkips = habitSkipDao.getAllRecent(since14d)
+
+        habits.associate { habit ->
+            val habitCompletions = completions.filter { it.habitId == habit.id }
+            val recentSkips = allRecentSkips.filter { it.habitId == habit.id }
+            val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
+            val habitData = HabitData(
+                id = habit.id, name = habit.name, currentCount = habit.currentCount,
+                frequency = habit.frequency, target = habit.target,
+                totalProgressUpdates = habit.totalProgressUpdates,
+                totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
+            )
+            habit.id to skipReasonPredictorUseCase(
+                habit = habitData,
+                completions = habitCompletions,
+                recentSkips = recentSkips,
+                currentStreak = streak.current,
+                today = today
+            )
         }
     }.stateIn(
         scope = viewModelScope,

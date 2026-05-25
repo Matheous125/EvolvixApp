@@ -70,10 +70,12 @@ import com.example.evolvix.domain.model.SnoozeDisengagementRisk
 import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.model.StreakBreakRisk
 import com.example.evolvix.domain.model.PerceivedDifficultyEstimate
+import com.example.evolvix.domain.model.SkipReasonPrediction
 import com.example.evolvix.domain.model.TargetAdjustment
 import com.example.evolvix.domain.model.PerHabitStats
 import com.example.evolvix.domain.model.WeeklyForecast
 import com.example.evolvix.domain.model.WeeklyOverview
+import com.example.evolvix.domain.usecase.SkipReasonPredictorUseCase
 import com.example.evolvix.ui.components.BarChartDay
 import com.example.evolvix.ui.components.ScrollableBarChart
 import com.example.evolvix.ui.components.Sparkline
@@ -138,7 +140,9 @@ fun StatisticsScreen(
             // singleton so all ViewModels share one Interpreter instance.
             predictor = com.example.evolvix.domain.ai.AiContainer.predictor(LocalContext.current),
             // Phase 9.3: pass the DAO so TargetAdjustmentUseCase can read the audit log.
-            targetHistoryDao = AppDatabase.getDatabase(LocalContext.current).targetHistoryDao()
+            targetHistoryDao = AppDatabase.getDatabase(LocalContext.current).targetHistoryDao(),
+            // Phase 9.5: pass the DAO so SkipReasonPredictorUseCase can read skip history.
+            habitSkipDao = AppDatabase.getDatabase(LocalContext.current).habitSkipDao()
         )
     )
 ) {
@@ -158,6 +162,8 @@ fun StatisticsScreen(
     val targetAdjustments by viewModel.targetAdjustments.collectAsState()
     // Phase 9.4: predicted difficulty per habit from DifficultyEstimateUseCase.
     val difficultyEstimates by viewModel.difficultyEstimates.collectAsState()
+    // Phase 9.5: predicted skip reason per habit from SkipReasonPredictorUseCase.
+    val skipReasonPredictions by viewModel.skipReasonPredictions.collectAsState()
 
     Scaffold(
         topBar = {
@@ -255,6 +261,16 @@ fun StatisticsScreen(
                     estimates = difficultyEstimates,
                     habitNames = perHabit.associate { it.habit.id to it.habit.name }
                 )
+            }
+
+            // Phase 9.5 — Skip Reason Forecast card (shown when ≥1 habit has ≥3 skip records)
+            if (skipReasonPredictions.values.any { it.hasSufficientData }) {
+                item {
+                    SkipReasonForecastCard(
+                        predictions = skipReasonPredictions,
+                        habitNames = perHabit.associate { it.habit.id to it.habit.name }
+                    )
+                }
             }
 
             if (perHabit.isEmpty()) {
@@ -1740,5 +1756,142 @@ private fun DifficultyRow(
                 ),
             )
         }
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  SKIP REASON FORECAST CARD (Phase 9.5)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * ElevatedCard listing the predicted most-likely skip reason for each habit that has
+ * accumulated at least [SkipReasonPredictorUseCase.MIN_SKIPS] skip records.
+ *
+ * The card is conditionally shown from [StatisticsScreen] only when at least one habit
+ * satisfies the data-sufficiency threshold. Predictions come from
+ * [com.example.evolvix.ui.viewmodel.StatisticsViewModel.skipReasonPredictions], which
+ * delegates to [com.example.evolvix.domain.usecase.SkipReasonPredictorUseCase] and
+ * ultimately to [com.example.evolvix.domain.ai.HabitPredictor.predictSkipReason].
+ *
+ * Observational caveat (thesis): the classifier learns correlations between behavioural
+ * context features and recorded skip reasons — it does NOT establish causality.
+ *
+ * @param predictions Map of habitId → [SkipReasonPrediction] for all tracked habits.
+ * @param habitNames  Map of habitId → display name used for row labels.
+ */
+@Composable
+private fun SkipReasonForecastCard(
+    predictions: Map<Int, SkipReasonPrediction>,
+    habitNames: Map<Int, String>,
+) {
+    // Filter to only habits with sufficient skip data, sorted by confidence descending.
+    val entries = predictions.entries
+        .filter { (_, pred) -> pred.hasSufficientData }
+        .sortedByDescending { (_, pred) -> pred.topConfidence }
+        .mapNotNull { (habitId, pred) ->
+            val name = habitNames[habitId] ?: return@mapNotNull null
+            Pair(name, pred)
+        }
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Skip Reason Forecast",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Predicted most likely skip reason per habit based on behavioural context (Phase 9.5).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            if (entries.isEmpty()) {
+                Text(
+                    text = "Keep logging skips — predictions appear once a habit has at least " +
+                        "${SkipReasonPredictorUseCase.MIN_SKIPS} skip records.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                entries.forEachIndexed { index, (name, prediction) ->
+                    if (index > 0) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                    SkipReasonForecastRow(habitName = name, prediction = prediction)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Single row inside [SkipReasonForecastCard].
+ *
+ * Shows the habit name, predicted top reason label, a confidence progress bar, and
+ * a "(low confidence)" note when [SkipReasonPrediction.topConfidence] is below
+ * [SkipReasonPrediction.LOW_CONFIDENCE_THRESHOLD].
+ *
+ * @param habitName  Display name of the habit.
+ * @param prediction [SkipReasonPrediction] containing the top reason and softmax distribution.
+ */
+@Composable
+private fun SkipReasonForecastRow(
+    habitName: String,
+    prediction: SkipReasonPrediction,
+) {
+    val isLowConfidence = prediction.topConfidence < SkipReasonPrediction.LOW_CONFIDENCE_THRESHOLD
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = habitName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            AssistChip(
+                onClick = {},
+                label = {
+                    Text(
+                        text = prediction.topReason.displayLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                },
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = if (isLowConfidence)
+                        MaterialTheme.colorScheme.surfaceVariant
+                    else
+                        MaterialTheme.colorScheme.secondaryContainer,
+                    labelColor = if (isLowConfidence)
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    else
+                        MaterialTheme.colorScheme.onSecondaryContainer,
+                ),
+            )
+        }
+        // Confidence bar — visual indicator of model certainty for the top reason.
+        Spacer(Modifier.height(4.dp))
+        LinearProgressIndicator(
+            progress = { prediction.topConfidence },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp)),
+        )
+        Spacer(Modifier.height(2.dp))
+        val confidencePct = (prediction.topConfidence * 100).roundToInt()
+        Text(
+            text = if (isLowConfidence) "$confidencePct% confidence (low — multiple reasons likely)"
+                   else "$confidencePct% confidence",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
