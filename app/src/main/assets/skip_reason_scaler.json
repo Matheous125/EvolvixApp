@@ -1,0 +1,40 @@
+{
+  "feature_columns": [
+    "habitAge",
+    "completionRateLast7Days",
+    "completionRateLast30Days",
+    "currentStreak",
+    "dayOfWeek",
+    "hourOfDay",
+    "frequencyOrdinal",
+    "recentSkipRate14d"
+  ],
+  "mean": [
+    70.75378125,
+    0.6216492481050195,
+    0.6240350535657999,
+    8.527421875,
+    3.98603125,
+    14.585234375,
+    0.401546875,
+    0.3047359430626966
+  ],
+  "scale": [
+    70.14674285080652,
+    0.23967678528988248,
+    0.22750521417118247,
+    9.01823142532782,
+    2.0023638840191866,
+    6.77942549935655,
+    0.6641212104562345,
+    0.15218040076179554
+  ],
+  "class_labels": [
+    "TOO_TIRED",
+    "TOO_BUSY",
+    "FORGOT",
+    "SICK",
+    "TRAVELING",
+    "NO_REASON"
+  ]
+}

@@ -182,13 +182,13 @@ These two are deeply linked; ship them together.
 ## Phase 9.4 — `perceivedDifficulty: Int?` → Difficulty-Aware Models
 
 ### 9.4.1 Data collection
-- [ ] **Model:** Add `val perceivedDifficulty: Int? = null` to `HabitCompletionEntity`. Range 1–5. Bump DB version.
-- [ ] **View:** Add a small star-rating row to `ProgressItem` that appears for ~5 seconds after a completion. Tap to set, otherwise stays null. No friction if ignored.
-- [ ] **DAO:** Add `getCompletionsWithDifficulty(habitId)` for analytics queries.
+- [x] **Model:** Add `val perceivedDifficulty: Int? = null` to `HabitCompletionEntity`. Range 1–5. Bump DB version.
+- [x] **View:** Add a small star-rating row to `ProgressItem` that appears for ~5 seconds after a completion. Tap to set, otherwise stays null. No friction if ignored.
+- [x] **DAO:** Add `getCompletionsWithDifficulty(habitId)` for analytics queries.
 
 ### 9.4.2 ML feature: True Difficulty Estimator + Adaptive Difficulty v2
-- [ ] **Goal:** Train a regressor predicting expected `perceivedDifficulty` given the habit's profile, day, hour, streak, and energy state. Combine with `targetVersion` model to suggest target changes weighted by user-reported difficulty, not just completion rate.
-- [ ] **Python pipeline + integration:** Standard checklist. Model 1 retrain optional: add `recentAvgDifficulty` as an 8th feature for improved success prediction.
+- [x] **Goal:** Train a regressor predicting expected `perceivedDifficulty` given the habit's profile, day, hour, streak, and energy state. Combine with `targetVersion` model to suggest target changes weighted by user-reported difficulty, not just completion rate.
+- [x] **Python pipeline + integration:** Standard checklist. Model 1 retrain optional: add `recentAvgDifficulty` as an 8th feature for improved success prediction.
 
 ---
 
