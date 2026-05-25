@@ -4,17 +4,11 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.work.WorkManager
-import com.example.evolvix.data.local.AppDatabase
-import com.example.evolvix.data.model.HabitCompletionEntity
-import com.example.evolvix.domain.usecase.ShouldResetHabitUseCase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.time.LocalDateTime
-import java.util.concurrent.TimeUnit
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.workDataOf
+import java.util.concurrent.TimeUnit
 
 /**
  * Receives the action-button taps fired from a habit reminder notification
@@ -41,60 +35,22 @@ class HabitActionReceiver : BroadcastReceiver() {
                 // compute avgSnoozeCountLast14Days from persisted HabitCompletionEntity rows.
                 val snoozes = SnoozePreferences.getCount(context.applicationContext, habitId)
                 SnoozePreferences.reset(context.applicationContext, habitId)
-                recordCompletion(context.applicationContext, habitId, snoozes)
+                // Phase 9.6.2: replaced fire-and-forget CoroutineScope write with a
+                // WorkManager job so the DB write survives process death.
+                WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+                    RecordHabitActionWorker.uniqueName(habitId),
+                    ExistingWorkPolicy.APPEND_OR_REPLACE,
+                    RecordHabitActionWorker.buildRequest(
+                        habitId     = habitId,
+                        action      = RecordHabitActionWorker.ACTION_DONE,
+                        snoozeCount = snoozes
+                    )
+                )
             }
             // ACTION_SKIP is intentionally absent: the Skip notification button now uses
             // PendingIntent.getActivity() → SkipReasonPickerActivity directly, bypassing
             // this receiver. The activity handles notification cancellation + snooze reset.
             ACTION_SNOOZE -> snooze(context.applicationContext, habitId)
-        }
-    }
-
-    /**
-     * Inserts a completion row and bumps the habit's progress counters on the IO
-     * dispatcher. Mirrors [com.example.evolvix.ui.viewmodel.HabitViewModel.incrementHabitCompletion]
-     * but cannot call it directly because no ViewModel exists in this process at notification time.
-     */
-    private fun recordCompletion(context: Context, habitId: Int, snoozeCount: Int) {
-        // Fire-and-forget background scope — the BroadcastReceiver is killed after onReceive,
-        // but `goAsync()` is overkill for a single DAO write that takes a few ms on Room's
-        // own executor. We keep things simple and let Room's internal pool finish the write.
-        CoroutineScope(Dispatchers.IO).launch {
-            val dao = AppDatabase.getDatabase(context).habitDao()
-            val habit = dao.getHabitById(habitId) ?: return@launch
-            val now = LocalDateTime.now()
-
-            // Phase 9.6.1: Apply the same reset predicate used by HabitViewModel so that
-            // a Done tap from a closed-app notification advances lastResetDate when needed.
-            // Without this, checkAndResetProgress() on next launch would see a stale
-            // lastResetDate and zero out the count we are about to write.
-            val baseHabit = if (ShouldResetHabitUseCase()(habit, now)) {
-                val reset = habit.copy(currentCount = 0, lastResetDate = now)
-                dao.updateHabit(reset)
-                reset
-            } else {
-                habit
-            }
-
-            val newCount = baseHabit.currentCount + 1
-            val targetHit = newCount == baseHabit.target
-            dao.updateHabit(
-                baseHabit.copy(
-                    currentCount = newCount,
-                    totalProgressUpdates = baseHabit.totalProgressUpdates + 1,
-                    totalTargetReaches = if (targetHit) baseHabit.totalTargetReaches + 1
-                                         else baseHabit.totalTargetReaches
-                )
-            )
-            dao.insertCompletion(
-                HabitCompletionEntity(
-                    habitId = habitId,
-                    progressUpdate = now,
-                    isTargetReached = targetHit,
-                    fromReminder = true,       // Phase 9.1: completion triggered by reminder tap
-                    snoozeCount = snoozeCount  // Phase 9.2: number of snoozes before completing
-                )
-            )
         }
     }
 
