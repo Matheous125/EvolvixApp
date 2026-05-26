@@ -79,6 +79,16 @@ RANKED_LABELS: list[str] = [
     "dormant",
 ]
 
+# R4 addition: K=5 label set — "life_disrupted" sits at rank 2 (intermediate rate30d
+# 0.30–0.70, distinguishable from Struggling via high involuntary_skip_rate_30d).
+RANKED_LABELS_K5: list[str] = [
+    "effortless_routine",
+    "consistent_effort",
+    "life_disrupted",
+    "struggling",
+    "dormant",
+]
+
 
 def _models_dir() -> Path:
     here = Path(__file__).resolve().parent
@@ -101,11 +111,12 @@ def _load_or_generate(rows: int) -> pd.DataFrame:
     return df
 
 
-def _fit(df: pd.DataFrame) -> tuple[KMeans, StandardScaler, float, np.ndarray]:
+def _fit(df: pd.DataFrame, n_clusters: int = 4) -> tuple[KMeans, StandardScaler, float, np.ndarray]:
     """Standardize → K-Means fit → silhouette evaluation.
 
     Args:
-        df: Raw feature DataFrame with columns matching FEATURE_COLUMNS.
+        df:         Raw feature DataFrame with columns matching FEATURE_COLUMNS.
+        n_clusters: Number of K-Means clusters to fit (4 = original; 5 = R4 trial).
 
     Returns:
         (kmeans, scaler, silhouette, cluster_assignment_per_row)
@@ -121,7 +132,7 @@ def _fit(df: pd.DataFrame) -> tuple[KMeans, StandardScaler, float, np.ndarray]:
 
     # n_init=20 restarts reduce sensitivity to centroid initialization (Lloyd's
     # algorithm is not globally optimal). random_state=SEED ensures reproducibility.
-    kmeans = KMeans(n_clusters=4, n_init=20, random_state=SEED)
+    kmeans = KMeans(n_clusters=n_clusters, n_init=20, random_state=SEED)
     labels_per_row = kmeans.fit_predict(X_scaled)
 
     # Silhouette score ∈ [-1, 1]: measures how much better a point fits its own
@@ -164,9 +175,11 @@ def _assign_labels(
     # rank_order[0] = cluster index with the highest mean rate30d, etc.
     rank_order = np.argsort(-cluster_mean_rate)
 
+    # Pick the right label list for K=4 or K=5 (R4 addition).
+    ranked = RANKED_LABELS_K5 if kmeans.n_clusters == 5 else RANKED_LABELS
     semantic_labels: list[str] = [""] * kmeans.n_clusters
     for rank, cluster_idx in enumerate(rank_order):
-        semantic_labels[cluster_idx] = RANKED_LABELS[rank]
+        semantic_labels[cluster_idx] = ranked[rank]
 
     return semantic_labels
 
@@ -235,30 +248,44 @@ def _print_cluster_stats(
 
 
 def main() -> None:
-    print("=== Phase 8.4 — Habit Behavioral Clustering (K-Means, sklearn) ===\n")
-    print(f"Acceptance gate: silhouette >= {MIN_SILHOUETTE}\n")
+    print("=== Phase 8.4 R4 — Habit Behavioral Clustering (K-Means, sklearn) ===\n")
+    print(f"Acceptance gate: silhouette >= {MIN_SILHOUETTE}")
+    print(f"K=5 tolerance  : sil_K5 >= sil_K4 - 0.02 (PLAN-MODEL-RETRAINING.md §R4)\n")
 
-    print(f"--- Attempt 1 (rows={INITIAL_ROWS:,}) ---")
-    df = _load_or_generate(INITIAL_ROWS)
+    # Load (or generate) the full dataset — already regenerated at 15 000 rows in Step 2.
+    df = _load_or_generate(RETRY_ROWS)
     X_raw = df[gen.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
-    kmeans, scaler, sil, labels_per_row = _fit(df)
-    print(f"Silhouette: {sil:.4f}")
 
-    if sil < MIN_SILHOUETTE:
+    # ---- K=4 trial ----
+    print(f"--- K=4 fit (rows={len(df):,}) ---")
+    kmeans_4, scaler_4, sil_4, labels_4 = _fit(df, n_clusters=4)
+    print(f"Silhouette K=4: {sil_4:.4f}")
+
+    # ---- K=5 trial ----
+    print(f"\n--- K=5 fit (rows={len(df):,}) ---")
+    kmeans_5, scaler_5, sil_5, labels_5 = _fit(df, n_clusters=5)
+    print(f"Silhouette K=5: {sil_5:.4f}")
+
+    # ---- Decision gate (PLAN-MODEL-RETRAINING.md §R4 silhouette gate) ----
+    TOLERANCE = 0.02
+    if sil_5 >= sil_4 - TOLERANCE:
+        chosen_k = 5
+        kmeans, scaler, sil, labels_per_row = kmeans_5, scaler_5, sil_5, labels_5
         print(
-            f"\nSilhouette {sil:.4f} < {MIN_SILHOUETTE}. "
-            f"Retrying with {RETRY_ROWS:,} rows per PLAN-ML-EXTENSION.md §8.4.1.\n"
+            f"\n→ Keeping K=5: sil_K5 ({sil_5:.4f}) >= sil_K4 ({sil_4:.4f}) - {TOLERANCE}."
         )
-        print(f"--- Attempt 2 (rows={RETRY_ROWS:,}) ---")
-        df = _load_or_generate(RETRY_ROWS)
-        X_raw = df[gen.FEATURE_COLUMNS].to_numpy(dtype=np.float32)
-        kmeans, scaler, sil, labels_per_row = _fit(df)
-        print(f"Silhouette: {sil:.4f}")
+    else:
+        chosen_k = 4
+        kmeans, scaler, sil, labels_per_row = kmeans_4, scaler_4, sil_4, labels_4
+        print(
+            f"\n→ Reverting to K=4: sil_K5 ({sil_5:.4f}) < sil_K4 ({sil_4:.4f}) - {TOLERANCE}."
+            " Per PLAN-MODEL-RETRAINING.md §R4 silhouette gate."
+        )
 
     if sil < MIN_SILHOUETTE:
         print(
-            f"\nWARNING: silhouette {sil:.4f} still below {MIN_SILHOUETTE} after retry. "
-            "Proceeding anyway — check archetype priors for overlapping feature ranges."
+            f"\nWARNING: chosen silhouette {sil:.4f} still below {MIN_SILHOUETTE}. "
+            "Proceeding — check archetype priors for overlapping feature ranges."
         )
 
     labels = _assign_labels(kmeans, labels_per_row, X_raw)
@@ -266,15 +293,17 @@ def main() -> None:
     out_path = _save_json(kmeans, scaler, labels, X_raw, sil)
 
     print("=" * 60)
-    print("SUCCESS — Phase 8.4 (Habit Behavioral Clustering) ready.")
-    print(f"  Silhouette score : {sil:.4f}")
+    print(f"SUCCESS — Phase 8.4 R4 (Habit Behavioral Clustering, K={chosen_k}) ready.")
+    print(f"  Silhouette K=4   : {sil_4:.4f}")
+    print(f"  Silhouette K=5   : {sil_5:.4f}")
+    print(f"  Chosen K         : {chosen_k}")
     print(f"  Cluster labels   : {labels}")
     print(f"  Output JSON      : {out_path}")
     print()
-    print("Next steps:")
-    print("  1. Copy models/habit_clusters.json → app/src/main/assets/")
-    print("  2. Implement TfliteHabitPredictor.classifyBehavioralCluster (Step 8).")
-    print("     No .tflite file needed — inference is pure Kotlin nearest-centroid math.")
+    print("Next steps (from plan):")
+    print("  Step 5 : Copy models/habit_clusters.json → app/src/main/assets/")
+    print("  Step 6 : Extend ClusterFeatures.kt (7 fields)")
+    print(f"  Step 7 : {'Add LifeDisrupted to BehavioralCluster.kt' if chosen_k == 5 else 'Skip (K=4 kept)'}")
     print("=" * 60)
 
 

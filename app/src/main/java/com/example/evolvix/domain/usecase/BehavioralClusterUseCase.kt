@@ -1,6 +1,7 @@
 package com.example.evolvix.domain.usecase
 
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.data.model.HabitSkipEntity
 import com.example.evolvix.domain.ai.ClusterFeatures
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.BehavioralCluster
@@ -13,7 +14,7 @@ import java.time.temporal.ChronoUnit
  * Use Case / Interactor that classifies a habit into one of four K-Means behavioral tiers
  * (Phase 8.4): Effortless Routine, Consistent Effort, Struggling, or Dormant.
  *
- * Responsibility: extract the five [ClusterFeatures] from raw Room data, apply null-
+ * Responsibility: extract the seven [ClusterFeatures] from raw Room data, apply null-
  * substitution for optional analytics using [HabitPredictor.clusterTrainingMedians],
  * check data sufficiency, delegate inference to the injected [HabitPredictor] (Strategy
  * + Dependency Inversion pattern), and return a typed [HabitCluster].
@@ -23,6 +24,8 @@ import java.time.temporal.ChronoUnit
  *    [MIN_PRECISION_COMPLETIONS] completions exist (< 5 completions → stddev undefined).
  *  - procrastinationSkew: substitute 0.0 when null (no significant delay detected).
  *  - resilienceAvgGap: substitute `trainingMedians[4]` when no recovery events are present.
+ *  - voluntarySkipRate30d / involuntarySkipRate30d (R4): substitute 0.0 when [skips] is
+ *    empty — no skips recorded means no voluntary or involuntary disengagement signal.
  *
  * Both [TfliteHabitPredictor] and [MathHabitPredictor] always receive a fully-populated
  * [ClusterFeatures] vector — no null checks are needed inside the predictor implementations.
@@ -64,17 +67,21 @@ class BehavioralClusterUseCase(
      *    completion was recorded.
      * 3. Extract routinePrecisionStddev, procrastinationSkew, and resilienceAvgGap
      *    from the predictor's analytics methods, substituting medians where null.
-     * 4. Delegate to [HabitPredictor.classifyBehavioralCluster].
-     * 5. Resolve the returned key to a typed [BehavioralCluster] via [BehavioralCluster.fromKey].
+     * 4. Compute voluntarySkipRate30d and involuntarySkipRate30d from [skips] (R4).
+     * 5. Delegate to [HabitPredictor.classifyBehavioralCluster].
+     * 6. Resolve the returned key to a typed [BehavioralCluster] via [BehavioralCluster.fromKey].
      *
      * @param habit       Domain model of the habit to classify.
      * @param completions All historical completion records for this habit.
+     * @param skips       Skip records for all habits; filtered internally to this habit's
+     *                    last-30-day window. Defaults to [emptyList] for easy unit testing.
      * @param today       Reference date (defaults to system clock; injectable for testing).
      * @return [HabitCluster] with the resolved tier, habitId, and data-sufficiency flag.
      */
     operator fun invoke(
         habit: HabitData,
         completions: List<HabitCompletionEntity>,
+        skips: List<HabitSkipEntity> = emptyList(),
         today: LocalDate = LocalDate.now()
     ): HabitCluster {
         // Guard: not enough completions for a meaningful cluster assignment.
@@ -121,12 +128,23 @@ class BehavioralClusterUseCase(
         val resilienceAvgGap = rawResilience?.toFloat()
             ?: medians.getOrElse(IDX_RESILIENCE_GAP) { 4.36f }
 
+        // Features 5 & 6 — voluntarySkipRate30d / involuntarySkipRate30d (R4 addition).
+        // The skips list spans all habits; filter to this habit within the 30-day window.
+        val skipCutoff = today.minusDays(RATE_WINDOW_DAYS).atStartOfDay()
+        val recentSkips = skips.filter { it.habitId == habit.id && !it.skippedAt.isBefore(skipCutoff) }
+        val voluntarySkipRate30d = (recentSkips.count { !it.reason.isInvoluntary }.toFloat()
+            / RATE_WINDOW_DAYS.toFloat()).coerceIn(0f, 1f)
+        val involuntarySkipRate30d = (recentSkips.count { it.reason.isInvoluntary }.toFloat()
+            / RATE_WINDOW_DAYS.toFloat()).coerceIn(0f, 1f)
+
         val features = ClusterFeatures(
             rate30d                = rate30d,
             routinePrecisionStddev = routinePrecisionStddev,
             procrastinationSkew    = procrastinationSkew,
             habitAge               = habitAgeFeature,
-            resilienceAvgGap       = resilienceAvgGap
+            resilienceAvgGap       = resilienceAvgGap,
+            voluntarySkipRate30d   = voluntarySkipRate30d,
+            involuntarySkipRate30d = involuntarySkipRate30d
         )
 
         val rawKey = predictor.classifyBehavioralCluster(features)

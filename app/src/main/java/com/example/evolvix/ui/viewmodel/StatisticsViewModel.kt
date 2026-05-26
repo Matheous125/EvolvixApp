@@ -408,6 +408,11 @@ class StatisticsViewModel(
      * with [HabitCluster.hasSufficientData] = false so the UI shows a placeholder
      * prompting the user to keep tracking.
      *
+     * **R4 (2026-05-26):** All-habit skip records from the last 30 days are fetched
+     * once per emission via [HabitSkipDao.getAllRecent] and forwarded to
+     * [BehavioralClusterUseCase] so the K-Means model can use the two new skip-rate
+     * features (voluntarySkipRate30d, involuntarySkipRate30d added in retrain R4).
+     *
      * (Pattern: Observer via StateFlow — mirrors [abandonmentRisks]; independently
      *  collectible from [perHabitStats] so the Behavioral Tiers card can be skipped
      *  when data is unavailable without blocking other statistics)
@@ -417,6 +422,9 @@ class StatisticsViewModel(
         dao.getAllCompletions()
     ) { habits, completions ->
         val today = LocalDate.now()
+        // Fetch all skips in the last 30 days once for all habits (R4: skip-rate features).
+        // getAllRecent is a suspend function; safe inside the combine transform (viewModelScope).
+        val allRecentSkips = habitSkipDao.getAllRecent(today.minusDays(30L).atStartOfDay())
         habits.associate { habit ->
             val habitCompletions = completions.filter { it.habitId == habit.id }
             val habitData = HabitData(
@@ -425,7 +433,7 @@ class StatisticsViewModel(
                 totalProgressUpdates = habit.totalProgressUpdates,
                 totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
             )
-            habit.id to behavioralClusterUseCase(habitData, habitCompletions, today)
+            habit.id to behavioralClusterUseCase(habitData, habitCompletions, allRecentSkips, today)
         }
     }.stateIn(
         scope = viewModelScope,

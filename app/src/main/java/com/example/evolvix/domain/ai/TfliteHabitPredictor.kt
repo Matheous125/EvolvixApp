@@ -433,7 +433,9 @@ class TfliteHabitPredictor(
      *  1. Standardize [features] using [clusterMean] / [clusterScale] (same scaler
      *     fitted during training — mirrors `sklearn.StandardScaler.transform`).
      *  2. Compute squared Euclidean distance from the standardized point to each of
-     *     the 4 centroids (4 × 5 matrix loaded from `habit_clusters.json`).
+     *     the 4 centroids (4 × 7 matrix loaded from `habit_clusters.json` — R4 retrain
+     *     extended the model from 5 to 7 features: voluntarySkipRate30d +
+     *     involuntarySkipRate30d added as features 6 & 7; K=4 retained).
      *  3. Return the label string at `clusterLabels[argmin(distances)]`.
      *
      * Falls back to [MathHabitPredictor.classifyBehavioralCluster] when the JSON
@@ -785,7 +787,8 @@ class TfliteHabitPredictor(
         private const val ABANDONMENT_FEATURE_COUNT = 7
         private const val STREAK_BREAK_FEATURE_COUNT = 7
         private const val WEEKLY_FORECAST_FEATURE_COUNT = 12
-        private const val CLUSTER_FEATURE_COUNT = 5
+        /** Number of input features for the K-Means clustering model (R4: 7 features). */
+        private const val CLUSTER_FEATURE_COUNT = 7
         private const val SPILLOVER_FEATURE_COUNT = 5
         private const val REMINDER_LIFT_FEATURE_COUNT = 8
         private const val SNOOZE_DISENGAGEMENT_FEATURE_COUNT = 7

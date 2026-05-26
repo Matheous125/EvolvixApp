@@ -561,8 +561,14 @@ class MathHabitPredictor : HabitPredictor {
      * Classifies a habit's behavioral tier using a simple threshold chain on [ClusterFeatures.rate30d].
      *
      * This is the math-only fallback used when `habit_clusters.json` fails to load in
-     * [TfliteHabitPredictor]. It intentionally ignores the other four features so it
+     * [TfliteHabitPredictor]. It intentionally uses only [ClusterFeatures.rate30d] so it
      * remains usable even when analytics data is sparse.
+     *
+     * **R4 note:** [ClusterFeatures] was extended from 5 to 7 fields in retrain R4
+     * ([ClusterFeatures.voluntarySkipRate30d] and [ClusterFeatures.involuntarySkipRate30d]
+     * added as features 6 & 7). The fallback deliberately ignores those two new fields —
+     * rate30d alone is sufficient for a conservative 4-tier classification, and K=4 was
+     * retained (sil_K5 = 0.3683 failed the K=5 silhouette gate ≥ 0.4261).
      *
      * Thresholds mirror the archetype boundaries in `generate_clustering_data.py`:
      *  - rate30d ≥ 0.85 → "effortless_routine"

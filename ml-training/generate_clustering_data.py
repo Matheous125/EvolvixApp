@@ -38,12 +38,17 @@ Behavioral archetype priors
 These reflect literature-informed hypotheses on habit-tracker users (not measured
 ground truth — appropriate to state as such in the thesis):
 
-    ARCHETYPE           WEIGHT   rate30d      precision_std  proc_skew    habit_age    resilience_gap
-    ─────────────────── ──────   ──────────   ─────────────  ─────────    ─────────    ──────────────
-    Effortless Routine  20 %     0.85–1.00    10–40 min      -1.5–0.2     90–365 d     0.5–2.5 d
-    Consistent Effort   35 %     0.55–0.85    30–95 min       0.0–1.0     45–270 d     1.5–5.0 d
-    Struggling          30 %     0.15–0.55    85–210 min      0.5–2.5     14–120 d     4.0–10.0 d
-    Dormant             15 %     0.00–0.20    130–300 min    -1.5–3.0      7–365 d     8.0–15.0 d
+    ARCHETYPE           WEIGHT   rate30d      precision_std  proc_skew    habit_age    resilience_gap  vol_skip   invol_skip
+    ─────────────────── ──────   ──────────   ─────────────  ─────────    ─────────    ──────────────  ─────────  ──────────
+    Effortless Routine  18 %     0.85–1.00    10–40 min      -1.5–0.2     90–365 d     0.5–2.5 d       0–0.05     0–0.05
+    Consistent Effort   32 %     0.55–0.85    30–95 min       0.0–1.0     45–270 d     1.5–5.0 d       0–0.15     0–0.10
+    Struggling          27 %     0.15–0.55    85–210 min      0.5–2.5     14–120 d     4.0–10.0 d      0.10–0.60  0–0.15
+    Dormant             13 %     0.00–0.20    130–300 min    -1.5–3.0      7–365 d     8.0–15.0 d      0.05–0.40  0–0.10
+    Life-Disrupted      10 %     0.30–0.70    20–70 min      -0.5–0.5     30–180 d     1.0–4.0 d       0–0.08     0.15–0.50
+
+    (Weights shown for include_life_disrupted=True / K=5. When include_life_disrupted=False
+     the original 20/35/30/15 four-archetype weights are used and no life_disrupted rows
+     are generated.)
 
 Weight rationale (20 / 35 / 30 / 15): most habit-tracker users are "making effort" or
 "struggling"; high-performers are a minority; abandoned habits are the smallest tail.
@@ -86,6 +91,8 @@ FEATURE_COLUMNS: list[str] = [
     "procrastination_skew",
     "habit_age",
     "resilience_avg_gap",
+    "voluntary_skip_rate_30d",    # R4 addition — fraction of last-30d days with a voluntary skip
+    "involuntary_skip_rate_30d",  # R4 addition — fraction of last-30d days with an involuntary skip
 ]
 
 
@@ -121,12 +128,18 @@ def _sample_effortless(rng: np.random.Generator, n: int) -> pd.DataFrame:
 
     resilience_gap = rng.uniform(0.5, 2.5, size=n).astype(np.float32)
 
+    # Skip rates (R4): effortless users seldom skip — near-zero on both axes.
+    voluntary_skip_rate = rng.beta(a=1.0, b=50.0, size=n).clip(0.0, 0.05).astype(np.float32)
+    involuntary_skip_rate = rng.beta(a=1.0, b=50.0, size=n).clip(0.0, 0.05).astype(np.float32)
+
     return pd.DataFrame({
         "rate30d": rate30d,
         "routine_precision_stddev": precision_std,
         "procrastination_skew": proc_skew,
         "habit_age": habit_age,
         "resilience_avg_gap": resilience_gap,
+        "voluntary_skip_rate_30d": voluntary_skip_rate,
+        "involuntary_skip_rate_30d": involuntary_skip_rate,
     })
 
 
@@ -154,12 +167,18 @@ def _sample_consistent(rng: np.random.Generator, n: int) -> pd.DataFrame:
 
     resilience_gap = rng.uniform(1.5, 5.0, size=n).astype(np.float32)
 
+    # Skip rates (R4): consistent users skip occasionally but mostly voluntarily.
+    voluntary_skip_rate = rng.beta(a=1.5, b=20.0, size=n).clip(0.0, 0.15).astype(np.float32)
+    involuntary_skip_rate = rng.beta(a=1.0, b=30.0, size=n).clip(0.0, 0.10).astype(np.float32)
+
     return pd.DataFrame({
         "rate30d": rate30d,
         "routine_precision_stddev": precision_std,
         "procrastination_skew": proc_skew,
         "habit_age": habit_age,
         "resilience_avg_gap": resilience_gap,
+        "voluntary_skip_rate_30d": voluntary_skip_rate,
+        "involuntary_skip_rate_30d": involuntary_skip_rate,
     })
 
 
@@ -186,12 +205,19 @@ def _sample_struggling(rng: np.random.Generator, n: int) -> pd.DataFrame:
 
     resilience_gap = rng.uniform(4.0, 10.0, size=n).astype(np.float32)
 
+    # Skip rates (R4): struggling users have elevated voluntary skip rates —
+    # choosing to skip is part of the disengagement pattern.
+    voluntary_skip_rate = rng.beta(a=3.0, b=5.0, size=n).clip(0.10, 0.60).astype(np.float32)
+    involuntary_skip_rate = rng.beta(a=1.5, b=20.0, size=n).clip(0.0, 0.15).astype(np.float32)
+
     return pd.DataFrame({
         "rate30d": rate30d,
         "routine_precision_stddev": precision_std,
         "procrastination_skew": proc_skew,
         "habit_age": habit_age,
         "resilience_avg_gap": resilience_gap,
+        "voluntary_skip_rate_30d": voluntary_skip_rate,
+        "involuntary_skip_rate_30d": involuntary_skip_rate,
     })
 
 
@@ -227,34 +253,100 @@ def _sample_dormant(rng: np.random.Generator, n: int) -> pd.DataFrame:
 
     resilience_gap = rng.uniform(8.0, 15.0, size=n).astype(np.float32)
 
+    # Skip rates (R4): dormant habits are barely opened — moderate voluntary skip rate
+    # (user still occasionally remembers but chooses not to act).
+    voluntary_skip_rate = rng.beta(a=2.0, b=6.0, size=n).clip(0.05, 0.40).astype(np.float32)
+    involuntary_skip_rate = rng.beta(a=1.0, b=30.0, size=n).clip(0.0, 0.10).astype(np.float32)
+
     return pd.DataFrame({
         "rate30d": rate30d,
         "routine_precision_stddev": precision_std,
         "procrastination_skew": proc_skew,
         "habit_age": habit_age,
         "resilience_avg_gap": resilience_gap,
+        "voluntary_skip_rate_30d": voluntary_skip_rate,
+        "involuntary_skip_rate_30d": involuntary_skip_rate,
     })
 
 
-def generate(rows: int = 10_000, seed: int = SEED) -> pd.DataFrame:
+def _sample_life_disrupted(rng: np.random.Generator, n: int) -> pd.DataFrame:
+    """
+    Archetype: Life-Disrupted (10 % of population when K=5 is attempted, R4).
+
+    Users who are behaviourally engaged but whose completion rate is suppressed
+    by external factors — illness, travel, life events — rather than by
+    disengagement or procrastination. Distinguished from Struggling by:
+
+    - LOW voluntary_skip_rate_30d  (< 0.08): user is NOT choosing to skip.
+    - HIGH involuntary_skip_rate_30d (0.15–0.50): external disruption is the cause.
+    - Intermediate rate30d (0.30–0.70): completing on "good" days.
+    - Tight timing precision (20–70 min stddev): consistent routine when able.
+    - Minimal procrastination (−0.5–0.5): completes early when circumstances allow.
+    - Fast resilience_avg_gap (1–4 d): wants to resume, does so quickly.
+    """
+    # Intermediate rate — reflecting days available to complete (not disengagement).
+    rate30d = rng.beta(a=3.0, b=4.0, size=n).clip(0.30, 0.70).astype(np.float32)
+
+    # Tight timing when able — mirrors Effortless/Consistent routine discipline.
+    precision_std = np.clip(
+        rng.normal(loc=42.0, scale=12.0, size=n), 20.0, 70.0
+    ).astype(np.float32)
+
+    # Minimal delay — completes at habitual time when life permits.
+    proc_skew = rng.uniform(-0.5, 0.5, size=n).astype(np.float32)
+
+    # Moderate age — habit is established; disruptions are episodic, not chronic.
+    habit_age = rng.integers(30, 181, size=n).astype(np.int16)
+
+    # Fast recovery — distinguishes from Dormant (slow) and Struggling (moderate-slow).
+    resilience_gap = rng.uniform(1.0, 4.0, size=n).astype(np.float32)
+
+    # Defining markers (R4): near-zero voluntary, elevated involuntary.
+    voluntary_skip_rate = rng.beta(a=1.5, b=30.0, size=n).clip(0.0, 0.08).astype(np.float32)
+    involuntary_skip_rate = rng.beta(a=4.0, b=6.0, size=n).clip(0.15, 0.50).astype(np.float32)
+
+    return pd.DataFrame({
+        "rate30d": rate30d,
+        "routine_precision_stddev": precision_std,
+        "procrastination_skew": proc_skew,
+        "habit_age": habit_age,
+        "resilience_avg_gap": resilience_gap,
+        "voluntary_skip_rate_30d": voluntary_skip_rate,
+        "involuntary_skip_rate_30d": involuntary_skip_rate,
+    })
+
+
+def generate(rows: int = 10_000, seed: int = SEED, include_life_disrupted: bool = True) -> pd.DataFrame:
     """Build a `rows`-long unsupervised dataset.
 
-    Rows are drawn from four behavioral archetypes in proportions that reflect
-    realistic habit-tracker usage (see module docstring for prior justification).
+    Rows are drawn from four or five behavioral archetypes in proportions that
+    reflect realistic habit-tracker usage (see module docstring for prior justification).
     No label column is included — K-Means is unsupervised.
 
     Args:
-        rows: Total number of synthetic habit-state snapshots to generate.
-        seed: NumPy RNG seed for reproducibility.
+        rows:                   Total number of synthetic habit-state snapshots.
+        seed:                   NumPy RNG seed for reproducibility.
+        include_life_disrupted: When True (default), adds the Life-Disrupted archetype
+                                at 10 % weight (K=5 trial in train_clustering_model.py).
+                                When False, uses the original 4-archetype distribution.
 
     Returns:
         DataFrame with columns matching FEATURE_COLUMNS, shuffled.
     """
     rng = np.random.default_rng(seed)
 
-    # Archetype proportions: effortless 20%, consistent 35%, struggling 30%, dormant 15%.
-    fractions  = [0.20, 0.35, 0.30, 0.15]
-    samplers   = [_sample_effortless, _sample_consistent, _sample_struggling, _sample_dormant]
+    if include_life_disrupted:
+        # K=5 priors: effortless 18%, consistent 32%, struggling 27%, dormant 13%, life_disrupted 10%.
+        fractions = [0.18, 0.32, 0.27, 0.13, 0.10]
+        samplers  = [
+            _sample_effortless, _sample_consistent, _sample_struggling,
+            _sample_dormant, _sample_life_disrupted,
+        ]
+    else:
+        # K=4 priors: effortless 20%, consistent 35%, struggling 30%, dormant 15%.
+        fractions = [0.20, 0.35, 0.30, 0.15]
+        samplers  = [_sample_effortless, _sample_consistent, _sample_struggling, _sample_dormant]
+
     counts     = [int(rows * f) for f in fractions]
     # Any integer-rounding remainder goes to the largest archetype (consistent).
     counts[1] += rows - sum(counts)
@@ -268,11 +360,13 @@ def generate(rows: int = 10_000, seed: int = SEED) -> pd.DataFrame:
 
     # Final bounds clip (guards against Normal tail artefacts above the clamp inside
     # each sampler — belt-and-suspenders so the trainer never sees out-of-range values).
-    df["rate30d"]                  = df["rate30d"].clip(0.0, 1.0)
-    df["routine_precision_stddev"] = df["routine_precision_stddev"].clip(0.0, 300.0)
-    df["procrastination_skew"]     = df["procrastination_skew"].clip(-3.0, 3.0)
-    df["habit_age"]                = df["habit_age"].clip(1, 365)
-    df["resilience_avg_gap"]       = df["resilience_avg_gap"].clip(0.0, 15.0)
+    df["rate30d"]                   = df["rate30d"].clip(0.0, 1.0)
+    df["routine_precision_stddev"]  = df["routine_precision_stddev"].clip(0.0, 300.0)
+    df["procrastination_skew"]      = df["procrastination_skew"].clip(-3.0, 3.0)
+    df["habit_age"]                 = df["habit_age"].clip(1, 365)
+    df["resilience_avg_gap"]        = df["resilience_avg_gap"].clip(0.0, 15.0)
+    df["voluntary_skip_rate_30d"]   = df["voluntary_skip_rate_30d"].clip(0.0, 1.0)    # R4
+    df["involuntary_skip_rate_30d"] = df["involuntary_skip_rate_30d"].clip(0.0, 1.0)  # R4
 
     return df[FEATURE_COLUMNS]
 
@@ -285,9 +379,14 @@ def main() -> None:
         "--rows", type=int, default=10_000,
         help="Number of synthetic habit-state rows to generate (default: 10 000)."
     )
+    parser.add_argument(
+        "--no-life-disrupted", dest="include_life_disrupted", action="store_false",
+        default=True,
+        help="Exclude Life-Disrupted archetype (use 4-archetype K=4 distribution)."
+    )
     args = parser.parse_args()
 
-    df = generate(rows=args.rows)
+    df = generate(rows=args.rows, include_life_disrupted=args.include_life_disrupted)
     path = output_path()
     df.to_csv(path, index=False)
     print(f"Saved {len(df):,} rows → {path}")
