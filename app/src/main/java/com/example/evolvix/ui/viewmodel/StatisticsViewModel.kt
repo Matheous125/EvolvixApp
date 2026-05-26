@@ -693,14 +693,20 @@ class StatisticsViewModel(
     )
 
     /**
-     * Inserts 5 seed habits (IDs 901–905) with realistic completion histories.
-     * Safe to call repeatedly — the REPLACE strategy cascade-deletes old completions
-     * for those IDs before inserting fresh ones.
+     * Inserts 6 seed habits (IDs 901–906) with realistic completion histories,
+     * skip records, and app sessions covering every ML card on the Statistics screen.
+     * Safe to call repeatedly — the REPLACE strategy cascade-deletes old completions,
+     * skips, and target history for those IDs before inserting fresh ones.
      * For development use only; remove before release.
      */
     fun seedDatabase() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            DatabaseSeeder.seed(dao)
+            DatabaseSeeder.seed(
+                dao = dao,
+                skipDao = habitSkipDao,
+                sessionDao = appSessionDao,
+                targetHistoryDao = targetHistoryDao
+            )
         }
     }
 
