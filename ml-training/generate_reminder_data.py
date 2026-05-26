@@ -72,6 +72,7 @@ FEATURE_COLUMNS: list[str] = [
     "hourOfDay",
     "isAtRisk",
     "targetReachedToday",
+    "snoozeCountToday",   # R1: number of snoozes today before completion/skip
 ]
 
 # Fixed label order — Android reads `argmax` and maps to this list. Editing
@@ -107,6 +108,7 @@ def _assign_labels(
     hour_of_day: np.ndarray,
     is_at_risk: np.ndarray,
     target_reached: np.ndarray,
+    snooze_count_today: np.ndarray,  # R1: new 8th feature
 ) -> np.ndarray:
     """Vectorised priority-cascade rule engine.
 
@@ -127,6 +129,11 @@ def _assign_labels(
         effective = mask & unassigned
         labels[effective] = LABEL_NAMES.index(label_name)
         unassigned[effective] = False
+
+    # Rule 0 — Heavy snoozer: user has already snoozed this reminder twice or
+    # more today. Gentleness wins over celebration/urgency — mirrors the Kotlin
+    # MathHabitPredictor R1 math fallback rule exactly.
+    assign(snooze_count_today >= 2, "gentle_nudge_at_risk")
 
     # Rule 1 — Target smashed: user already crossed the day's goal AND has
     # been consistent. Highest-value positive moment to celebrate.
@@ -259,6 +266,13 @@ def generate(rows: int = 10_000, seed: int = SEED) -> pd.DataFrame:
     # `target_smashed` rule still has signal but doesn't dominate.
     target_reached = (rng.uniform(0.0, 1.0, size=rows) < 0.25).astype(np.int8)
 
+    # R1 — `snoozeCountToday`: skewed exponential so most rows = 0, ~10 % ≥ 2.
+    # scale=0.6 gives mean≈0.6 which matches real-world snooze behaviour where
+    # the median user never snoozes on a given day.
+    snooze_count_today = np.clip(
+        rng.exponential(scale=0.6, size=rows), 0, 8
+    ).astype(np.int16)
+
     # Boost milestone-day frequency so the model sees enough of class 0.
     # Otherwise milestones (exact integer matches in {7,14,21,30,50,100})
     # appear in <1% of rows and the network ignores them.
@@ -276,6 +290,7 @@ def generate(rows: int = 10_000, seed: int = SEED) -> pd.DataFrame:
         hour_of_day=hour_of_day,
         is_at_risk=is_at_risk,
         target_reached=target_reached,
+        snooze_count_today=snooze_count_today,
     )
 
     # Inject 10% noise (PLAN.md §6.5.4): pick rows uniformly and reassign
@@ -295,6 +310,7 @@ def generate(rows: int = 10_000, seed: int = SEED) -> pd.DataFrame:
             "hourOfDay": hour_of_day,
             "isAtRisk": is_at_risk,
             "targetReachedToday": target_reached,
+            "snoozeCountToday": snooze_count_today,  # R1: new 8th feature column
             "label": labels.astype(np.int8),
         }
     )
