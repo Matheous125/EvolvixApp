@@ -451,20 +451,30 @@ class MathHabitPredictor : HabitPredictor {
      * unavailable. Mirrors the logit priors baked into `generate_abandonment_data.py`
      * so the fallback and the ML model agree directionally.
      *
+     * **R2 (2026-05-26):** Gap-based rules now use [adjustedDaysSinceLast], which
+     * subtracts [AbandonmentFeatures.involuntarySkipDays7d] from the raw gap so that
+     * SICK/TRAVELING absences do not inflate the abandonment signal — matching the
+     * `adjusted_gap` logic in the Python data generator.
+     *
      * Rule chain (evaluated top-to-bottom; first match wins):
-     *   1. 2+ weeks of silence                         → 0.95 (almost certainly quit)
-     *   2. 1-week gap AND very low weekly rate (<0.2)  → 0.85
+     *   1. 2+ weeks of effective silence (adjusted)    → 0.95 (almost certainly quit)
+     *   2. 1-week effective gap AND rate7d < 0.2       → 0.85
      *   3. Long active streak (≥14)                    → 0.05 (very unlikely to quit)
      *   4. Healthy recent rate (≥0.8) OR streak (≥7)  → 0.10
      *   5. Very low 30-day rate (<0.1)                 → 0.70
      *   6. Continuous fallback: linear blend of rates  → [0.10, 0.60]
      */
     override fun predictAbandonment(features: AbandonmentFeatures): Float {
-        // Rule 1: 2+ weeks of silence → almost certain abandonment
-        if (features.daysSinceLastCompletion >= 14) return 0.95f
+        // R2: subtract involuntary-skip days so a 10-day illness trip does not
+        // look like 10 days of disengagement. Clamped ≥ 0 to avoid negative gaps.
+        val adjustedDaysSinceLast = (features.daysSinceLastCompletion - features.involuntarySkipDays7d)
+            .coerceAtLeast(0)
 
-        // Rule 2: 1-week gap AND very low recent rate → strong signal
-        if (features.daysSinceLastCompletion >= 7 && features.completionRateLast7Days < 0.2f) return 0.85f
+        // Rule 1: 2+ weeks of effective silence → almost certain abandonment
+        if (adjustedDaysSinceLast >= 14) return 0.95f
+
+        // Rule 2: 1-week effective gap AND very low recent rate → strong signal
+        if (adjustedDaysSinceLast >= 7 && features.completionRateLast7Days < 0.2f) return 0.85f
 
         // Rule 3: long active streak → very unlikely to abandon
         if (features.currentStreak >= 14) return 0.05f

@@ -12,6 +12,11 @@ and abandonment_scaler.json → feature_columns):
     currentStreak             0..200
     totalCompletions          0..730
     frequencyOrdinal          0=DAILY, 1=WEEKLY, 2=MONTHLY
+    involuntarySkipDays7d     0..7  (distinct SICK/TRAVELING skip dates in last 7d)
+    involuntarySkipDays30d    0..30 (distinct SICK/TRAVELING skip dates in last 30d)
+
+R2 note: The two new fields allow the model to discount raw gap signals when the user
+was genuinely sick or traveling — matching the adjusted_gap logic in MathHabitPredictor.
 
 Label:
     1  if the habit receives **zero completions in (T, T+14 days]** (abandoned)
@@ -74,6 +79,10 @@ FEATURE_COLUMNS: list[str] = [
     "currentStreak",
     "totalCompletions",
     "frequencyOrdinal",
+    # R2 — positions 8 & 9: involuntary-skip counts so the model can discount gap signals
+    # when the user was legitimately absent (SICK / TRAVELING).
+    "involuntarySkipDays7d",
+    "involuntarySkipDays30d",
 ]
 
 
@@ -127,6 +136,20 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
         rng.exponential(scale=8.0, size=rows), 0, 200
     ).astype(np.int16)
 
+    # involuntarySkipDays7d: distinct days with SICK/TRAVELING skips in the last 7d.
+    # Most users have 0 such days; ~10-15% have ≥1 on any given week.
+    # Poisson(0.4) gives P(0)≈67%, P(1)≈27%, P(≥2)≈6%.
+    involuntary_7d = np.clip(
+        rng.poisson(lam=0.4, size=rows), 0, 7
+    ).astype(np.int8)
+
+    # involuntarySkipDays30d: includes the 7d count plus additional days in the
+    # broader 30-day window.  Extra Poisson(1.0) keeps the marginal distribution
+    # realistic (≈1-2 involuntary days per month on average).
+    involuntary_30d = np.clip(
+        involuntary_7d + rng.poisson(lam=1.0, size=rows), 0, 30
+    ).astype(np.int8)
+
     # totalCompletions: bounded by habitAge; for DAILY: at most habitAge completions
     max_total = np.where(
         frequency_ordinal == 0, habit_age,
@@ -140,13 +163,18 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
 
     score = np.zeros(rows, dtype=np.float64)
 
-    # HIGH ABANDONMENT signals
-    # Strong: 2+ weeks of silence → almost certainly abandoned
-    score += np.where(days_since_last >= 14, 3.0, 0.0)
+    # R2: adjust the raw gap by subtracting involuntary-skip days in the 7d window
+    # so SICK/TRAVELING absences do not inflate the abandonment signal.
+    # This mirrors the MathHabitPredictor.predictAbandonment fallback rule.
+    adjusted_gap = np.maximum(0, days_since_last - involuntary_7d.astype(np.int8))
 
-    # Strong combined: 1-week silence AND very low weekly rate
+    # HIGH ABANDONMENT signals
+    # Strong: 2+ weeks of effective silence (after removing involuntary days)
+    score += np.where(adjusted_gap >= 14, 3.0, 0.0)
+
+    # Strong combined: 1-week effective silence AND very low weekly rate
     score += np.where(
-        (days_since_last >= 7) & (rate_7d < 0.20), 2.0, 0.0
+        (adjusted_gap >= 7) & (rate_7d < 0.20), 2.0, 0.0
     )
 
     # Moderate: very low 30-day rate regardless of gap
@@ -200,6 +228,9 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
             "currentStreak": current_streak.astype(np.int16),
             "totalCompletions": total_completions.astype(np.int16),
             "frequencyOrdinal": frequency_ordinal.astype(np.int8),
+            # R2 — columns 8 & 9 (positions match FEATURE_COLUMNS)
+            "involuntarySkipDays7d": involuntary_7d.astype(np.int8),
+            "involuntarySkipDays30d": involuntary_30d.astype(np.int8),
             "label": label,
         }
     )

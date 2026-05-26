@@ -37,8 +37,14 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Sequence
+
+# Force UTF-8 stdout so Unicode characters (e.g. R² in metric labels) don't
+# crash on Windows consoles running a non-UTF-8 codepage (cp850, cp1252).
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 import numpy as np
 import pandas as pd

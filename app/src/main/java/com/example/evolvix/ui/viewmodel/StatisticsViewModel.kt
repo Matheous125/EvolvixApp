@@ -277,6 +277,10 @@ class StatisticsViewModel(
      * The "At Risk" card in StatisticsScreen filters this map for entries where
      * [AbandonmentRisk.rating] is HIGH or CRITICAL.
      *
+     * **R2 (2026-05-26):** Involuntary skips (SICK / TRAVELING) from the last 30 days are
+     * fetched once per emission via [HabitSkipDao.getAllRecent] and forwarded to
+     * [AbandonmentRiskUseCase] so gap signals are not inflated by legitimate absences.
+     *
      * (Pattern: Observer via StateFlow — same upstream pair as [perHabitStats]; streak
      *  is re-derived here so [abandonmentRisks] is independently collectible)
      */
@@ -285,8 +289,16 @@ class StatisticsViewModel(
         dao.getAllCompletions()
     ) { habits, completions ->
         val today = LocalDate.now()
+        // Fetch involuntary skips once for all habits — mirrors the pattern used by
+        // skipReasonPredictions. getAllRecent is a suspend function; safe here because
+        // the combine transform lambda runs inside a coroutine context (viewModelScope).
+        val since30d = LocalDateTime.now().minusDays(30)
+        val allInvoluntarySkips = habitSkipDao.getAllRecent(since30d)
+            .filter { it.reason.isInvoluntary }
+
         habits.associate { habit ->
             val habitCompletions = completions.filter { it.habitId == habit.id }
+            val habitSkips = allInvoluntarySkips.filter { it.habitId == habit.id }
             val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
             val habitData = HabitData(
                 id = habit.id, name = habit.name, currentCount = habit.currentCount,
@@ -294,7 +306,13 @@ class StatisticsViewModel(
                 totalProgressUpdates = habit.totalProgressUpdates,
                 totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
             )
-            habit.id to abandonmentRiskUseCase(habitData, habitCompletions, streak.current, today)
+            habit.id to abandonmentRiskUseCase(
+                habit = habitData,
+                completions = habitCompletions,
+                currentStreak = streak.current,
+                involuntarySkips = habitSkips,
+                today = today
+            )
         }
     }.stateIn(
         scope = viewModelScope,
