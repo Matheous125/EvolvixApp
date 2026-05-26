@@ -1,13 +1,14 @@
 """
 train_success_model.py — Train + export Model 1 (HabitSuccessClassifier).
 
-Phase 6.5.2 of PLAN.md. Last retrained: 2026-05-26 (R6 — added 8th feature
-recentAvgDifficulty; see PLAN-MODEL-RETRAINING.md §R6). Pipeline:
+Phase 6.5.2 of PLAN.md. Last retrained: 2026-05-26 (R7 — added 9th feature
+spilloverLiftAggregate; see PLAN-MODEL-RETRAINING.md §R7). Pipeline:
 
     1. Load (or auto-generate) ml-training/data/success_dataset.csv.
-       Input features (8 total, order must match TfliteHabitPredictor):
+       Input features (9 total, order must match TfliteHabitPredictor):
            dayOfWeek, hourOfDay, currentStreak, completionRateLast7Days,
-           habitAge, hoursSinceLastCompletion, targetCount, recentAvgDifficulty
+           habitAge, hoursSinceLastCompletion, targetCount, recentAvgDifficulty,
+           spilloverLiftAggregate
     2. 80/20 train/test split (stratified on label) via sklearn.
     3. Fit StandardScaler on training features; persist mean & scale to
        models/success_scaler.json so Android can apply IDENTICAL normalization

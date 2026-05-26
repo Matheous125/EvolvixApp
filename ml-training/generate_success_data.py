@@ -2,6 +2,7 @@
 generate_success_data.py — Synthetic dataset for Model 1 (HabitSuccessClassifier).
 
 Phase 6.5.2 of PLAN.md. R6 retrain (2026-05-26) adds recentAvgDifficulty as the 8th feature.
+R7 retrain (2026-05-26) adds spilloverLiftAggregate as the 9th feature.
 
 Features per row:
     dayOfWeek                 1..7   (1 = Monday, 7 = Sunday)
@@ -13,6 +14,9 @@ Features per row:
     targetCount               1..20
     recentAvgDifficulty       1.0..5.0 (rolling avg of perceivedDifficulty over last 14
                               completions; 3.0 = neutral when no ratings available)
+    spilloverLiftAggregate   -0.5..+0.5 (sum of positive lift deltas from partner habits
+                              completed today that have a BOOST spillover to this habit;
+                              0.0 when no partner habits were completed today)
 
 Label generation strategy (PLAN.md §6.5.2):
     Start from a 0.5 baseline probability and apply behavioral nudges:
@@ -48,6 +52,7 @@ SEED = 42
 
 # Order matters: training script + Android inference must read columns identically.
 # R6 (2026-05-26): recentAvgDifficulty added as 8th feature.
+# R7 (2026-05-26): spilloverLiftAggregate added as 9th feature.
 FEATURE_COLUMNS: list[str] = [
     "dayOfWeek",
     "hourOfDay",
@@ -56,7 +61,8 @@ FEATURE_COLUMNS: list[str] = [
     "habitAge",
     "hoursSinceLastCompletion",
     "targetCount",
-    "recentAvgDifficulty",   # R6: rolling avg perceived difficulty, 1.0–5.0, default 3.0
+    "recentAvgDifficulty",        # R6: rolling avg perceived difficulty, 1.0–5.0, default 3.0
+    "spilloverLiftAggregate",     # R7: sum of positive spillover lifts from today's partner habits, −0.5..+0.5
 ]
 
 
@@ -95,6 +101,18 @@ def generate(rows: int = 30_000, seed: int = SEED) -> pd.DataFrame:
     recent_avg_difficulty = rng.uniform(1.0, 5.0, size=rows).astype(np.float32)
     recent_avg_difficulty -= 0.6 * (completion_rate - 0.5)
     recent_avg_difficulty = np.clip(recent_avg_difficulty, 1.0, 5.0).astype(np.float32)
+
+    # R7: spilloverLiftAggregate — sum of positive lift deltas from partner habits
+    # completed today that boost this habit's same-day completion probability.
+    # Physical range: [−0.5, +0.5] (matching SpilloverRegressor output envelope).
+    # Synthesis rationale: habitual completers (high completion_rate) are more likely
+    # to have already completed partner habits earlier in the day, producing a larger
+    # positive aggregate.  Base: uniform [−0.5, +0.5], then shift by
+    # +0.3 × (completion_rate − 0.5) so high-rate users skew toward positive lift
+    # while low-rate users are roughly centred at 0.  Clipped to [−0.5, +0.5].
+    spillover_lift_aggregate = rng.uniform(-0.5, 0.5, size=rows).astype(np.float32)
+    spillover_lift_aggregate += 0.3 * (completion_rate - 0.5)
+    spillover_lift_aggregate = np.clip(spillover_lift_aggregate, -0.5, 0.5).astype(np.float32)
 
     # Logit-based label generation: rules contribute signed scores in logit
     # (log-odds) space; sigmoid converts to probability.
@@ -146,6 +164,14 @@ def generate(rows: int = 30_000, seed: int = SEED) -> pd.DataFrame:
     # Difficulty 5 → −1.0 logit penalty; difficulty 1 → +1.0 logit bonus.
     score += -0.5 * (recent_avg_difficulty - 3.0)
 
+    # R7 Rule: positive spillover from partner habits → higher success probability.
+    # A spilloverLiftAggregate of +0.5 contributes +0.75 logit units; −0.5 contributes
+    # −0.75 logit units.  The 1.5 coefficient is calibrated so that a maximum positive
+    # aggregate (+0.5) raises success probability by roughly the same magnitude as the
+    # morning-slot bonus — a defensible prior (completing partner habits is as strong a
+    # predictor as the time of day).  Mirrors MathHabitPredictor R7 clamp rule.
+    score += 1.5 * spillover_lift_aggregate
+
     # Amplify logit scores before sigmoid.
     # Without amplification, ~12% of samples land in the p∊[0.4,0.6] noise
     # bucket, capping the theoretical (Bayes) accuracy ceiling at 0.80 —
@@ -170,7 +196,8 @@ def generate(rows: int = 30_000, seed: int = SEED) -> pd.DataFrame:
             "habitAge": habit_age.astype(np.int16),
             "hoursSinceLastCompletion": hours_since_last.astype(np.int16),
             "targetCount": target_count.astype(np.int16),
-            "recentAvgDifficulty": recent_avg_difficulty,   # R6
+            "recentAvgDifficulty": recent_avg_difficulty,        # R6
+            "spilloverLiftAggregate": spillover_lift_aggregate,   # R7
             "label": label,
         }
     )

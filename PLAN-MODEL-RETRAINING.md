@@ -131,7 +131,7 @@ If a new cluster is added, update the `BehavioralCluster` card in `StatisticsScr
 
 # R6 — Model 1 Success + `recentAvgDifficulty`
 
-**Status:** `[ ]`
+**Status:** `[x]`
 **Trigger:** `PLAN-ML-EXTENSION.md` Phase 9.4 marked this optional; mark it done.
 **Goal:** Success prediction conditional on how hard recent completions felt.
 
@@ -258,3 +258,4 @@ After completing each R-task, append a 3-line summary here:
 - **R4 — 2026-05-26:** before silhouette=0.3753 (5-feature K=4), after silhouette_K4=0.4461, silhouette_K5=0.3683, chosen K=4 (K=5 failed gate: sil_K5 ≥ 0.4261). voluntarySkipRate30d + involuntarySkipRate30d added as features 6 & 7; K-Means organically captured life-disrupted behavior in consistent_effort cluster; math fallback unchanged.
 - **R5 — 2026-05-26:** before F1=N/A (no 9-feature baseline), after acc=0.7655, macro F1=0.7551, AUC=0.8485 (50k rows). Notes: involuntarySkipDays7d (field 8) + recentAvgDifficulty (field 9) added to StreakBreakFeatures; difficulty boost +0.15 in MathHabitPredictor when recentAvgDifficulty ≥ 4.0f (Rule 8); involuntarySkipDays7d is TFLite-only (no math fallback rule); StreakBreakUseCaseTest added (11 tests, all green).
 - **R6 — 2026-05-26:** before acc=N/A (no 7-feature baseline recorded), after acc=0.8240, AUC=0.8939 (30k rows, 50 epochs — passed on first attempt). recentAvgDifficulty added as 8th feature to HabitSuccessClassifier; logit penalty −0.5*(difficulty−3.0) in training data; difficulty multiplier (1−0.05*(d−3.0)) added to MathHabitPredictor fallback; SuccessProbabilityUseCase switched from successProbability() to predictSuccess(HabitFeatures), wiring TFLite inference end-to-end for the first time.
+- **R7 — 2026-05-26:** before acc=0.8240, AUC=0.8939 (R6 baseline), after acc=0.8267, AUC=0.9006 (30k rows, 9 features). spilloverLiftAggregate added as 9th feature — sum of BOOST liftDelta from SpilloverUseCase where the evaluated habit is the target, clamped to [−0.5, +0.5]; R7 logit rule: score += 1.5 × spilloverLiftAggregate (applied before ×2.0 amplification). SuccessProbabilityUseCase gains optional spilloverUseCase constructor param + per-day cache; MathHabitPredictor fallback adds p += spilloverLiftAggregate.coerceIn(−0.3f, 0.3f) after weekend penalty.

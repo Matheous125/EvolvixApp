@@ -36,6 +36,9 @@ class MathHabitPredictor : HabitPredictor {
      *
      * **R6 (2026-05-26):** Added difficulty multiplier — high [HabitFeatures.recentAvgDifficulty]
      * scales `p` down proportionally, mirroring the logit penalty in the training data.
+     *
+     * **R7 (2026-05-26):** Added spillover lift — [HabitFeatures.spilloverLiftAggregate] is
+     * clamped to [-0.3, +0.3] and added to `p` after the weekend penalty.
      */
     override fun predictSuccess(features: HabitFeatures): Float {
         var p = 0.5f
@@ -51,6 +54,9 @@ class MathHabitPredictor : HabitPredictor {
         if ((features.dayOfWeek == 6 || features.dayOfWeek == 7) && features.hourOfDay >= 18) {
             p -= 0.15f
         }
+        // R7: spillover lift from partner habits completed today. Clamped tighter than the
+        // training range (±0.3 vs ±0.5) so the fallback stays conservative.
+        p += features.spilloverLiftAggregate.coerceIn(-0.3f, 0.3f)
         // R6: difficulty multiplier — each point above neutral (3.0) reduces p by 5%;
         // each point below neutral adds 5%. Mirrors the logit penalty in the training data.
         val difficultyMultiplier = (1.0f - 0.05f * (features.recentAvgDifficulty - 3.0f)).coerceIn(0f, 1f)

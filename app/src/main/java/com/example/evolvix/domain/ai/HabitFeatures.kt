@@ -19,6 +19,8 @@ package com.example.evolvix.domain.ai
  *   8. [recentAvgDifficulty] — rolling avg of perceivedDifficulty over the last 14
  *      completions (1.0 … 5.0). Defaults to 3.0 (neutral midpoint) when no rated
  *      completions exist. Added in R6 retrain (2026-05-26).
+ *   9. [spilloverLiftAggregate] — sum of positive spillover lift deltas from partner
+ *      habits completed today (clamped to [-0.5, +0.5]). Added in R7 retrain (2026-05-26).
  */
 data class HabitFeatures(
     val dayOfWeek: Int,
@@ -29,10 +31,12 @@ data class HabitFeatures(
     val hoursSinceLastCompletion: Int,
     val targetCount: Int,
     /** R6: rolling avg of perceivedDifficulty (last 14 completions), 1.0–5.0. Default 3.0 = neutral. */
-    val recentAvgDifficulty: Float = 3.0f
+    val recentAvgDifficulty: Float = 3.0f,
+    /** R7: sum of positive spillover lift deltas from partner habits completed today, clamped to [-0.5, +0.5]. */
+    val spilloverLiftAggregate: Float = 0f
 ) {
     /**
-     * Returns the eight features as a [FloatArray] in the exact order expected by
+     * Returns the nine features as a [FloatArray] in the exact order expected by
      * the TFLite interpreter. Called by [TfliteHabitPredictor.predictSuccess].
      * Order must match Python `FEATURE_COLUMNS` in `generate_success_data.py`.
      */
@@ -44,6 +48,7 @@ data class HabitFeatures(
         habitAge.toFloat(),
         hoursSinceLastCompletion.toFloat(),
         targetCount.toFloat(),
-        recentAvgDifficulty
+        recentAvgDifficulty,
+        spilloverLiftAggregate
     )
 }
