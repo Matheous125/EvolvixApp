@@ -65,7 +65,7 @@ If `snoozeCountToday >= 2` → bias toward `gentle_nudge_at_risk` template regar
 
 # R3 — Model 3 Reminder Template + Abandonment Probability
 
-**Status:** `[ ]`
+**Status:** `[x]`
 **Trigger:** Replace rule-based `ReminderContext.isAtRisk: Boolean` with the continuous output of Model 8.1.
 **Goal:** Model stacking — Model 3 consumes Model 8.1's calibrated probability instead of a hard threshold.
 **Dependency:** Do AFTER R1 (so we don't retrain Model 3 twice).
@@ -254,4 +254,4 @@ After completing each R-task, append a 3-line summary here:
 
 - **R1 — 2026-05-26:** before acc=N/A (no prior baseline), after acc=0.7327 (20k rows). Notes: snoozeCountToday added as 8th feature; Rule 0 math fallback matches Python Rule 0.
 - **R2 — 2026-05-26:** before F1=N/A (7-feature baseline acc=0.7327 per R1, no F1 recorded), after F1=0.7505, acc=0.7881, AUC=0.8504 (50k rows). Notes: involuntarySkipDays7d and involuntarySkipDays30d added as features 8 & 9; adjusted_gap = daysSinceLast − involuntarySkipDays7d applied in both Python logit rules and MathHabitPredictor fallback.
-- ... (etc.)
+- **R3 — 2026-05-26:** before acc=0.7327 (R1, binary isAtRisk), after acc=0.7476, macro F1=0.621, weighted F1=0.729 (50k rows, Dense 32→16→15, threshold 0.65). abandonmentProbability: Float [0,1] from AbandonmentRiskUseCase replaces isAtRisk: Boolean; math fallback threshold ≥0.6 mirrors Python Rule 2; 4-component collinearity-broken synthesis.

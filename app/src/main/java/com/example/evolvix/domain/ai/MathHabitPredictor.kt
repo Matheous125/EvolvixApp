@@ -83,8 +83,11 @@ class MathHabitPredictor : HabitPredictor {
      * data so the fallback is qualitatively consistent with the ML model.
      *
      * **R1 (2026-05-26):** Rule 0 added — heavy snoozers (≥ 2 snoozes today) are
-     * routed to `gentle_nudge_at_risk` before any other rule fires. This mirrors
-     * `generate_reminder_data.py` Rule 0 and the R1 math fallback spec exactly.
+     * routed to `gentle_nudge_at_risk` before any other rule fires.
+     *
+     * **R3 (2026-05-26):** Rule 5 updated — `isAtRisk: Boolean` replaced by
+     * `abandonmentProbability: Float`; threshold 0.6 mirrors the Python Rule 2/6
+     * boundary used in training data generation.
      */
     override fun selectReminderTemplate(features: ReminderContext): String {
         // Rule 0 (R1): gentleness wins over celebration/urgency for heavy snoozers.
@@ -92,7 +95,8 @@ class MathHabitPredictor : HabitPredictor {
         if (features.targetReachedToday) return "target_smashed"
         if (features.currentStreak == 0 && features.daysSinceLastCompletion >= 7) return "cold_start"
         if (features.daysSinceLastCompletion >= 3) return "comeback_after_break"
-        if (features.isAtRisk) return "gentle_nudge_at_risk"
+        // R3: continuous probability threshold replaces hard isAtRisk boolean.
+        if (features.abandonmentProbability >= 0.6f) return "gentle_nudge_at_risk"
         if (features.currentStreak >= 30) return "cheer_streak_milestone"
         if (features.currentStreak in 1..6) return "first_week_support"
         if (features.completionRateLast7Days >= 0.85f) return "celebrate_consistency"

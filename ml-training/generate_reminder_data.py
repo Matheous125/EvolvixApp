@@ -6,13 +6,13 @@ Phase 6.5.4 of PLAN.md. Multi-class classification over 15 reminder template
 categories used by the on-device notification engine (Phase 7) and the
 in-app `MotivationMessageUseCase`.
 
-Features per row (PLAN.md §6.5.4):
+Features per row (PLAN.md §6.5.4 + R3 retrain 2026-05-26):
     currentStreak              0..200
     completionRateLast7Days    0.0..1.0
     daysSinceLastCompletion    0..30
     dayOfWeek                  1..7   (1 = Monday, 7 = Sunday)
     hourOfDay                  0..23
-    isAtRisk                   0/1
+    abandonmentProbability     0.0..1.0  (R3: replaces binary isAtRisk with continuous score)
     targetReachedToday         0/1
 
 Label space (15 templates, in this fixed index order — Android side maps
@@ -70,7 +70,7 @@ FEATURE_COLUMNS: list[str] = [
     "daysSinceLastCompletion",
     "dayOfWeek",
     "hourOfDay",
-    "isAtRisk",
+    "abandonmentProbability",  # R3: continuous [0,1] from AbandonmentRiskUseCase; replaces binary isAtRisk
     "targetReachedToday",
     "snoozeCountToday",   # R1: number of snoozes today before completion/skip
 ]
@@ -106,7 +106,7 @@ def _assign_labels(
     days_since_last: np.ndarray,
     day_of_week: np.ndarray,
     hour_of_day: np.ndarray,
-    is_at_risk: np.ndarray,
+    abandonment_prob: np.ndarray,  # R3: continuous [0,1] replaces binary is_at_risk
     target_reached: np.ndarray,
     snooze_count_today: np.ndarray,  # R1: new 8th feature
 ) -> np.ndarray:
@@ -142,10 +142,10 @@ def _assign_labels(
         "target_smashed",
     )
 
-    # Rule 2 — Streak save: streak is non-trivial but the user is at risk
-    # of losing it today. This is the most urgent "act now" reminder.
+    # Rule 2 — Streak save: streak is non-trivial and abandonment risk is high.
+    # R3: smooth threshold replaces binary is_at_risk check.
     assign(
-        (is_at_risk == 1) & (current_streak >= 5),
+        (abandonment_prob >= 0.6) & (current_streak >= 5),
         "streak_save",
     )
 
@@ -169,10 +169,10 @@ def _assign_labels(
         "recovery_encouragement",
     )
 
-    # Rule 6 — Gentle nudge: classed at-risk for "softer" reasons
-    # (yesterday missed, dipping completion rate) and streak is small.
+    # Rule 6 — Gentle nudge: moderate abandonment risk and streak is small.
+    # R3: threshold 0.4 (lower than streak_save) gives smooth gradient for model stacking.
     assign(
-        (is_at_risk == 1) & (current_streak < 5),
+        (abandonment_prob >= 0.4) & (current_streak < 5),
         "gentle_nudge_at_risk",
     )
 
@@ -251,16 +251,29 @@ def generate(rows: int = 10_000, seed: int = SEED) -> pd.DataFrame:
     day_of_week = rng.integers(1, 8, size=rows).astype(np.int16)
     hour_of_day = rng.integers(0, 24, size=rows).astype(np.int16)
 
-    # `isAtRisk` is supplied as a feature (PLAN.md §6.5.4) — in production
-    # the Android side computes it once and passes it in. Here we derive a
-    # noisy version from the other features so the model still has to learn
-    # the relationship rather than reading off a single bit.
-    risk_signal = (
-        (days_since_last >= 2).astype(np.float32) * 0.6
-        + (completion_rate < 0.40).astype(np.float32) * 0.5
-        + rng.normal(0.0, 0.15, size=rows).astype(np.float32)
-    )
-    is_at_risk = (risk_signal > 0.5).astype(np.int8)
+    # R3 (A): `abandonmentProbability` is a continuous [0,1] score produced by
+    # AbandonmentRiskUseCase on-device (Model 8.1 output). Here we synthesise a
+    # realistic distribution with FOUR weighted components so the feature is not
+    # a pure linear function of the other features already in the feature set:
+    #   - gap signal     (days_since_last) — shared with explicit feature
+    #   - rate signal    (completion_rate) — shared with explicit feature
+    #   - age signal     (simulated habit_age) — NOT in Model 3's feature set,
+    #                    breaks collinearity: younger habits abandon faster
+    #   - streak signal  (current_streak) — shared, but weighted low
+    # The independent age component prevents the network from treating
+    # abandonmentProbability as a redundant re-encoding of existing features.
+    simulated_habit_age_days = np.clip(
+        rng.exponential(scale=60.0, size=rows), 1, 730
+    ).astype(np.float32)
+    abandonment_prob = np.clip(
+        0.25 * (days_since_last / 7.0).astype(np.float32)
+        + 0.30 * (1.0 - completion_rate).astype(np.float32)
+        + 0.20 * (1.0 - np.clip(simulated_habit_age_days / 200.0, 0.0, 1.0))
+        + 0.10 * (1.0 - np.clip(current_streak.astype(np.float32) / 30.0, 0.0, 1.0))
+        + rng.normal(0.0, 0.08, size=rows).astype(np.float32),
+        0.0,
+        1.0,
+    ).astype(np.float32)
 
     # `targetReachedToday` — modest base rate (~25%) so the
     # `target_smashed` rule still has signal but doesn't dominate.
@@ -288,7 +301,7 @@ def generate(rows: int = 10_000, seed: int = SEED) -> pd.DataFrame:
         days_since_last=days_since_last,
         day_of_week=day_of_week,
         hour_of_day=hour_of_day,
-        is_at_risk=is_at_risk,
+        abandonment_prob=abandonment_prob,  # R3: continuous score
         target_reached=target_reached,
         snooze_count_today=snooze_count_today,
     )
@@ -308,9 +321,9 @@ def generate(rows: int = 10_000, seed: int = SEED) -> pd.DataFrame:
             "daysSinceLastCompletion": days_since_last,
             "dayOfWeek": day_of_week,
             "hourOfDay": hour_of_day,
-            "isAtRisk": is_at_risk,
+            "abandonmentProbability": abandonment_prob,  # R3: continuous [0,1] replaces isAtRisk
             "targetReachedToday": target_reached,
-            "snoozeCountToday": snooze_count_today,  # R1: new 8th feature column
+            "snoozeCountToday": snooze_count_today,  # R1
             "label": labels.astype(np.int8),
         }
     )

@@ -264,7 +264,8 @@ class TfliteHabitPredictor(
     }
 
     /**
-     * Runs Model 3: standard-scale the 8 reminder features (R1: `snoozeCountToday` added),
+     * Runs Model 3: standard-scale the 8 reminder features (R1: `snoozeCountToday` added;
+     * R3: `abandonmentProbability` replaces `isAtRisk` at slot 6 — tensor shape unchanged),
      * feed a (1, 8) float32 tensor, and return the label corresponding to the argmax of the
      * 15-way softmax output. Input tensor shape is derived from [ReminderContext.toFloatArray]
      * so no hard-coded size constant is needed here.

@@ -393,4 +393,63 @@ class MathHabitPredictorTest {
         assertNotNull(result)
         assertTrue("Early-clustered completions should yield negative skew", result!! < 0)
     }
+
+    // ── selectReminderTemplate (R3) ───────────────────────────────────────────
+    // These tests validate that the math fallback is consistent with R3: the
+    // continuous abandonmentProbability threshold (≥ 0.6) replaces the old
+    // Boolean isAtRisk flag. Mirrors generate_reminder_data.py Rule 2 / Rule 6.
+
+    /** Minimal [ReminderContext] with only the fields relevant to a given test varied. */
+    private fun ctx(
+        abandonmentProbability: Float = 0f,
+        targetReachedToday: Boolean = false,
+        currentStreak: Int = 3,
+        daysSinceLastCompletion: Int = 1,
+        snoozeCountToday: Int = 0
+    ) = ReminderContext(
+        currentStreak = currentStreak,
+        completionRateLast7Days = 0.8f,
+        daysSinceLastCompletion = daysSinceLastCompletion,
+        dayOfWeek = 1,
+        hourOfDay = 9,
+        abandonmentProbability = abandonmentProbability,
+        targetReachedToday = targetReachedToday,
+        snoozeCountToday = snoozeCountToday
+    )
+
+    @Test
+    fun `selectReminderTemplate returns gentle_nudge_at_risk when abandonmentProbability exactly 0_6`() {
+        // Boundary condition: probability == threshold should fire the rule.
+        assertEquals("gentle_nudge_at_risk", predictor.selectReminderTemplate(ctx(abandonmentProbability = 0.6f)))
+    }
+
+    @Test
+    fun `selectReminderTemplate returns gentle_nudge_at_risk when abandonmentProbability above 0_6`() {
+        assertEquals("gentle_nudge_at_risk", predictor.selectReminderTemplate(ctx(abandonmentProbability = 0.85f)))
+    }
+
+    @Test
+    fun `selectReminderTemplate does NOT return gentle_nudge_at_risk when abandonmentProbability below threshold`() {
+        // 0.59 is just below the 0.6 threshold — the R3 risk rule must not fire.
+        val result = predictor.selectReminderTemplate(ctx(abandonmentProbability = 0.59f))
+        assertNotEquals("gentle_nudge_at_risk", result)
+    }
+
+    @Test
+    fun `selectReminderTemplate returns target_smashed when targetReachedToday is true regardless of risk`() {
+        // Rule for target_smashed has higher priority than the risk gate.
+        val result = predictor.selectReminderTemplate(
+            ctx(targetReachedToday = true, abandonmentProbability = 0.9f)
+        )
+        assertEquals("target_smashed", result)
+    }
+
+    @Test
+    fun `selectReminderTemplate R1 snooze rule supersedes R3 risk gate`() {
+        // Rule 0 (R1): heavy snoozers → gentle_nudge_at_risk regardless of probability value.
+        val result = predictor.selectReminderTemplate(
+            ctx(snoozeCountToday = 2, abandonmentProbability = 0.0f)
+        )
+        assertEquals("gentle_nudge_at_risk", result)
+    }
 }

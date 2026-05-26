@@ -97,8 +97,8 @@ class HabitReminderWorker(
             daysSinceLastCompletion = daysSince,
             dayOfWeek = today.dayOfWeek.value,
             hourOfDay = now.hour,
-            isAtRisk = predictor.isStreakAtRisk(habitData, completions) ||
-                        abandonmentRisk.rating == AbandonmentRisk.Rating.CRITICAL,
+            // R3: pass continuous probability directly from Model 8.1 output.
+            abandonmentProbability = abandonmentRisk.probability,
             targetReachedToday = targetReachedToday,
             snoozeCountToday = snoozeCountToday
         )
@@ -116,7 +116,9 @@ class HabitReminderWorker(
         val periodTargetReached = habit.currentCount >= habit.target
         // Debug-test mode bypasses the smart gate entirely so the notification
         // always fires regardless of streak-at-risk state or period completion.
-        val shouldFire = isDebugTest || isSnoozed || (!periodTargetReached && ctxFeatures.isAtRisk)
+        // R3: gate uses continuous probability threshold (≥0.6) OR the classic streak-at-risk rule.
+        val shouldFire = isDebugTest || isSnoozed ||
+            (!periodTargetReached && (ctxFeatures.abandonmentProbability >= 0.6f || predictor.isStreakAtRisk(habitData, completions)))
 
         // ── Build PendingIntents for the three action buttons ──
         val doneIntent = PendingIntent.getBroadcast(
