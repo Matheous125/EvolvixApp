@@ -17,7 +17,8 @@ import java.nio.channels.FileChannel
  * Owns four [Interpreter] instances loaded from `app/src/main/assets/`:
  *  - `habit_success_classifier.tflite`     — binary success probability (Model 1).
  *  - `habit_icon_classifier.tflite`        — 17-class icon classifier (Model 2).
- *  - `reminder_template_classifier.tflite` — 15-class reminder template (Model 3).
+ *  - `reminder_template_classifier.tflite` — 15-class reminder template (Model 3); retrained R1
+ *    (2026-05-26) with `snoozeCountToday` as 8th feature (acc=0.7327, 20k rows).
  *  - `habit_abandonment_classifier.tflite` — binary abandonment probability (Phase 8.1).
  *
  * Composition with [mathFallback]:
@@ -263,8 +264,10 @@ class TfliteHabitPredictor(
     }
 
     /**
-     * Runs Model 3: standard-scale the 7 reminder features, feed a (1, 7) float32 tensor,
-     * and return the label corresponding to the argmax of the 15-way softmax output.
+     * Runs Model 3: standard-scale the 8 reminder features (R1: `snoozeCountToday` added),
+     * feed a (1, 8) float32 tensor, and return the label corresponding to the argmax of the
+     * 15-way softmax output. Input tensor shape is derived from [ReminderContext.toFloatArray]
+     * so no hard-coded size constant is needed here.
      * Falls back to [MathHabitPredictor.selectReminderTemplate] on missing model / failure.
      */
     override fun selectReminderTemplate(features: ReminderContext): String {

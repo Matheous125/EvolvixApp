@@ -27,7 +27,7 @@ Every R-task is "done" when ALL of the following are checked off in its own sect
 
 # R1 — Model 3 Reminder Template + `snoozeCount`
 
-**Status:** `[ ]`
+**Status:** `[x]`
 **Trigger:** `PLAN-ML-EXTENSION.md` Phase 9.2 explicitly promised this and never did it.
 **Goal:** Make reminder template selection sensitive to how many times the user already snoozed today, so heavy snoozers get gentler templates.
 
@@ -252,6 +252,6 @@ graph LR
 
 After completing each R-task, append a 3-line summary here:
 
-- **R1 — `<date>`:** before F1=`<x>`, after F1=`<y>`. Notes: `<...>`
+- **R1 — 2026-05-26:** before acc=N/A (no prior baseline), after acc=0.7327 (20k rows). Notes: snoozeCountToday added as 8th feature; Rule 0 math fallback matches Python Rule 0.
 - **R2 — `<date>`:** before F1=`<x>`, after F1=`<y>`. Notes: `<...>`
 - ... (etc.)

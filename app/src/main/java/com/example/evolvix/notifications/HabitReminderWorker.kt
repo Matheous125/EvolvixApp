@@ -88,6 +88,9 @@ class HabitReminderWorker(
         val targetReachedToday = completions.any {
             it.isTargetReached && it.progressUpdate.toLocalDate() == today
         }
+        // R1: read the live snooze counter for this habit so Model 3 can bias
+        // toward gentler templates when the user has already snoozed multiple times.
+        val snoozeCountToday = SnoozePreferences.getCount(ctx, habitId)
         val ctxFeatures = ReminderContext(
             currentStreak = streak,
             completionRateLast7Days = rate7,
@@ -96,7 +99,8 @@ class HabitReminderWorker(
             hourOfDay = now.hour,
             isAtRisk = predictor.isStreakAtRisk(habitData, completions) ||
                         abandonmentRisk.rating == AbandonmentRisk.Rating.CRITICAL,
-            targetReachedToday = targetReachedToday
+            targetReachedToday = targetReachedToday,
+            snoozeCountToday = snoozeCountToday
         )
         val templateKey = predictor.selectReminderTemplate(ctxFeatures)
         val messageText = resolveTemplateText(ctx, templateKey, habit.name)

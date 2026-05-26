@@ -81,8 +81,14 @@ class MathHabitPredictor : HabitPredictor {
      * Rule-based fallback for [selectReminderTemplate]. Picks one of the 15 template
      * keys in priority order, mirroring the rules used to generate Model 3's training
      * data so the fallback is qualitatively consistent with the ML model.
+     *
+     * **R1 (2026-05-26):** Rule 0 added — heavy snoozers (≥ 2 snoozes today) are
+     * routed to `gentle_nudge_at_risk` before any other rule fires. This mirrors
+     * `generate_reminder_data.py` Rule 0 and the R1 math fallback spec exactly.
      */
     override fun selectReminderTemplate(features: ReminderContext): String {
+        // Rule 0 (R1): gentleness wins over celebration/urgency for heavy snoozers.
+        if (features.snoozeCountToday >= 2) return "gentle_nudge_at_risk"
         if (features.targetReachedToday) return "target_smashed"
         if (features.currentStreak == 0 && features.daysSinceLastCompletion >= 7) return "cold_start"
         if (features.daysSinceLastCompletion >= 3) return "comeback_after_break"
