@@ -33,6 +33,9 @@ class MathHabitPredictor : HabitPredictor {
      * `generate_success_data.py` bakes into the synthetic training labels so callers
      * see qualitatively similar probabilities even when no TFLite model is loaded.
      * Result is clamped to [0.05, 0.95] (same envelope as [successProbability]).
+     *
+     * **R6 (2026-05-26):** Added difficulty multiplier — high [HabitFeatures.recentAvgDifficulty]
+     * scales `p` down proportionally, mirroring the logit penalty in the training data.
      */
     override fun predictSuccess(features: HabitFeatures): Float {
         var p = 0.5f
@@ -48,7 +51,10 @@ class MathHabitPredictor : HabitPredictor {
         if ((features.dayOfWeek == 6 || features.dayOfWeek == 7) && features.hourOfDay >= 18) {
             p -= 0.15f
         }
-        return p.coerceIn(0.05f, 0.95f)
+        // R6: difficulty multiplier — each point above neutral (3.0) reduces p by 5%;
+        // each point below neutral adds 5%. Mirrors the logit penalty in the training data.
+        val difficultyMultiplier = (1.0f - 0.05f * (features.recentAvgDifficulty - 3.0f)).coerceIn(0f, 1f)
+        return (p * difficultyMultiplier).coerceIn(0.05f, 0.95f)
     }
 
     /**

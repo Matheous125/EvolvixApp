@@ -16,6 +16,9 @@ package com.example.evolvix.domain.ai
  *   5. [habitAge] — days since habit creation (1 … 730).
  *   6. [hoursSinceLastCompletion] — 0 … 336 (capped at 14 days for training stability).
  *   7. [targetCount] — the habit's daily target value (1 … 20).
+ *   8. [recentAvgDifficulty] — rolling avg of perceivedDifficulty over the last 14
+ *      completions (1.0 … 5.0). Defaults to 3.0 (neutral midpoint) when no rated
+ *      completions exist. Added in R6 retrain (2026-05-26).
  */
 data class HabitFeatures(
     val dayOfWeek: Int,
@@ -24,11 +27,14 @@ data class HabitFeatures(
     val completionRateLast7Days: Float,
     val habitAge: Int,
     val hoursSinceLastCompletion: Int,
-    val targetCount: Int
+    val targetCount: Int,
+    /** R6: rolling avg of perceivedDifficulty (last 14 completions), 1.0–5.0. Default 3.0 = neutral. */
+    val recentAvgDifficulty: Float = 3.0f
 ) {
     /**
-     * Returns the seven features as a [FloatArray] in the exact order expected by
+     * Returns the eight features as a [FloatArray] in the exact order expected by
      * the TFLite interpreter. Called by [TfliteHabitPredictor.predictSuccess].
+     * Order must match Python `FEATURE_COLUMNS` in `generate_success_data.py`.
      */
     fun toFloatArray(): FloatArray = floatArrayOf(
         dayOfWeek.toFloat(),
@@ -37,6 +43,7 @@ data class HabitFeatures(
         completionRateLast7Days,
         habitAge.toFloat(),
         hoursSinceLastCompletion.toFloat(),
-        targetCount.toFloat()
+        targetCount.toFloat(),
+        recentAvgDifficulty
     )
 }

@@ -1,7 +1,7 @@
 """
 generate_success_data.py — Synthetic dataset for Model 1 (HabitSuccessClassifier).
 
-Phase 6.5.2 of PLAN.md.
+Phase 6.5.2 of PLAN.md. R6 retrain (2026-05-26) adds recentAvgDifficulty as the 8th feature.
 
 Features per row:
     dayOfWeek                 1..7   (1 = Monday, 7 = Sunday)
@@ -11,6 +11,8 @@ Features per row:
     habitAge                  1..730 (days since habit was created)
     hoursSinceLastCompletion  0..336 (up to 14 days)
     targetCount               1..20
+    recentAvgDifficulty       1.0..5.0 (rolling avg of perceivedDifficulty over last 14
+                              completions; 3.0 = neutral when no ratings available)
 
 Label generation strategy (PLAN.md §6.5.2):
     Start from a 0.5 baseline probability and apply behavioral nudges:
@@ -45,6 +47,7 @@ import pandas as pd
 SEED = 42
 
 # Order matters: training script + Android inference must read columns identically.
+# R6 (2026-05-26): recentAvgDifficulty added as 8th feature.
 FEATURE_COLUMNS: list[str] = [
     "dayOfWeek",
     "hourOfDay",
@@ -53,6 +56,7 @@ FEATURE_COLUMNS: list[str] = [
     "habitAge",
     "hoursSinceLastCompletion",
     "targetCount",
+    "recentAvgDifficulty",   # R6: rolling avg perceived difficulty, 1.0–5.0, default 3.0
 ]
 
 
@@ -80,6 +84,17 @@ def generate(rows: int = 30_000, seed: int = SEED) -> pd.DataFrame:
         rng.exponential(scale=36.0, size=rows), 0, 336
     ).astype(np.int16)           # ~14% of rows have gap > 72 h (at-risk)
     target_count = rng.integers(1, 21, size=rows).astype(np.int16)
+
+    # R6: recentAvgDifficulty — rolling avg of perceivedDifficulty over the last 14
+    # completions.  3.0 is the neutral midpoint (no ratings).  We bake in a mild
+    # negative correlation with completion_rate: habitual completers tend to find
+    # their habits easier over time, while struggling users rate them harder.
+    # Base: uniform 1.0–5.0, then shift by −0.6 * (completion_rate − 0.5) so that
+    # high-rate users skew toward 2–3 (easier) and low-rate users skew toward 3–5
+    # (harder). Clipped to [1.0, 5.0].
+    recent_avg_difficulty = rng.uniform(1.0, 5.0, size=rows).astype(np.float32)
+    recent_avg_difficulty -= 0.6 * (completion_rate - 0.5)
+    recent_avg_difficulty = np.clip(recent_avg_difficulty, 1.0, 5.0).astype(np.float32)
 
     # Logit-based label generation: rules contribute signed scores in logit
     # (log-odds) space; sigmoid converts to probability.
@@ -125,6 +140,12 @@ def generate(rows: int = 30_000, seed: int = SEED) -> pd.DataFrame:
     # Extended: long gap since last completion → at-risk (uses a defined feature)
     score += np.where(hours_since_last > 72, -2.0, 0.0)
 
+    # R6 Rule: high perceived difficulty → lower success probability.
+    # Mirrors the MathHabitPredictor math fallback: score penalty proportional
+    # to how far recentAvgDifficulty deviates above the neutral midpoint (3.0).
+    # Difficulty 5 → −1.0 logit penalty; difficulty 1 → +1.0 logit bonus.
+    score += -0.5 * (recent_avg_difficulty - 3.0)
+
     # Amplify logit scores before sigmoid.
     # Without amplification, ~12% of samples land in the p∊[0.4,0.6] noise
     # bucket, capping the theoretical (Bayes) accuracy ceiling at 0.80 —
@@ -149,6 +170,7 @@ def generate(rows: int = 30_000, seed: int = SEED) -> pd.DataFrame:
             "habitAge": habit_age.astype(np.int16),
             "hoursSinceLastCompletion": hours_since_last.astype(np.int16),
             "targetCount": target_count.astype(np.int16),
+            "recentAvgDifficulty": recent_avg_difficulty,   # R6
             "label": label,
         }
     )

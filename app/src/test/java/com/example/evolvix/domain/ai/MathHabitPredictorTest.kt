@@ -19,6 +19,7 @@ import java.time.LocalTime
  *
  * Coverage:
  * - successProbability: range clamping, morning/night bias, streak bonus.
+ * - predictSuccess (R6): high difficulty lowers result vs neutral; output stays in [0.05, 0.95].
  * - optimalHours: default fallback, correct hour ranking.
  * - relatedHabits: empty result when below threshold, correct detection above it.
  * - isStreakAtRisk: misses on a specific weekday trigger risk; regular completions don't.
@@ -451,5 +452,42 @@ class MathHabitPredictorTest {
             ctx(snoozeCountToday = 2, abandonmentProbability = 0.0f)
         )
         assertEquals("gentle_nudge_at_risk", result)
+    }
+
+    // ── predictSuccess (R6 — recentAvgDifficulty) ────────────────────────────
+    // Validates that the R6 difficulty multiplier in MathHabitPredictor.predictSuccess
+    // is structurally correct: higher difficulty must produce a strictly lower prediction.
+
+    /** Minimal [HabitFeatures] fixture with neutral difficulty and stable morning conditions. */
+    private fun baseFeatures(recentAvgDifficulty: Float = 3.0f) = HabitFeatures(
+        dayOfWeek = 1,
+        hourOfDay = 8,
+        currentStreak = 10,
+        completionRateLast7Days = 0.8f,
+        habitAge = 60,
+        hoursSinceLastCompletion = 20,
+        targetCount = 1,
+        recentAvgDifficulty = recentAvgDifficulty
+    )
+
+    @Test
+    fun `predictSuccess with difficulty 5 is lower than with neutral difficulty 3`() {
+        // Thesis defence proof: the R6 rule lowers predicted success for hard habits.
+        val neutral = predictor.predictSuccess(baseFeatures(recentAvgDifficulty = 3.0f))
+        val veryHard = predictor.predictSuccess(baseFeatures(recentAvgDifficulty = 5.0f))
+        assertTrue(
+            "Expected difficulty 5.0 to produce lower result than 3.0, got $veryHard >= $neutral",
+            veryHard < neutral
+        )
+    }
+
+    @Test
+    fun `predictSuccess result is always within 0_05 to 0_95 for any difficulty`() {
+        // Boundary check: coerceIn must hold even at extremes (1.0 and 5.0).
+        listOf(1.0f, 3.0f, 5.0f).forEach { difficulty ->
+            val result = predictor.predictSuccess(baseFeatures(recentAvgDifficulty = difficulty))
+            assertTrue("Result $result below 0.05 for difficulty $difficulty", result >= 0.05f)
+            assertTrue("Result $result above 0.95 for difficulty $difficulty", result <= 0.95f)
+        }
     }
 }

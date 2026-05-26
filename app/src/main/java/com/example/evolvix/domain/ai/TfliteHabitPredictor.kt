@@ -15,7 +15,8 @@ import java.nio.channels.FileChannel
  * TFLite-backed implementation of [HabitPredictor] (Phase 6.5).
  *
  * Owns four [Interpreter] instances loaded from `app/src/main/assets/`:
- *  - `habit_success_classifier.tflite`     — binary success probability (Model 1).
+ *  - `habit_success_classifier.tflite`     — binary success probability (Model 1); retrained R6
+ *    (2026-05-26) with `recentAvgDifficulty` as 8th feature (acc=0.8240, AUC=0.8939).
  *  - `habit_icon_classifier.tflite`        — 17-class icon classifier (Model 2).
  *  - `reminder_template_classifier.tflite` — 15-class reminder template (Model 3); retrained R1
  *    (2026-05-26) with `snoozeCountToday` as 8th feature (acc=0.7327, 20k rows).
@@ -782,7 +783,8 @@ class TfliteHabitPredictor(
 
     companion object {
         private const val TAG = "TfliteHabitPredictor"
-        private const val SUCCESS_FEATURE_COUNT = 7
+        /** R6 (2026-05-26): expanded from 7 → 8 (added recentAvgDifficulty). */
+        private const val SUCCESS_FEATURE_COUNT = 8
         private const val REMINDER_FEATURE_COUNT = 7
         private const val ABANDONMENT_FEATURE_COUNT = 7
         /** R5 (2026-05-26): expanded from 7 → 9 (involuntarySkipDays7d + recentAvgDifficulty). */

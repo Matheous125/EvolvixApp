@@ -1,6 +1,7 @@
 package com.example.evolvix.domain.usecase
 
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.domain.ai.HabitFeatures
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.SuccessPrediction
@@ -11,17 +12,19 @@ import java.time.temporal.ChronoUnit
  * Use Case / Interactor that estimates the probability of a habit being completed
  * successfully on the current day and hour.
  *
- * Responsibility: extract the five explicit feature values (day, hour, streak,
- * recentWeekRate, habitAge) from raw domain objects and delegate the actual
- * probability computation to [HabitPredictor] (Strategy + Dependency Inversion pattern).
- * This separation means the ViewModel never reaches into prediction math directly.
+ * Responsibility: extract the eight explicit feature values from raw domain objects and
+ * delegate probability computation to [HabitPredictor] (Strategy + Dependency Inversion
+ * pattern). This separation means the ViewModel never reaches into prediction math directly.
  *
- * Input features computed here:
- * - **day**        — ISO day-of-week of [now] (1 = Monday, 7 = Sunday).
- * - **hour**       — Hour of [now] in 24-hour format (0–23).
- * - **streak**     — Current unbroken streak computed via [CalculateStreakUseCase].
- * - **recentWeek** — Fraction of the last 7 calendar days where the target was reached.
- * - **age**        — Days since the habit's first ever recorded completion.
+ * Input features computed here (order matches [HabitFeatures] and Python FEATURE_COLUMNS):
+ * - **dayOfWeek**                — ISO day-of-week of [now] (1 = Monday, 7 = Sunday).
+ * - **hourOfDay**                — Hour of [now] in 24-hour format (0–23).
+ * - **currentStreak**            — Unbroken streak via [CalculateStreakUseCase].
+ * - **completionRateLast7Days**  — Fraction of last 7 calendar days target was reached.
+ * - **habitAge**                 — Days since first ever recorded completion.
+ * - **hoursSinceLastCompletion** — Hours since most recent completion, capped at 336 h.
+ * - **targetCount**              — Habit's daily target value.
+ * - **recentAvgDifficulty**      — Avg perceivedDifficulty over last 14 completions (R6).
  *
  * @param predictor          Strategy implementation of [HabitPredictor]; injectable so
  *                           [MathHabitPredictor] and [TfliteHabitPredictor] are interchangeable.
@@ -74,8 +77,38 @@ class SuccessProbabilityUseCase(
             ?.let { ChronoUnit.DAYS.between(it, today) }
             ?: 0L
 
-        // Delegate probability computation to the injected predictor (Strategy pattern).
-        val probability = predictor.successProbability(habit, completions, dayOfWeek, hourOfDay)
+        // Feature 6: hours since last completion — captures momentum loss for at-risk habits.
+        // Capped at 336 h (14 days) to match the training distribution upper bound.
+        val hoursSinceLastCompletion = completions
+            .maxOfOrNull { it.progressUpdate }
+            ?.let { ChronoUnit.HOURS.between(it, now).coerceAtMost(336L) }
+            ?: 0L
+
+        // Feature 7 (R6): rolling avg of perceivedDifficulty over the last 14 completions.
+        // Null ratings are skipped; defaults to 3.0 (neutral midpoint) when none are rated.
+        val recentAvgDifficulty: Float = completions
+            .sortedByDescending { it.progressUpdate }
+            .take(14)
+            .mapNotNull { it.perceivedDifficulty }
+            .map { it.toFloat() }
+            .let { rated -> if (rated.isEmpty()) 3.0f else rated.average().toFloat() }
+
+        // Build the feature vector — field order must match HabitFeatures.toFloatArray()
+        // and the Python FEATURE_COLUMNS list in generate_success_data.py.
+        val features = HabitFeatures(
+            dayOfWeek = dayOfWeek,
+            hourOfDay = hourOfDay,
+            currentStreak = currentStreak,
+            completionRateLast7Days = recentWeekRate,
+            habitAge = habitAgeInDays.toInt(),
+            hoursSinceLastCompletion = hoursSinceLastCompletion.toInt(),
+            targetCount = habit.target,
+            recentAvgDifficulty = recentAvgDifficulty
+        )
+
+        // Delegate to predictor via predictSuccess(HabitFeatures) — routes through
+        // TfliteHabitPredictor → actual TFLite model inference (Strategy pattern).
+        val probability = predictor.predictSuccess(features)
 
         return SuccessPrediction(
             probability = probability,
