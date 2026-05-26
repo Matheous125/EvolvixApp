@@ -88,7 +88,7 @@ This is a **breaking change** to `ReminderContext`. Grep for `isAtRisk` and upda
 
 # R4 — 8.4 Behavioral Clustering + Skip Reason Dimensions
 
-**Status:** `[ ]`
+**Status:** `[x]`
 **Trigger:** Phase 9.5 enables splitting "struggling" cluster into "disengaged" (high voluntary skips) vs. "life-disrupted" (high involuntary skips). Currently those are indistinguishable.
 **Goal:** Re-fit K-Means with 2 added features. Possibly bump `n_clusters` from 4 → 5 if silhouette score supports it.
 
@@ -112,7 +112,7 @@ If a new cluster is added, update the `BehavioralCluster` card in `StatisticsScr
 
 # R5 — 8.2 Streak Break — Exclude Involuntary Skips + Add `perceivedDifficulty`
 
-**Status:** `[ ]`
+**Status:** `[x]`
 **Trigger:** Same false-positive problem as R2 plus 9.4 difficulty signal unused.
 **Goal:** Don't count travel/sickness streak gaps; let high-difficulty completions push break probability up even when streak is intact.
 
@@ -256,3 +256,4 @@ After completing each R-task, append a 3-line summary here:
 - **R2 — 2026-05-26:** before F1=N/A (7-feature baseline acc=0.7327 per R1, no F1 recorded), after F1=0.7505, acc=0.7881, AUC=0.8504 (50k rows). Notes: involuntarySkipDays7d and involuntarySkipDays30d added as features 8 & 9; adjusted_gap = daysSinceLast − involuntarySkipDays7d applied in both Python logit rules and MathHabitPredictor fallback.
 - **R3 — 2026-05-26:** before acc=0.7327 (R1, binary isAtRisk), after acc=0.7476, macro F1=0.621, weighted F1=0.729 (50k rows, Dense 32→16→15, threshold 0.65). abandonmentProbability: Float [0,1] from AbandonmentRiskUseCase replaces isAtRisk: Boolean; math fallback threshold ≥0.6 mirrors Python Rule 2; 4-component collinearity-broken synthesis.
 - **R4 — 2026-05-26:** before silhouette=0.3753 (5-feature K=4), after silhouette_K4=0.4461, silhouette_K5=0.3683, chosen K=4 (K=5 failed gate: sil_K5 ≥ 0.4261). voluntarySkipRate30d + involuntarySkipRate30d added as features 6 & 7; K-Means organically captured life-disrupted behavior in consistent_effort cluster; math fallback unchanged.
+- R5 — 2026-05-26: before F1=N/A (no 9-feature baseline), after acc=0.7655, macro F1=0.7551, AUC=0.8485 (50k rows). Notes: involuntarySkipDays7d (field 8) + recentAvgDifficulty (field 9) added to StreakBreakFeatures; difficulty boost +0.15 in MathHabitPredictor when recentAvgDifficulty ≥ 4.0f (Rule 8); involuntarySkipDays7d is TFLite-only (no math fallback rule); StreakBreakUseCaseTest added (11 tests, all green).

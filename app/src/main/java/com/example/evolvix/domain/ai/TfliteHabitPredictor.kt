@@ -785,7 +785,8 @@ class TfliteHabitPredictor(
         private const val SUCCESS_FEATURE_COUNT = 7
         private const val REMINDER_FEATURE_COUNT = 7
         private const val ABANDONMENT_FEATURE_COUNT = 7
-        private const val STREAK_BREAK_FEATURE_COUNT = 7
+        /** R5 (2026-05-26): expanded from 7 → 9 (involuntarySkipDays7d + recentAvgDifficulty). */
+        private const val STREAK_BREAK_FEATURE_COUNT = 9
         private const val WEEKLY_FORECAST_FEATURE_COUNT = 12
         /** Number of input features for the K-Means clustering model (R4: 7 features). */
         private const val CLUSTER_FEATURE_COUNT = 7

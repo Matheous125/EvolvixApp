@@ -12,6 +12,8 @@ Features per row (field order must exactly mirror StreakBreakFeatures.kt
     hourOfDay                 0..23           (moment of evaluation)
     recentAvgGapDays          0.0..30.0  (mean gap between target-reached dates, last 30 d)
     frequencyOrdinal          0=DAILY, 1=WEEKLY, 2=MONTHLY
+    involuntarySkipDays7d     0..7   (R5: distinct days in last 7d with SICK/TRAVELING skip)
+    recentAvgDifficulty       1.0..5.0  (R5: rolling avg of perceivedDifficulty; 3.0 = neutral)
 
 Label:
     1  if the active streak ends within the next N periods (streak breaks)
@@ -38,6 +40,7 @@ Label generation strategy (logit-based, matching the Phase 8.1 convention):
     +1.5  completionRateLast7Days < 0.20  (very low engagement, independent of streak)
     +1.0  currentStreak <= 5  AND  completionRateLast7Days < 0.50  (young streak, moderate struggle)
     +0.5  dayOfWeek in {6, 7}  AND  completionRateLast7Days < 0.50  (weekend fragility signal)
+    +0.5  recentAvgDifficulty >= 4.0                               (R5: high perceived difficulty → fragile)
 
     LOW BREAK RISK signals (negative logit → label → 0):
     -3.0  currentStreak >= 30  AND  completionRateLast7Days >= 0.80  (mature, consistent streak)
@@ -45,6 +48,7 @@ Label generation strategy (logit-based, matching the Phase 8.1 convention):
     -1.5  currentStreak >= 14  AND  completionRateLast7Days >= 0.60  (healthy established streak)
     -1.0  recentAvgGapDays <= 1.5  AND  completionRateLast7Days >= 0.60  (regular, no gaps)
     -0.5  habitAge >= 90  AND  completionRateLast7Days >= 0.50      (mature habit momentum)
+    -0.5  involuntarySkipDays7d >= 3                                (R5: many involuntary skips → not disengaged)
 
     Logit is then scaled by 1.8 before sigmoid (identical to generate_abandonment_data.py
     rationale: moves samples away from the 0.4–0.6 dead zone, raising the Bayes
@@ -81,6 +85,8 @@ FEATURE_COLUMNS: list[str] = [
     "hourOfDay",
     "recentAvgGapDays",
     "frequencyOrdinal",
+    "involuntarySkipDays7d",   # R5: distinct SICK/TRAVELING days in last 7d (0..7)
+    "recentAvgDifficulty",     # R5: rolling avg of perceivedDifficulty (1.0..5.0; 3.0 = neutral)
 ]
 
 
@@ -140,6 +146,30 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
         0.0, 30.0
     ).astype(np.float32)
 
+    # R5 — involuntarySkipDays7d: distinct SICK/TRAVELING days in the last 7 days.
+    # Most users have 0; a long-trip / illness tail reaches up to 7 days.
+    # Distribution: ~80 % zero, geometric tail for the rest.
+    involuntary_skip_days_7d = np.clip(
+        rng.geometric(p=0.6, size=rows) - 1,  # geometric(p=0.6) − 1: mode=0
+        0, 7
+    ).astype(np.int8)
+    # Force to 0 for 80 % of the population (most users have no involuntary skips).
+    involuntary_skip_days_7d = np.where(
+        rng.random(size=rows) < 0.80, 0, involuntary_skip_days_7d
+    ).astype(np.int8)
+
+    # R5 — recentAvgDifficulty: rolling average of perceivedDifficulty (1–5 scale).
+    # Most users report near-neutral (3); high-difficulty tail peaks at 4–5 and
+    # correlates weakly with struggling habits (those users also have lower rates).
+    recent_avg_difficulty = np.clip(
+        rng.normal(loc=2.8, scale=0.8, size=rows), 1.0, 5.0
+    ).astype(np.float32)
+    # Bias: struggling habits (low rate) tend to report higher difficulty.
+    recent_avg_difficulty = np.clip(
+        recent_avg_difficulty + np.where(completion_rate_7d < 0.40, 0.5, 0.0),
+        1.0, 5.0
+    ).astype(np.float32)
+
     # ── Logit-based label generation ───────────────────────────────────────
 
     score = np.zeros(rows, dtype=np.float64)
@@ -159,6 +189,8 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
     score += np.where(
         (day_of_week >= 6) & (completion_rate_7d < 0.50), 0.5, 0.0
     )
+    # R5: high perceived difficulty is a leading indicator of streak fragility
+    score += np.where(recent_avg_difficulty >= 4.0, 0.5, 0.0)
 
     # LOW BREAK RISK signals — negative logit
     score += np.where(
@@ -175,6 +207,8 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
     score += np.where(
         (habit_age >= 90) & (completion_rate_7d >= 0.50), -0.5, 0.0
     )
+    # R5: many involuntary skips (SICK/TRAVELING) reduce the "true" disengagement signal
+    score += np.where(involuntary_skip_days_7d >= 3, -0.5, 0.0)
 
     # ── Scale and sigmoid ──────────────────────────────────────────────────
 
@@ -197,6 +231,8 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
             "hourOfDay": hour_of_day.astype(np.int8),
             "recentAvgGapDays": recent_avg_gap.astype(np.float32),
             "frequencyOrdinal": frequency_ordinal.astype(np.int8),
+            "involuntarySkipDays7d": involuntary_skip_days_7d.astype(np.int8),   # R5
+            "recentAvgDifficulty": recent_avg_difficulty.astype(np.float32),     # R5
             "label": label,
         }
     )

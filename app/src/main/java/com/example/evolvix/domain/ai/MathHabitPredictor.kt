@@ -509,31 +509,43 @@ class MathHabitPredictor : HabitPredictor {
      *   5. Healthy streak (≥ 14) + decent rate (≥ 0.60)       → 0.10
      *   6. Very low engagement (rate < 0.20)                   → 0.70
      *   7. Continuous blend: rate + streak contribution        → [0.10, 0.55]
+     *   8. R5 difficulty boost: +0.15 when recentAvgDifficulty ≥ 4.0 (applied post-rules).
+     *      [involuntarySkipDays7d] has no math fallback rule — TFLite-only signal.
      */
     override fun predictStreakBreak(features: StreakBreakFeatures): Float {
         val rate = features.completionRateLast7Days
 
+        // Rules 1–7 produce a base probability; Rule 8 adjusts it afterward.
+        val baseProb: Float
+
         // Rule 1: barely-started streak already showing poor engagement
-        if (features.currentStreak <= 2 && rate < 0.30f) return 0.80f
-
+        if (features.currentStreak <= 2 && rate < 0.30f) {
+            baseProb = 0.80f
         // Rule 2: gaps are widening and engagement is low
-        if (features.recentAvgGapDays >= 4f && rate < 0.40f) return 0.75f
-
+        } else if (features.recentAvgGapDays >= 4f && rate < 0.40f) {
+            baseProb = 0.75f
         // Rule 3: mature long streak with consistent rate → very safe
-        if (features.currentStreak >= 30 && rate >= 0.80f) return 0.05f
-
+        } else if (features.currentStreak >= 30 && rate >= 0.80f) {
+            baseProb = 0.05f
         // Rule 4: excellent recent rate regardless of streak length
-        if (rate >= 0.85f) return 0.10f
-
+        } else if (rate >= 0.85f) {
+            baseProb = 0.10f
         // Rule 5: established streak with decent rate
-        if (features.currentStreak >= 14 && rate >= 0.60f) return 0.10f
-
+        } else if (features.currentStreak >= 14 && rate >= 0.60f) {
+            baseProb = 0.10f
         // Rule 6: very low engagement alone is a strong break signal
-        if (rate < 0.20f) return 0.70f
-
+        } else if (rate < 0.20f) {
+            baseProb = 0.70f
         // Rule 7: continuous blend — higher rate and longer streak lower the risk
-        val streakContribution = minOf(features.currentStreak, 14) / 14f * 0.15f
-        return (0.55f - rate * 0.40f - streakContribution).coerceIn(0.10f, 0.55f)
+        } else {
+            val streakContribution = minOf(features.currentStreak, 14) / 14f * 0.15f
+            baseProb = (0.55f - rate * 0.40f - streakContribution).coerceIn(0.10f, 0.55f)
+        }
+
+        // Rule 8 (R5): perceived difficulty ≥ 4.0 adds +0.15 — high effort is a leading
+        // fragility indicator. involuntarySkipDays7d has no math fallback rule (TFLite-only).
+        val difficultyBoost = if (features.recentAvgDifficulty >= 4.0f) 0.15f else 0.0f
+        return (baseProb + difficultyBoost).coerceIn(0f, 1f)
     }
 
     // ── Phase 8.3 — Weekly Performance Forecaster ─────────────────────────────

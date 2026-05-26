@@ -2,6 +2,7 @@ package com.example.evolvix.domain.usecase
 
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.data.model.HabitFrequency
+import com.example.evolvix.data.model.HabitSkipEntity
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.ai.StreakBreakFeatures
 import com.example.evolvix.domain.model.HabitData
@@ -14,7 +15,7 @@ import java.time.temporal.ChronoUnit
  * Use Case / Interactor that estimates the probability that a habit's active streak
  * will be broken within the next period (Phase 8.2).
  *
- * Responsibility: extract the seven [StreakBreakFeatures] from raw Room data, check data
+ * Responsibility: extract the nine [StreakBreakFeatures] from raw Room data, check data
  * sufficiency (including an active-streak guard), delegate inference to the injected
  * [HabitPredictor] (Strategy + Dependency Inversion), and map the raw probability to a
  * [StreakBreakRisk.Rating] tier.
@@ -22,6 +23,11 @@ import java.time.temporal.ChronoUnit
  * Only habits with an active streak ([currentStreak] ≥ 1) receive a meaningful prediction.
  * Habits with streak = 0 are returned with [StreakBreakRisk.hasSufficientData] = false so
  * the View layer can show a neutral / "no active streak" placeholder.
+ *
+ * **R5 (2026-05-26):** Accepts an [involuntarySkips] list (SICK / TRAVELING records from
+ * [HabitSkipEntity]) so that illness/travel days are excluded from the break signal,
+ * and computes [StreakBreakFeatures.recentAvgDifficulty] from [HabitCompletionEntity.perceivedDifficulty]
+ * to let high-effort completions raise the predicted break probability.
  *
  * Note on habit age: derived from the earliest [HabitCompletionEntity.progressUpdate],
  * same conservative approach as [AbandonmentRiskUseCase].
@@ -41,6 +47,15 @@ class StreakBreakUseCase(
 
         /** Window (days) used to compute the average gap between recent completions. */
         private const val GAP_WINDOW_DAYS = 30L
+
+        /**
+         * Number of most-recent rated completions considered for [recentAvgDifficulty].
+         * Matches the window used by [DifficultyEstimateUseCase].
+         */
+        private const val DIFFICULTY_WINDOW = 14
+
+        /** Neutral difficulty returned when the user has no rated completions. */
+        private const val DEFAULT_DIFFICULTY = 3.0f
     }
 
     /**
@@ -49,21 +64,25 @@ class StreakBreakUseCase(
      * Algorithm:
      * 1. Guard: return LOW / `hasSufficientData = false` when the streak is inactive,
      *    completions are too few, or the habit is younger than [MIN_AGE_DAYS].
-     * 2. Extract the seven [StreakBreakFeatures] from the completions list.
+     * 2. Extract the nine [StreakBreakFeatures] from the completions list.
      * 3. Delegate inference to the injected [predictor] (TFLite or math fallback).
      * 4. Map the raw probability to a [StreakBreakRisk.Rating] via [StreakBreakRisk.ratingFor].
      *
-     * @param habit          Domain model of the habit to evaluate.
-     * @param completions    All historical completion records for this habit.
-     * @param currentStreak  Pre-computed current streak (from [CalculateStreakUseCase]);
-     *                       must be ≥ 1 for a meaningful prediction.
-     * @param today          Reference date (defaults to system clock; injectable for testing).
+     * @param habit             Domain model of the habit to evaluate.
+     * @param completions       All historical completion records for this habit.
+     * @param currentStreak     Pre-computed current streak (from [CalculateStreakUseCase]);
+     *                          must be ≥ 1 for a meaningful prediction.
+     * @param involuntarySkips  Skip records whose reason is SICK or TRAVELING. Passed in
+     *                          by the caller so this use case stays free of DAO dependencies.
+     *                          Defaults to empty so existing call sites compile unchanged.
+     * @param today             Reference date (defaults to system clock; injectable for testing).
      * @return [StreakBreakRisk] with probability, rating, and data-sufficiency flag.
      */
     operator fun invoke(
         habit: HabitData,
         completions: List<HabitCompletionEntity>,
         currentStreak: Int,
+        involuntarySkips: List<HabitSkipEntity> = emptyList(),
         today: LocalDate = LocalDate.now()
     ): StreakBreakRisk {
         // Guard: no active streak — prediction is not applicable
@@ -98,6 +117,24 @@ class StreakBreakUseCase(
             else                  -> 2
         }
 
+        // R5: count distinct calendar days in last 7d with an involuntary skip (SICK/TRAVELING).
+        // Mirrors the AbandonmentRiskUseCase pattern; capped at 7 to match training distribution.
+        val since7 = today.minusDays(7)
+        val involSkipDays7d = involuntarySkips
+            .filter { it.reason.isInvoluntary && it.skippedAt.toLocalDate() > since7 }
+            .map { it.skippedAt.toLocalDate() }
+            .toSet().size.coerceAtMost(7)
+
+        // R5: rolling avg of perceivedDifficulty over the last DIFFICULTY_WINDOW rated completions.
+        // Sorted descending by date so we take the most-recent ones. Default = neutral (3.0).
+        val recentAvgDifficulty = completions
+            .filter { it.perceivedDifficulty != null }
+            .sortedByDescending { it.progressUpdate }
+            .take(DIFFICULTY_WINDOW)
+            .map { it.perceivedDifficulty!!.toFloat() }
+            .average()
+            .let { if (it.isNaN()) DEFAULT_DIFFICULTY else it.toFloat() }
+
         val features = StreakBreakFeatures(
             currentStreak = currentStreak,
             habitAge = habitAge,
@@ -105,7 +142,9 @@ class StreakBreakUseCase(
             dayOfWeek = today.dayOfWeek.value,   // 1=Mon..7=Sun, matches training generator
             hourOfDay = LocalTime.now().hour,
             recentAvgGapDays = recentAvgGapDays,
-            frequencyOrdinal = frequencyOrdinal
+            frequencyOrdinal = frequencyOrdinal,
+            involuntarySkipDays7d = involSkipDays7d,  // R5
+            recentAvgDifficulty = recentAvgDifficulty  // R5
         )
 
         val probability = predictor.predictStreakBreak(features)

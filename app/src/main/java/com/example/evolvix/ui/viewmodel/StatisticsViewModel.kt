@@ -329,6 +329,10 @@ class StatisticsViewModel(
      * with [StreakBreakRisk.hasSufficientData] = false so the UI can render a neutral
      * placeholder instead of a probability bar.
      *
+     * **R5 (2026-05-26):** Involuntary skip records (SICK / TRAVELING) from the last 7 days
+     * are fetched once per emission via [HabitSkipDao.getAllRecent] and forwarded to
+     * [StreakBreakUseCase] so the model can discount false-positive break signals.
+     *
      * (Pattern: Observer via StateFlow — mirrors [abandonmentRisks]; streak is re-derived
      *  so this flow is independently collectible without coupling to [perHabitStats])
      */
@@ -337,6 +341,11 @@ class StatisticsViewModel(
         dao.getAllCompletions()
     ) { habits, completions ->
         val today = LocalDate.now()
+        // R5: fetch involuntary skips once for the whole emission (window = 7d).
+        // getAllRecent is a suspend function; safe inside the combine transform (viewModelScope).
+        val since7d = today.minusDays(7L).atStartOfDay()
+        val allInvoluntarySkips = habitSkipDao.getAllRecent(since7d)
+            .filter { it.reason.isInvoluntary }
         habits.associate { habit ->
             val habitCompletions = completions.filter { it.habitId == habit.id }
             val streak = calculateStreakUseCase(habitCompletions, habit.frequency, today)
@@ -346,7 +355,13 @@ class StatisticsViewModel(
                 totalProgressUpdates = habit.totalProgressUpdates,
                 totalTargetReaches = habit.totalTargetReaches, lastResetDate = habit.lastResetDate
             )
-            habit.id to streakBreakUseCase(habitData, habitCompletions, streak.current, today)
+            habit.id to streakBreakUseCase(
+                habit = habitData,
+                completions = habitCompletions,
+                currentStreak = streak.current,
+                involuntarySkips = allInvoluntarySkips.filter { it.habitId == habit.id },  // R5
+                today = today
+            )
         }
     }.stateIn(
         scope = viewModelScope,
