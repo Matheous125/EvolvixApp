@@ -20,6 +20,7 @@ import java.time.LocalTime
  * Coverage:
  * - successProbability: range clamping, morning/night bias, streak bonus.
  * - predictSuccess (R6): high difficulty lowers result vs neutral; output stays in [0.05, 0.95].
+ * - predictSuccess (R7): positive spilloverLiftAggregate raises result vs zero aggregate.
  * - optimalHours: default fallback, correct hour ranking.
  * - relatedHabits: empty result when below threshold, correct detection above it.
  * - isStreakAtRisk: misses on a specific weekday trigger risk; regular completions don't.
@@ -459,7 +460,10 @@ class MathHabitPredictorTest {
     // is structurally correct: higher difficulty must produce a strictly lower prediction.
 
     /** Minimal [HabitFeatures] fixture with neutral difficulty and stable morning conditions. */
-    private fun baseFeatures(recentAvgDifficulty: Float = 3.0f) = HabitFeatures(
+    private fun baseFeatures(
+        recentAvgDifficulty: Float = 3.0f,
+        spilloverLiftAggregate: Float = 0f
+    ) = HabitFeatures(
         dayOfWeek = 1,
         hourOfDay = 8,
         currentStreak = 10,
@@ -467,7 +471,8 @@ class MathHabitPredictorTest {
         habitAge = 60,
         hoursSinceLastCompletion = 20,
         targetCount = 1,
-        recentAvgDifficulty = recentAvgDifficulty
+        recentAvgDifficulty = recentAvgDifficulty,
+        spilloverLiftAggregate = spilloverLiftAggregate
     )
 
     @Test
@@ -489,5 +494,29 @@ class MathHabitPredictorTest {
             assertTrue("Result $result below 0.05 for difficulty $difficulty", result >= 0.05f)
             assertTrue("Result $result above 0.95 for difficulty $difficulty", result <= 0.95f)
         }
+    }
+
+    // ── predictSuccess (R7 — spilloverLiftAggregate) ──────────────────────────
+    // Validates that the R7 spillover rule in MathHabitPredictor.predictSuccess raises
+    // predicted success when a partner habit boosted this one today.
+
+    @Test
+    fun `predictSuccess with spilloverLiftAggregate 0_4 is higher than with 0f`() {
+        // Thesis defence proof: completing a BOOST partner habit today should raise
+        // the success probability of this habit via the R7 clamp rule.
+        // Use afternoon + low-streak conditions so the base probability is ~0.5 and
+        // the spillover delta (clamped to +0.3) is not swallowed by the 0.95 ceiling.
+        val moderate = HabitFeatures(
+            dayOfWeek = 3, hourOfDay = 14, currentStreak = 3,
+            completionRateLast7Days = 0.5f, habitAge = 10,
+            hoursSinceLastCompletion = 20, targetCount = 1,
+            recentAvgDifficulty = 3.0f
+        )
+        val noSpillover = predictor.predictSuccess(moderate.copy(spilloverLiftAggregate = 0f))
+        val withBoost   = predictor.predictSuccess(moderate.copy(spilloverLiftAggregate = 0.4f))
+        assertTrue(
+            "Expected spilloverLiftAggregate=0.4 to raise result above $noSpillover, but got $withBoost",
+            withBoost > noSpillover
+        )
     }
 }
