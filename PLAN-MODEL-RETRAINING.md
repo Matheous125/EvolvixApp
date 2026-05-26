@@ -150,7 +150,7 @@ Multiply the existing rule-based success probability by `(1.0 - 0.05 * (recentAv
 
 # R7 — Model 1 Success + Spillover Lift Aggregate
 
-**Status:** `[ ]`
+**Status:** `[x]`
 **Trigger:** Phase 8.5 produces per-pair lifts but Model 1 ignores them.
 **Goal:** Within-day momentum awareness — habits whose "partner habits" were already completed today get a higher predicted success.
 **Dependency:** Do AFTER R6 (avoid retraining Model 1 twice).

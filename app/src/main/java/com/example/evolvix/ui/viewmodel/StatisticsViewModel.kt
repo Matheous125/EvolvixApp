@@ -37,6 +37,7 @@ import com.example.evolvix.domain.usecase.TargetAdjustmentUseCase
 import com.example.evolvix.domain.usecase.LifeBalanceUseCase
 import com.example.evolvix.domain.usecase.SparklineUseCase
 import com.example.evolvix.domain.usecase.SpilloverUseCase
+import com.example.evolvix.domain.usecase.SuccessProbabilityUseCase
 import com.example.evolvix.domain.usecase.WeeklyForecastUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
 import java.time.LocalDateTime
@@ -87,6 +88,12 @@ class StatisticsViewModel(
     private val weeklyForecastUseCase = WeeklyForecastUseCase(predictor)
     private val behavioralClusterUseCase = BehavioralClusterUseCase(predictor)
     private val spilloverUseCase = SpilloverUseCase(predictor)
+    // R7: routes successProbabilityToday through the 9-feature TFLite path, injecting
+    // spilloverUseCase so the BOOST aggregate is included in each habit's feature vector.
+    private val successProbabilityUseCase = SuccessProbabilityUseCase(
+        predictor = predictor,
+        spilloverUseCase = spilloverUseCase
+    )
     private val reminderEffectivenessUseCase = ReminderEffectivenessUseCase(predictor)
     private val snoozeDisengagementUseCase = SnoozeDisengagementUseCase(predictor)
     // Phase 9.3 — requires TargetHistoryDao because it reads the target-change audit log.
@@ -213,9 +220,13 @@ class StatisticsViewModel(
                 sparkline30d = sparkline,
                 completionRate30d = rate.coerceIn(0f, 1f),
                 resolvedIconEmoji = resolvedIcon,
-                successProbabilityToday = predictor.successProbability(
-                    habitData, habitCompletions, now.dayOfWeek.value, now.hour
-                ),
+                successProbabilityToday = successProbabilityUseCase(
+                    habit = habitData,
+                    completions = habitCompletions,
+                    now = now,
+                    allHabits = allHabitData,
+                    allCompletions = completions  // full cross-habit list for spillover
+                ).probability,
                 optimalHours = predictor.optimalHours(habitData, habitCompletions),
                 relatedHabitNames = predictor.relatedHabits(habitData, allHabitData, completions),
                 isStreakAtRisk = predictor.isStreakAtRisk(habitData, habitCompletions),
