@@ -261,6 +261,8 @@
     <string name="subtitle_daily_summary">Receive a daily habits recap notification</string>
     <string name="menu_change_password">Change Password</string>
     <string name="subtitle_change_password">Available after signing in (Phase 9)</string>
+    <string name="menu_change_email">Change e-mail address</string>
+    <string name="subtitle_change_email_logged_out">Available after signing in</string>
     <string name="menu_login_logout">Login / Logout</string>
     <string name="subtitle_login_logout">Cloud sync available in a future update</string>
     <string name="menu_help">Help</string>
@@ -564,6 +566,12 @@
     <string name="auth_sign_in_link">Sign in</string>
     <string name="auth_reset_email_sent">Reset link sent — check your inbox.</string>
     <string name="auth_password_changed">Password changed successfully.</string>
+    <string name="auth_email_changed">E-mail address changed successfully.</string>
+    <string name="screen_change_email_title">Change e-mail address</string>
+    <string name="label_new_email">New e-mail</string>
+    <string name="label_confirm_email">Confirm new e-mail</string>
+    <string name="btn_change_email">Change e-mail</string>
+    <string name="error_emails_no_match">E-mail addresses do not match</string>
     <string name="error_email_empty">Email cannot be empty</string>
     <string name="error_password_empty">Password cannot be empty</string>
     <string name="error_passwords_no_match">Passwords do not match</string>

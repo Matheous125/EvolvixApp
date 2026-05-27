@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.example.evolvix.R
 import com.example.evolvix.domain.model.AchievementDefinition
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
+import com.example.evolvix.ui.viewmodel.AuthViewModel
 import com.example.evolvix.ui.viewmodel.SettingsViewModel
 import com.example.evolvix.ui.viewmodel.ThemeMode
 
@@ -76,7 +77,10 @@ private fun initials(name: String): String {
  *
  * @param settingsViewModel          Manages theme, language, name, and daily-summary preference.
  * @param achievementsViewModel      Activity-scoped VM; provides total earned points for rank.
+ * @param authViewModel              Activity-scoped auth VM; provides the current e-mail shown
+ *                                   under the Change-e-mail row and the logout action.
  * @param onNavigateToChangePassword Navigates to the SetNewPassword screen (Phase 9).
+ * @param onNavigateToChangeEmail    Navigates to the ChangeEmail screen (Polish-Pass E2).
  * @param onNavigateBack             Callback to pop the back stack.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,7 +88,9 @@ private fun initials(name: String): String {
 fun SettingsScreen(
     settingsViewModel: SettingsViewModel,
     achievementsViewModel: AchievementsViewModel,
+    authViewModel: AuthViewModel,
     onNavigateToChangePassword: () -> Unit,
+    onNavigateToChangeEmail: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -94,6 +100,10 @@ fun SettingsScreen(
     val languageCode    by settingsViewModel.languageCode.collectAsState()
     val summaryEnabled  by settingsViewModel.dailySummaryEnabled.collectAsState()
     val displayName     by settingsViewModel.displayName.collectAsState()
+    // Current account e-mail — shown as the subtitle of the Change-e-mail row so the
+    // user always sees which address is active. Null while logged out (Phase-9 dev state).
+    val authState       by authViewModel.uiState.collectAsState()
+    val currentEmail    = authState.currentEmail
 
     // Compute rank from achievements points
     val achievements by achievementsViewModel.achievements.collectAsState()
@@ -229,6 +239,17 @@ fun SettingsScreen(
                     title    = stringResource(R.string.menu_change_password),
                     subtitle = stringResource(R.string.subtitle_change_password),
                     onClick  = onNavigateToChangePassword
+                )
+            }
+            item(key = "change_email") {
+                SettingsListItem(
+                    icon     = Icons.Filled.Email,
+                    title    = stringResource(R.string.menu_change_email),
+                    // Show the active address under the row title so the change is
+                    // visible at a glance after returning from ChangeEmailScreen.
+                    subtitle = currentEmail
+                        ?: stringResource(R.string.subtitle_change_email_logged_out),
+                    onClick  = onNavigateToChangeEmail
                 )
             }
             item(key = "login_logout") {

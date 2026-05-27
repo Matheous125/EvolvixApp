@@ -52,8 +52,8 @@ app/src/main/java/com/example/evolvix
 │   │   ├── TfliteHabitPredictor.kt # TFLite implementation of HabitPredictor; K-Means clustering via habit_clusters.json (nearest-centroid, no Interpreter); Phase 9.4 adds difficultyInterpreter; Phase 9.5 adds skipReasonInterpreter loading skip_reason_classifier.tflite + skip_reason_scaler.json; falls back to MathHabitPredictor
 │   │   └── WeeklyForecastFeatures.kt # 12-field input feature vector for the WeeklyForecastRegressor TFLite model (Phase 8.3); toFloatArray() returns fields in scaler order
 │   ├── auth/               # Authentication contracts (Dependency Inversion; swappable impl)
-│   │   ├── AuthRepository.kt      # Interface defining all auth operations (login, register, resetPassword, changePassword, logout); returns Result<Unit>
-│   │   └── FakeAuthRepository.kt  # In-memory stub implementation of AuthRepository used during development (Phase 9); replaced by FirebaseAuthRepository in Phase 10
+│   │   ├── AuthRepository.kt      # Interface defining all auth operations (login, register, resetPassword, changePassword, changeEmail, currentEmail, logout); returns Result<Unit>
+│   │   └── FakeAuthRepository.kt  # In-memory stub implementation of AuthRepository used during development (Phase 9); Polish-Pass E2 adds changeEmail (password verify + EMAIL_REGEX + uniqueness check + atomic account map re-keying) and currentEmail() getter; replaced by FirebaseAuthRepository in Phase 10
 │   ├── model/              # Domain models and state classes
 │   │   ├── AbandonmentRisk.kt        # Output of AbandonmentRiskUseCase (Phase 8.1); wraps raw probability into a Rating tier (LOW/MEDIUM/HIGH/CRITICAL) + data-sufficiency flag
 │   │   ├── AchievementDefinition.kt  # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
@@ -155,12 +155,13 @@ app/src/main/java/com/example/evolvix
 │   │   │   ├── LoginScreen.kt         # Email + password login form; delegates to AuthViewModel
 │   │   │   ├── RegisterScreen.kt      # Account creation form; delegates to AuthViewModel
 │   │   │   ├── ResetPasswordScreen.kt # Request password-reset e-mail form; delegates to AuthViewModel
+│   │   │   ├── ChangeEmailScreen.kt   # Polish-Pass E2: three-field flow (currentPassword + newEmail + confirmEmail) for swapping the account address; delegates to AuthViewModel.changeEmail; mirrors SetNewPasswordScreen layout
 │   │   │   └── SetNewPasswordScreen.kt # Confirm new password entry (deep-link target); delegates to AuthViewModel
 │   │   ├── EditHabitScreen.kt     # Edit habit details form
 │   │   ├── HistoryScreen.kt       # Browse, edit, and add habit completion history
 │   │   ├── MainScreen.kt          # Habit list with completion interaction, sort/filter, context menu, unread-badge bell icon
 │   │   ├── OnboardingScreen.kt    # Single-page onboarding shown once on first launch; sets OnboardingPreferences flag on "Get Started" tap
-│   │   ├── SettingsScreen.kt      # App settings: theme mode selector (Light/Dark/System), daily-summary toggle, reminder management
+│   │   ├── SettingsScreen.kt      # App settings: theme mode selector (Light/Dark/System), daily-summary toggle, reminder management; Polish-Pass E2 adds authViewModel param + onNavigateToChangeEmail; new "Change e-mail address" row uses authState.currentEmail as the subtitle so the active address is visible at a glance
 │   │   ├── StatisticsScreen.kt    # Analytics: weekly overview, life balance, per-habit stats, AI insight cards; Phase 9.4 adds PerceivedDifficultyCard; Phase 9.5 adds SkipReasonForecastCard (ElevatedCard) showing topReason + confidence bar per habit with ≥3 skip records
 │   │   └── SummaryInboxScreen.kt  # Scrollable inbox of daily summary cards; mark-read / dismiss actions; unread badge driven by SummaryInboxViewModel
 │   ├── theme/              # Colors, Typography, Shapes
@@ -171,7 +172,7 @@ app/src/main/java/com/example/evolvix
 │   └── viewmodel/          # The "ViewModel" Layer - UI Logic
 │       ├── AchievementsViewModel.kt        # Observes habits+completions Flow, runs EvaluateAchievementsUseCase, persists deltas; emits newlyUnlocked SharedFlow for AchievementBanner
 │       ├── AchievementsViewModelFactory.kt # Factory for AchievementsViewModel (injects HabitDao + AchievementDao)
-│       ├── AuthViewModel.kt               # State holder for all auth screens; exposes AuthUiState (isLoading, isAuthenticated, error, resetEmailSent); delegates to AuthRepository
+│       ├── AuthViewModel.kt               # State holder for all auth screens; exposes AuthUiState (isLoading, isAuthenticated, error, resetEmailSent, currentEmail, emailChanged); Polish-Pass E2 adds changeEmail(currentPassword,newEmail) + clearEmailChanged() and seeds currentEmail from repository on init; delegates to AuthRepository
 │       ├── AuthViewModelFactory.kt        # Factory for AuthViewModel (injects AuthRepository)
 │       ├── HabitViewModel.kt               # Central ViewModel: habit CRUD, streak recomputation, sort/filter state, pause, over-completion, form validation; Phase 9.4 adds rateLastCompletion(habitId, rating) — patches perceivedDifficulty on the most recent completion via updateCompletion
 │       ├── HabitViewModelFactory.kt        # Factory for HabitViewModel (injects HabitDao)

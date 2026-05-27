@@ -333,9 +333,71 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 ## PHASE 10 — Cloud Sync (Module 1.1) — final phase
 **Goal:** Multi-device sync without breaking offline-first guarantee. Room remains **single source of truth**.
 
+### 10.0.5 Firebase project setup (must be done before writing any code in 10.1)
+> You have never used Firebase. Complete these manual steps first — they produce the
+> `google-services.json` file that the Gradle plugin requires. Without it the app will
+> not compile once the Firebase deps are added.
+
+- [ ] **1. Create a Firebase project:**
+  - Open [console.firebase.google.com](https://console.firebase.google.com) → "Add project".
+  - Name it `Evolvix`; disable Google Analytics (not needed for thesis).
+- [ ] **2. Register the Android app:**
+  - In the project overview click the Android icon → "Add app".
+  - Package name: `com.example.evolvix` (must match `applicationId` in `app/build.gradle.kts`).
+  - Leave SHA-1 blank for now (only needed for Phone Auth / Google Sign-In).
+  - Download `google-services.json` → place it in `app/` (same folder as `app/build.gradle.kts`).
+  - **Do not commit `google-services.json` to git.** Add `app/google-services.json` to `.gitignore`.
+- [ ] **3. Enable Firebase Authentication:**
+  - Console → Build → Authentication → "Get started".
+  - Sign-in method tab → enable **Email/Password** provider.
+  - Leave all other providers disabled.
+- [ ] **4. Enable Firestore Database:**
+  - Console → Build → Firestore Database → "Create database".
+  - Choose **production mode** (rules deny all by default — you will set rules in 10.2).
+  - Region: `europe-central2` (Warsaw) — closest to your thesis server, lowest latency.
+- [ ] **5. Add the Google Services Gradle plugin:**
+  - In root `build.gradle.kts` (project-level), inside `plugins {}` block, add:
+    `id("com.google.gms.google-services") version "4.4.2" apply false`
+  - In `app/build.gradle.kts`, inside `plugins {}` block, add:
+    `id("com.google.gms.google-services")`
+  - Sync Gradle — the plugin reads `google-services.json` and generates Firebase resources.
+
 ### 10.1 Firebase wiring
-- [ ] Add Firebase Auth + Firestore Gradle deps in `app/build.gradle.kts`.
-- [ ] Replace `FakeAuthRepository` with `FirebaseAuthRepository` (Pattern: **Liskov substitution** — same interface).
+- [ ] Add Firebase Auth + Firestore Gradle deps in `app/build.gradle.kts`:
+  ```kotlin
+  implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+  implementation("com.google.firebase:firebase-auth-ktx")
+  implementation("com.google.firebase:firebase-firestore-ktx")
+  ```
+- [ ] Create `data/auth/FirebaseAuthRepository.kt` implementing `AuthRepository`:
+  - `login` → `FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password).await()`
+  - `register` → `createUserWithEmailAndPassword(email, password).await()`
+  - `resetPassword` → `sendPasswordResetEmail(email).await()`
+  - `changePassword` → reauthenticate first:
+    ```kotlin
+    val user = FirebaseAuth.getInstance().currentUser!!
+    val credential = EmailAuthProvider.getCredential(user.email!!, oldPassword)
+    user.reauthenticateAndRetrieveData(credential).await()
+    user.updatePassword(newPassword).await()
+    ```
+  - `changeEmail` → use `verifyBeforeUpdateEmail` (NOT the deprecated `updateEmail`):
+    ```kotlin
+    val user = FirebaseAuth.getInstance().currentUser!!
+    val credential = EmailAuthProvider.getCredential(user.email!!, currentPassword)
+    user.reauthenticateAndRetrieveData(credential).await()
+    user.verifyBeforeUpdateEmail(newEmail).await()
+    // Returns success immediately; the actual email flip happens after the user
+    // clicks the verification link sent to newEmail. Show a toast:
+    // "Verification link sent to newEmail — tap it to confirm the change."
+    ```
+    **Note:** `verifyBeforeUpdateEmail` requires Email Enumeration Protection to be OFF
+    in the Firebase console (Authentication → Settings → User account privacy) or the
+    request will be silently rejected. Disable it for the thesis demo.
+  - `currentEmail` → `FirebaseAuth.getInstance().currentUser?.email`
+  - `logout` → `FirebaseAuth.getInstance().signOut()`
+- [ ] Replace `FakeAuthRepository` with `FirebaseAuthRepository` at the injection site
+  in `MainActivity` (or wherever `AuthViewModelFactory` is constructed). **No ViewModel
+  or screen code changes** — this is the Liskov-substitution payoff from Phase 9.
 
 ### 10.2 Sync controller
 - [ ] **Domain:** New `domain/sync/SyncController.kt` — coordinates Room ↔ Firestore (Pattern: **Mediator**).
@@ -344,7 +406,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [ ] **Model:** Each entity gains `lastModified: Long` and `syncedAt: Long?` (bump DB version).
 
 ### 10.3 Settings integration
-- [ ] Wire real Login/Logout/Change Password buttons in `SettingsScreen.kt` to `FirebaseAuthRepository`.
+- [ ] Wire real Login/Logout/Change Password/Change Email buttons in `SettingsScreen.kt` to `FirebaseAuthRepository`.
 - [ ] Show sync status indicator in `MainScreen.kt` top bar (Pattern: **Observer** of `SyncState` Flow).
 
 ---

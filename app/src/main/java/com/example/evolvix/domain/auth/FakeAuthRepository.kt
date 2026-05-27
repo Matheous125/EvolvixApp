@@ -68,7 +68,40 @@ class FakeAuthRepository : AuthRepository {
         return Result.success(Unit)
     }
 
+    override suspend fun changeEmail(currentPassword: String, newEmail: String): Result<Unit> {
+        val email = loggedInEmail
+            ?: return Result.failure(IllegalStateException("No user is currently logged in."))
+        val storedPassword = accounts[email]
+            ?: return Result.failure(IllegalStateException("No user is currently logged in."))
+        if (storedPassword != currentPassword) {
+            return Result.failure(IllegalArgumentException("Current password is incorrect."))
+        }
+        val normalised = newEmail.trim().lowercase()
+        if (!EMAIL_REGEX.matches(normalised)) {
+            return Result.failure(IllegalArgumentException("Enter a valid e-mail address."))
+        }
+        if (normalised == email) {
+            return Result.failure(IllegalArgumentException("New e-mail must differ from the current one."))
+        }
+        if (accounts.containsKey(normalised)) {
+            return Result.failure(IllegalStateException("An account with this e-mail already exists."))
+        }
+        // Atomic swap — re-key the account map under the new address.
+        accounts.remove(email)
+        accounts[normalised] = storedPassword
+        loggedInEmail = normalised
+        return Result.success(Unit)
+    }
+
+    override fun currentEmail(): String? = loggedInEmail
+
     override fun logout() {
         loggedInEmail = null
+    }
+
+    private companion object {
+        // RFC-5322 is overkill for a dev stub — this matches the same subset the
+        // login/register screens validate with so the fake repo and the UI agree.
+        private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     }
 }

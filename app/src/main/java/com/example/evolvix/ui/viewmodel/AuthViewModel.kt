@@ -21,12 +21,19 @@ import kotlinx.coroutines.launch
  * @property error           Non-null when the last operation failed; cleared by [AuthViewModel.clearError].
  * @property resetEmailSent  True after [AuthViewModel.resetPassword] succeeds — drives
  *                           a one-time confirmation message on ResetPasswordScreen.
+ * @property currentEmail    The e-mail of the currently signed-in user (null when logged out).
+ *                           Surfaced as state so SettingsScreen recomposes after a successful
+ *                           change-e-mail flow without having to re-read the repository.
+ * @property emailChanged    True after [AuthViewModel.changeEmail] succeeds — drives a
+ *                           one-time confirmation toast and back-nav on ChangeEmailScreen.
  */
 data class AuthUiState(
     val isLoading: Boolean = false,
     val isAuthenticated: Boolean = false,
     val error: String? = null,
-    val resetEmailSent: Boolean = false
+    val resetEmailSent: Boolean = false,
+    val currentEmail: String? = null,
+    val emailChanged: Boolean = false
 )
 
 /**
@@ -45,7 +52,13 @@ data class AuthUiState(
  */
 class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AuthUiState())
+    // Seed the state with whatever account (if any) the repository currently considers
+    // signed in. Phase 9's FakeAuthRepository starts with no session, but exposing
+    // currentEmail() up-front lets Phase 10's FirebaseAuthRepository hydrate the UI
+    // from a persistent session without an extra round-trip.
+    private val _uiState = MutableStateFlow(
+        AuthUiState(currentEmail = repository.currentEmail())
+    )
 
     /** Observed by all auth screens to render loading indicators, errors, and navigation. */
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -61,7 +74,15 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             repository.login(email, password)
-                .onSuccess { _uiState.update { it.copy(isLoading = false, isAuthenticated = true) } }
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isAuthenticated = true,
+                            currentEmail = repository.currentEmail()
+                        )
+                    }
+                }
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
@@ -74,7 +95,15 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             repository.register(email, password)
-                .onSuccess { _uiState.update { it.copy(isLoading = false, isAuthenticated = true) } }
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isAuthenticated = true,
+                            currentEmail = repository.currentEmail()
+                        )
+                    }
+                }
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
@@ -112,9 +141,36 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
      * Signs out the current user and resets state to the unauthenticated baseline.
      * The nav-graph guard observes [AuthUiState.isAuthenticated] and redirects to Login.
      */
+    /**
+     * Updates the current user's e-mail address from [newEmail] after verifying
+     * [currentPassword] against the stored credentials.
+     *
+     * On success: sets [AuthUiState.currentEmail] to the new address and
+     * [AuthUiState.emailChanged] = true so the View can show a confirmation toast and
+     * pop back to Settings. The Settings screen reads [AuthUiState.currentEmail]
+     * as the subtitle of its "Change e-mail" row, so the new address is visible
+     * immediately on return.
+     */
+    fun changeEmail(currentPassword: String, newEmail: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, emailChanged = false) }
+            repository.changeEmail(currentPassword, newEmail)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            emailChanged = true,
+                            currentEmail = repository.currentEmail()
+                        )
+                    }
+                }
+                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
+        }
+    }
+
     fun logout() {
         repository.logout()
-        _uiState.value = AuthUiState()
+        _uiState.value = AuthUiState(currentEmail = null)
     }
 
     // ── State helpers ─────────────────────────────────────────────────────────
@@ -132,5 +188,12 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
      */
     fun clearResetSent() {
         _uiState.update { it.copy(resetEmailSent = false) }
+    }
+
+    /**
+     * Resets [AuthUiState.emailChanged] after the View has consumed the confirmation signal.
+     */
+    fun clearEmailChanged() {
+        _uiState.update { it.copy(emailChanged = false) }
     }
 }

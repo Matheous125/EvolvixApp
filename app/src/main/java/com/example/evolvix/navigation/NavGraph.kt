@@ -11,6 +11,7 @@ import androidx.navigation.navArgument
 import android.util.Log
 import androidx.compose.ui.platform.LocalContext
 import com.example.evolvix.notifications.OnboardingPreferences
+import com.example.evolvix.ui.screens.auth.ChangeEmailScreen
 import com.example.evolvix.ui.screens.auth.LoginScreen
 import com.example.evolvix.ui.screens.auth.RegisterScreen
 import com.example.evolvix.ui.screens.auth.ResetPasswordScreen
@@ -164,8 +165,12 @@ fun HabitNavGraph(
             SettingsScreen(
                 settingsViewModel   = settingsViewModel,
                 achievementsViewModel = achievementsViewModel,
+                authViewModel       = authViewModel,
                 onNavigateToChangePassword = {
                     navController.navigate(Screen.SetNewPassword.route)
+                },
+                onNavigateToChangeEmail = {
+                    navController.navigate(Screen.ChangeEmail.route)
                 },
                 onNavigateBack      = { navController.navigateUp() }
             )
@@ -230,6 +235,13 @@ fun HabitNavGraph(
 
         composable(route = Screen.SetNewPassword.route) {
             SetNewPasswordScreen(
+                viewModel = authViewModel,
+                onNavigateBack = { navController.navigateUp() }
+            )
+        }
+
+        composable(route = Screen.ChangeEmail.route) {
+            ChangeEmailScreen(
                 viewModel = authViewModel,
                 onNavigateBack = { navController.navigateUp() }
             )

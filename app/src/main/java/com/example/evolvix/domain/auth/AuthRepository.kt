@@ -50,6 +50,35 @@ interface AuthRepository {
     suspend fun changePassword(oldPassword: String, newPassword: String): Result<Unit>
 
     /**
+     * Updates the currently authenticated user's e-mail address to [newEmail] after
+     * verifying [currentPassword].
+     *
+     * In Firebase (Phase 10) the implementation must:
+     *  1. `reauthenticateWithCredential(EmailAuthProvider.getCredential(currentEmail, currentPassword))`
+     *  2. `verifyBeforeUpdateEmail(newEmail)` — the modern (post-2023) API; it dispatches
+     *     a verification link to the new address and only flips the auth record once
+     *     the link is followed. The legacy `updateEmail()` is deprecated and should not
+     *     be used.
+     *
+     * The Phase-9 [FakeAuthRepository] performs the password check and swaps the
+     * address synchronously (no verification round-trip), which is enough to exercise
+     * every UI state during development.
+     *
+     * @return [Result.success] on success; [Result.failure] if no user is logged in,
+     * the password is wrong, the new address is malformed, or the address is already
+     * registered to another account.
+     */
+    suspend fun changeEmail(currentPassword: String, newEmail: String): Result<Unit>
+
+    /**
+     * Returns the e-mail address of the currently authenticated user, or `null` when
+     * logged out. Provided as a synchronous read because the Settings screen needs it
+     * for the "Change e-mail" subtitle on every recomposition without launching a
+     * coroutine.
+     */
+    fun currentEmail(): String?
+
+    /**
      * Signs out the currently authenticated user and clears any cached credentials.
      *
      * This is a fire-and-forget operation — it cannot fail from the caller's perspective.

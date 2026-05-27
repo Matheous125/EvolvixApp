@@ -72,4 +72,7 @@ sealed class Screen(val route: String) {
 
     /** Set-new-password screen — change password while logged in. */
     object SetNewPassword : Screen("set_new_password")
+
+    /** Change-email screen — change the account e-mail address while logged in. */
+    object ChangeEmail : Screen("change_email")
 }
