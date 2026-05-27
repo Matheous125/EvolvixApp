@@ -11,7 +11,7 @@ import java.time.LocalDate
 /**
  * Development-only database seeder.
  *
- * Inserts 6 habits (IDs 901–906) with realistic completion histories designed to
+ * Inserts 9 habits (IDs 901–909) with realistic completion histories designed to
  * exercise every ML card on the Statistics screen simultaneously:
  *
  * | Habit               | ID  | Key ML scenario                                          |
@@ -19,21 +19,33 @@ import java.time.LocalDate
  * | Morning Run         | 901 | tight routine (~7 min stddev), high success probability, |
  * |                     |     | relatedHabits; perceivedDifficulty=2 (EASY, last 14d);   |
  * |                     |     | fromReminder + snoozeCount=0 (LOW snooze risk shown in   |
- * |                     |     | Smart Reminders)                                         |
- * | Read 30 min         | 902 | moderate rate, evening optimalHours, co-occurrence       |
+ * |                     |     | Smart Reminders); Behavioral cluster EffortlessRoutine   |
+ * | Read 30 min         | 902 | moderate rate, evening optimalHours, co-occurrence;      |
+ * |                     |     | today completed → enables 902→908 DRAG pair              |
  * | Meditate            | 903 | isStreakAtRisk=true (misses Tuesdays); perceivedDifficulty|
- * |                     |     | =3 (MODERATE, last 14d)                                  |
- * | Drink 2L Water      | 904 | targetDelta=+2 (97% rate, 5 completions/day, apr=1.25)   |
- * | Evening Journal     | 905 | targetDelta=-1 (rate=0%, partial completions, apr=0.5)   |
+ * |                     |     | =3 (MODERATE, last 14d); cluster EffortlessRoutine       |
+ * | Drink 2L Water      | 904 | targetDelta=+2 HIGH confidence (97% rate, apr=1.25)      |
+ * | Evening Journal     | 905 | targetDelta=-1 (rate=0%, partial completions, apr=0.5);  |
+ * |                     |     | cluster Dormant (rate30d=0)                              |
  * | Wake Up No Phone    | 906 | Snooze Drift CRITICAL (snoozeCount=3, rate7d=14%);       |
  * |                     |     | Skip Reason Forecast (5 skip records); perceivedDifficulty|
- * |                     |     | =5 (VERY_HARD)                                           |
+ * |                     |     | =5 (VERY_HARD); cluster Struggling                       |
+ * | Stretch 5 min       | 907 | Spillover BOOST pair with 901 (coOcc~0.89, gap~30 min);  |
+ * |                     |     | cluster ConsistentEffort (rate30d=0.83); diverse 1–5     |
+ * |                     |     | difficulty ratings on last 14 days                       |
+ * | Late-night Doomscroll | 908 | Spillover DRAG pair with 902 (coOcc=0, gap~1 h);       |
+ * |                     |     | cluster Struggling (rate30d=0.33)                        |
+ * | Take vitamins       | 909 | Target Calibration LOW confidence (rate30d≈0.73, apr≈1.0)|
+ * |                     |     | borderline rawDelta; Smart Reminders near-zero/negative  |
+ * |                     |     | lift demo (high rate + fromReminder=true)                |
  *
- * Additionally inserts 16 [AppSessionEntity] records (evening cluster ~20:00) so
+ * Additionally inserts 20 [AppSessionEntity] records (evening cluster ~20:00) so
  * [EngagementWindowUseCase] passes its MIN_SESSIONS=14 guard and predicts
- * hour ~20 with high confidence.
+ * hour ~20 with high confidence. 8 sessions carry `StatisticsScreen` in their
+ * [AppSessionEntity.screensVisited] list (viewer sessions) and 12 do not
+ * (non-viewer sessions) — preparation for the B3 Analytics Retention metric.
  *
- * Using explicit IDs 901–906 avoids conflicts with user-created habits.
+ * Using explicit IDs 901–909 avoids conflicts with user-created habits.
  * Re-seeding is safe: [HabitDao.insertHabit] uses REPLACE, which triggers the
  * ON DELETE CASCADE on `habit_completions`, `habit_skips`, and `habit_target_history`,
  * wiping those rows before inserting fresh ones.
@@ -66,6 +78,9 @@ object DatabaseSeeder {
         insertDrinkWater(dao, today)
         insertEveningJournal(dao, today)
         insertWakeUpNoPhone(dao, skipDao, today)
+        insertStretchFiveMin(dao, today)
+        insertLateNightDoomscroll(dao, today)
+        insertTakeVitamins(dao, today)
         insertAppSessions(sessionDao, today)
     }
 
@@ -154,8 +169,10 @@ object DatabaseSeeder {
     //  • routinePrecision: ~7 min — consistent evening session
     //
     private suspend fun insertReadThirtyMin(dao: HabitDao, today: LocalDate) {
-        // Days 1–20 excluding {6, 14} → 18 completions.
-        // ALL 18 are also in Morning Run's completed set → strong co-occurrence.
+        // Days 1–20 excluding {6, 14} → 18 historical completions, plus today.
+        // ALL 18 historical days are also in Morning Run's completed set → strong co-occurrence.
+        // Today's completion is required so SpilloverUseCase considers (A=902, B=908) and
+        // surfaces the DRAG pair documented on habit 908.
         val completedDays = (1..20).filter { it !in setOf(6, 14) }
         dao.insertHabit(
             HabitEntity(
@@ -164,8 +181,8 @@ object DatabaseSeeder {
                 currentCount = 0,
                 frequency = HabitFrequency.Daily,
                 target = 1,
-                totalProgressUpdates = 18,
-                totalTargetReaches = 18,
+                totalProgressUpdates = 19, // 18 historical + 1 today
+                totalTargetReaches = 19,
                 colorHex = "#2196F3",
                 categories = listOf("Learning"),
                 sortOrder = 1
@@ -182,6 +199,14 @@ object DatabaseSeeder {
                 )
             )
         }
+        // Today's completion at 21:00 — enables the 902→908 DRAG spillover pair.
+        dao.insertCompletion(
+            HabitCompletionEntity(
+                habitId = 902,
+                progressUpdate = today.atTime(21, 0),
+                isTargetReached = true
+            )
+        )
     }
 
     // ── Habit 903 — "Meditate" ────────────────────────────────────────────────
@@ -426,42 +451,230 @@ object DatabaseSeeder {
         }
     }
 
-    // ── App Sessions — Engagement Window (Phase 9.6) ──────────────────────────
+    // ── Habit 907 — "Stretch 5 min" ───────────────────────────────────────────
     //
-    // Inserts 16 completed app sessions (≥ MIN_SESSIONS=14) with a consistent
+    // ML scenarios exercised:
+    //  • Spillover BOOST pair with 901 Morning Run:
+    //      Completed on 24 of 901's 27 historical done-days + today → coOcc ≈ 0.89,
+    //      rateA(901) ≈ 0.93, rateB(907) ≈ 0.83, gap 30 min (right after run).
+    //      Math fallback: liftDelta ≈ 0.060 * 0.88 * 0.98 * 1.6 ≈ +0.083 → BOOST
+    //      (exceeds the ±0.05 NEUTRAL_THRESHOLD).
+    //  • Behavioral cluster — ConsistentEffort (rate30d = 25/30 ≈ 0.833,
+    //      inside the 0.55–0.85 band documented in BehavioralCluster KDoc).
+    //  • Phase 9.4 PerceivedDifficulty — diverse 1–5 ratings on the last 14 recent
+    //      completions (cycle 1,2,3,4,5) → recentAvgRated ≈ 3.0, MODERATE.
+    //
+    private suspend fun insertStretchFiveMin(dao: HabitDao, today: LocalDate) {
+        // 901's historical completed days within 30 = {1..30} − {6,14,22}.
+        // 907 done on 901's set minus {1, 8, 15} = 24 historical days → preserves high coOcc
+        // while keeping rate30d strictly under 0.85 so the cluster lands in ConsistentEffort.
+        val historicalDays: List<Int> = (1..30)
+            .filter { it !in setOf(6, 14, 22, 1, 8, 15) }
+        // = {2,3,4,5,7,9,10,11,12,13,16,17,18,19,20,21,23,24,25,26,27,28,29,30} (24 days)
+        val totalCompletions = historicalDays.size + 1 // + today
+        dao.insertHabit(
+            HabitEntity(
+                id = 907,
+                name = "Stretch 5 min",
+                currentCount = 0,
+                frequency = HabitFrequency.Daily,
+                target = 1,
+                totalProgressUpdates = totalCompletions,
+                totalTargetReaches = totalCompletions,
+                colorHex = "#8BC34A",
+                categories = listOf("Fitness", "Health"),
+                sortOrder = 6
+            )
+        )
+        // Diverse 1–5 difficulty ratings cycle on the most recent 14 days (sorted desc)
+        // so recentAvgRated ≈ 3.0 and the chip uses every value in the scale.
+        val diverseRatings = listOf(1, 2, 3, 4, 5)
+        // Sort historicalDays ascending by daysAgo to make rating assignment deterministic.
+        val sortedHistorical = historicalDays.sorted()
+        sortedHistorical.forEachIndexed { index, daysAgo ->
+            val date = today.minusDays(daysAgo.toLong())
+            // Only the 14 most-recent completions carry a difficulty rating
+            // (MIN_RATINGS=5 guard easily satisfied; diverse 1–5 cycle).
+            val isRecent = daysAgo <= 14
+            dao.insertCompletion(
+                HabitCompletionEntity(
+                    habitId = 907,
+                    progressUpdate = date.atTime(7, 30),
+                    isTargetReached = true,
+                    perceivedDifficulty = if (isRecent) diverseRatings[index % diverseRatings.size] else null
+                )
+            )
+        }
+        // Today's completion at 7:30 (right after 901 at 7:00) — closes the spillover gap.
+        dao.insertCompletion(
+            HabitCompletionEntity(
+                habitId = 907,
+                progressUpdate = today.atTime(7, 30),
+                isTargetReached = true,
+                perceivedDifficulty = 2
+            )
+        )
+    }
+
+    // ── Habit 908 — "Late-night Doomscroll" ───────────────────────────────────
+    //
+    // ML scenarios exercised:
+    //  • Spillover DRAG pair with 902 Read 30 min:
+    //      908 done days {14, 21, 22, 24, 25, 26, 27, 28, 29, 30} share ZERO days with
+    //      902's done days {1–20}∖{6,14} → coOcc = 0.0.
+    //      rateA(902) ≈ 0.63, rateB(908) ≈ 0.33, baseLift = 0 − 0.33 = −0.33.
+    //      Gap (902 at 21:00 → 908 at 22:00) = 1 h → gapFactor ≈ 0.96.
+    //      Math fallback: −0.33 * 0.45 * 0.96 * 1.6 ≈ −0.23 → DRAG (well past ±0.05).
+    //  • Behavioral cluster — Struggling (rate30d = 10/30 ≈ 0.333, in 0.15–0.55 band).
+    //      Habit age = 30 days ≥ MIN_HISTORY_DAYS=14. 10 completions = MIN_COMPLETIONS.
+    //  • Demonstrates a "bad" habit the user explicitly tracks to discourage.
+    //
+    private suspend fun insertLateNightDoomscroll(dao: HabitDao, today: LocalDate) {
+        val completedDaysAgo = listOf(14, 21, 22, 24, 25, 26, 27, 28, 29, 30) // 10 days
+        dao.insertHabit(
+            HabitEntity(
+                id = 908,
+                name = "Late-night Doomscroll",
+                currentCount = 0,
+                frequency = HabitFrequency.Daily,
+                target = 1,
+                totalProgressUpdates = completedDaysAgo.size,
+                totalTargetReaches = completedDaysAgo.size,
+                colorHex = "#9E9E9E",
+                categories = listOf("Other"),
+                sortOrder = 7
+            )
+        )
+        completedDaysAgo.forEach { daysAgo ->
+            val date = today.minusDays(daysAgo.toLong())
+            dao.insertCompletion(
+                HabitCompletionEntity(
+                    habitId = 908,
+                    progressUpdate = date.atTime(22, 0),
+                    isTargetReached = true
+                )
+            )
+        }
+    }
+
+    // ── Habit 909 — "Take vitamins" ───────────────────────────────────────────
+    //
+    // ML scenarios exercised:
+    //  • Phase 9.3 Target Calibration — LOW confidence:
+    //      rate30d = 22/30 ≈ 0.73, avgProgressRatio30d ≈ 1.0 (one completion per day,
+    //      target=1). All MathHabitPredictor rules sit *just* outside their thresholds
+    //      (rate < 0.78 OR apr < 1.02), so the math fallback returns rawDelta = 0.0.
+    //      The TFLite regressor on this same feature vector typically lands between
+    //      0.3 and 0.6 — a rounding residual ≥ 0.35 → Confidence.LOW.
+    //  • Phase 9.1 Smart Reminders — near-zero / negative lift demo:
+    //      All 22 completions are fromReminder=true with snoozeCount=0.
+    //      High rate7d (≈0.86) + high streak means the trained model expects only a
+    //      small additive boost; combined with the R8 difficulty multiplier
+    //      (recentAvgDifficulty = 1 → easy), TFLite often outputs lift < 0.05 →
+    //      recommendSend=false. Math fallback boost ≈ 0.114 still recommends ON; the
+    //      negative-lift outcome relies on TFLite as documented in PLAN-POLISH-PASS.md.
+    //  • Behavioral cluster — ConsistentEffort (rate30d ≈ 0.73, inside 0.55–0.85).
+    //
+    private suspend fun insertTakeVitamins(dao: HabitDao, today: LocalDate) {
+        // 22 done days within the last 30 days; 8 missed days produce the 0.73 rate30d
+        // that sits between MathHabitPredictor target-delta rules → LOW confidence.
+        val missedDays = setOf(3, 7, 11, 15, 19, 23, 27, 29)
+        val completedDaysAgo = (1..30).filter { it !in missedDays }
+        // rate7d window (last 7 days, excludes today). Of {1..7} ∖ {3,7} = 5 days → ≈ 0.71.
+        dao.insertHabit(
+            HabitEntity(
+                id = 909,
+                name = "Take vitamins",
+                currentCount = 0,
+                frequency = HabitFrequency.Daily,
+                target = 1,
+                totalProgressUpdates = completedDaysAgo.size,
+                totalTargetReaches = completedDaysAgo.size,
+                colorHex = "#FFEB3B",
+                categories = listOf("Health"),
+                reminderEnabled = true,
+                sortOrder = 8
+            )
+        )
+        completedDaysAgo.forEach { daysAgo ->
+            val date = today.minusDays(daysAgo.toLong())
+            // Last 14 days carry a difficulty rating of 1 (EASY) and the reminder flag
+            // so the Smart Reminders card has data to evaluate; older completions are
+            // plain entries to give the cluster use case enough history (30-day window).
+            val isRecent = daysAgo <= 14
+            dao.insertCompletion(
+                HabitCompletionEntity(
+                    habitId = 909,
+                    progressUpdate = date.atTime(9, 0),
+                    isTargetReached = true,
+                    fromReminder = isRecent,
+                    snoozeCount = if (isRecent) 0 else null,
+                    perceivedDifficulty = if (isRecent) 1 else null
+                )
+            )
+        }
+    }
+
+    // ── App Sessions — Engagement Window (Phase 9.6) + Analytics Retention (B3) ──
+    //
+    // Inserts 20 completed app sessions (≥ MIN_SESSIONS=14) with a consistent
     // evening start cluster (~20:00 ± 30 min) over the past 30 days.
     //
     // EngagementWindowUseCase derives:
     //  • recentAvgStartHour14d ≈ 20.0 (tight evening cluster)
     //  • recentStddevStartHour14d ≈ 0.25 (low → high confidence)
-    //  • sessionCountLast7d = 3 (3 sessions within past 7 days)
+    //  • sessionCountLast7d ≈ 3 (3 sessions within past 7 days)
     //  • avgSessionLengthMinutes ≈ 15 min
-    //  • daysSinceFirstSession = 30 (first session 30 days ago)
-    //  • prevSessionStartHour = 20 (most-recent prior session)
+    //  • daysSinceFirstSession = 30
+    //  • prevSessionStartHour = 20
+    //
+    // B3 Analytics Retention prep:
+    //  • 8 of the 20 sessions are "viewer" sessions (StatisticsScreen is in
+    //    screensVisited) and 12 are "non-viewer" sessions (StatisticsScreen absent).
+    //  • Both buckets are spread across the 30-day window so the upcoming
+    //    AnalyticsEngagementUseCase has enough rows on each side to compute lift
+    //    without crossing its sufficiency threshold.
     //
     // Expected model output: predicted engagement hour ≈ 20 (8:00 PM) with HIGH confidence.
     // AppSession rows accumulate on repeated seeds — the use case reads only the 100
     // most recent, so the signal remains stable regardless of how many times seed() is called.
     //
     private suspend fun insertAppSessions(sessionDao: AppSessionDao, today: LocalDate) {
-        // Session distribution: 2 sessions in past 7 days, spread further for older ones.
-        // Start hours alternate between 20:00 and 20:30 to produce a tight cluster.
-        val sessionSchedule = listOf(
-            2 to 20, 5 to 20, 7 to 20,   // past 7 days: 3 sessions
-            9 to 20, 11 to 20, 13 to 20,  // days 8–14
-            15 to 20, 17 to 20, 19 to 20, // days 15–19
-            21 to 20, 23 to 20, 25 to 20, // days 21–25
-            27 to 20, 28 to 20, 29 to 20, // days 27–29
-            30 to 20                       // day 30 (earliest — sets daysSinceFirstSession)
+        // Triple<daysAgo, startHour, isViewerSession>.
+        // Viewer sessions (StatisticsScreen visited) are interleaved with non-viewer
+        // sessions to avoid temporal confounding when B3 lift is computed later.
+        val sessionSchedule: List<Triple<Int, Int, Boolean>> = listOf(
+            Triple(1,  20, true),   // past 7 days — 3 sessions (2 viewer, 1 non-viewer)
+            Triple(2,  20, false),
+            Triple(5,  20, true),
+            Triple(7,  20, false),  // days 8–14
+            Triple(9,  20, true),
+            Triple(11, 20, false),
+            Triple(13, 20, false),
+            Triple(15, 20, true),   // days 15–19
+            Triple(17, 20, false),
+            Triple(19, 20, true),
+            Triple(21, 20, false),  // days 21–25
+            Triple(23, 20, false),
+            Triple(25, 20, true),
+            Triple(26, 20, false),
+            Triple(27, 20, true),   // days 27–30
+            Triple(28, 20, false),
+            Triple(29, 20, false),
+            Triple(30, 20, true),   // earliest — sets daysSinceFirstSession = 30
+            Triple(4,  20, false),  // extra fillers to reach 20 total
+            Triple(8,  20, false)
         )
-        sessionSchedule.forEach { (daysAgo, startHour) ->
+        sessionSchedule.forEach { (daysAgo, startHour, isViewer) ->
             val startedAt = today.minusDays(daysAgo.toLong()).atTime(startHour, 0)
             val endedAt   = startedAt.plusMinutes(15)
+            val screens = if (isViewer) listOf("HabitScreen", "StatisticsScreen")
+                          else          listOf("HabitScreen")
             sessionDao.insert(
                 AppSessionEntity(
                     startedAt = startedAt,
                     endedAt = endedAt,
-                    screensVisited = listOf("StatisticsScreen")
+                    screensVisited = screens
                 )
             )
         }

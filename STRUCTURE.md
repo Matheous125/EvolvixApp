@@ -15,7 +15,7 @@ app/src/main/java/com/example/evolvix
 │   │   ├── AppSessionDao.kt     # DAO for the app_sessions table (Phase 9.6); methods: insert(session):Long, update(session), getSince(since:LocalDateTime):Flow<List<AppSessionEntity>>, getRecent(limit:Int):List<AppSessionEntity>, count():Int
 │   │   ├── Converters.kt        # Type converters for Room (LocalDate, LocalDateTime, etc.); Phase 9.5 adds SkipReason ↔ String converters
 │   │   ├── DailySummaryDao.kt   # DAO for daily summary inbox cards; Flow-based reads for SummaryInboxViewModel + unread-badge count
-│   │   ├── DatabaseSeeder.kt    # Dev-only seeder inserting 5 test habits (IDs 901–905) with realistic AI-scenario completion histories
+│   │   ├── DatabaseSeeder.kt    # Dev-only seeder inserting 9 test habits (IDs 901–909) + 20 AppSessions (8 viewer / 12 non-viewer); exercises every Statistics ML card (Spillover BOOST+DRAG, all 4 Behavioral clusters, Target Calibration LOW conf, Smart Reminders near-zero lift, diverse difficulty)
 │   │   ├── HabitDao.kt          # DAO for habits + completions (CRUD, streak queries, history queries); Phase 9.4 adds getCompletionsWithDifficulty(habitId) — WHERE perceivedDifficulty IS NOT NULL ORDER BY progressUpdate DESC; Phase 9.4 adds updateCompletion(completion) used by rateLastCompletion
 │   │   ├── HabitSkipDao.kt      # DAO for the habit_skips table (Phase 9.5); insert(skip), getForHabit(habitId): Flow, getRecentForHabit(habitId, since): List, getAllRecent(since): List
 │   │   ├── Migration.kt         # Room schema migrations
