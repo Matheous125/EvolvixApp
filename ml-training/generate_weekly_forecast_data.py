@@ -1,7 +1,7 @@
 """
 generate_weekly_forecast_data.py — Synthetic dataset for Phase 8.3 (WeeklyForecastRegressor).
 
-PLAN-ML-EXTENSION.md §8.3.1.
+PLAN-ML-EXTENSION.md §8.3.1 · R10 retrain (2026-05-27).
 
 This is the first **regression** task in the project: predict the user's overall
 completion rate for the next 7 days, given the last week's behaviour.
@@ -9,18 +9,26 @@ completion rate for the next 7 days, given the last week's behaviour.
 Features per row (field order MUST exactly mirror WeeklyForecastFeatures.kt
 → toFloatArray() and weekly_forecast_scaler.json → feature_columns):
 
-     1. lastWeekRate            0.0..1.0  overall completion rate of the trailing 7 days
-     2. avgCurrentStreak        0..200    mean of current streaks across all active habits
-     3. habitCount              1..30     number of active (non-paused) habits
-     4. rateMon                 0.0..1.0  rate on Mondays over the last 4 weeks
-     5. rateTue                 0.0..1.0
-     6. rateWed                 0.0..1.0
-     7. rateThu                 0.0..1.0
-     8. rateFri                 0.0..1.0
-     9. rateSat                 0.0..1.0
-    10. rateSun                 0.0..1.0
-    11. weekOfYearSin           sin(2*pi*weekOfYear/52)   — seasonality encoding
-    12. weekOfYearCos           cos(2*pi*weekOfYear/52)
+     1. lastWeekRate                    0.0..1.0  overall completion rate of the trailing 7 days
+     2. avgCurrentStreak                0..200    mean of current streaks across all active habits
+     3. habitCount                      1..30     number of active (non-paused) habits
+     4. rateMon                         0.0..1.0  rate on Mondays over the last 4 weeks
+     5. rateTue                         0.0..1.0
+     6. rateWed                         0.0..1.0
+     7. rateThu                         0.0..1.0
+     8. rateFri                         0.0..1.0
+     9. rateSat                         0.0..1.0
+    10. rateSun                         0.0..1.0
+    11. weekOfYearSin                   sin(2*pi*weekOfYear/52)   — seasonality encoding
+    12. weekOfYearCos                   cos(2*pi*weekOfYear/52)
+    13. clusterProportionEffortless     0.0..1.0  fraction of habits in effortless_routine tier (R10)
+    14. clusterProportionConsistent     0.0..1.0  fraction in consistent_effort tier (R10)
+    15. clusterProportionStruggling     0.0..1.0  fraction in struggling tier (R10)
+    16. clusterProportionDormant        0.0..1.0  fraction in dormant tier (R10)
+    17. avgAbandonmentRisk              0.0..1.0  mean abandonment probability across active habits (R10)
+
+    Cluster proportion columns always sum to 1.0 (they are normalized raw Beta draws).
+    All four are 0.0 when no habit has sufficient cluster data (synthetic cold-start guard).
 
 Label:
     next_week_rate ∈ [0.0, 1.0]   — overall completion rate over the following 7 days.
@@ -32,7 +40,7 @@ Generative model (priors encoded as deterministic transforms + Gaussian noise):
 
     base = 0.65 * lastWeekRate + 0.35 * week_mean
 
-    Adjustments:
+    Adjustments (original Phase 8.3):
       +0.05  if avgCurrentStreak >= 14   (streak momentum lifts next week)
       +0.03  if avgCurrentStreak >= 30   (additive, mature-habit bonus)
       -0.05  if habitCount       >= 12   (cognitive overload depresses next week)
@@ -41,6 +49,11 @@ Generative model (priors encoded as deterministic transforms + Gaussian noise):
 
     seasonality_bump = 0.02 * weekOfYearSin   (mild "January motivation" curve;
                                                peaks near the new year)
+
+    R10 additional adjustments:
+      +0.04  if clusterProportionEffortless >= 0.40 (high share of auto-pilot habits ↑)
+      -0.06  if clusterProportionDormant    >= 0.40 (many inactive habits pull forecast ↓)
+      -0.08 * avgAbandonmentRisk            (continuous risk penalty; mirrors math fallback)
 
     next_week_rate = clip(base + adjustments + seasonality_bump + N(0, 0.06),
                           0.0, 1.0)
@@ -83,6 +96,12 @@ FEATURE_COLUMNS: list[str] = [
     "rateSun",
     "weekOfYearSin",
     "weekOfYearCos",
+    # R10 — cluster distribution + abandonment risk aggregates
+    "clusterProportionEffortless",
+    "clusterProportionConsistent",
+    "clusterProportionStruggling",
+    "clusterProportionDormant",
+    "avgAbandonmentRisk",
 ]
 
 
@@ -136,6 +155,32 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
     week_sin = np.sin(2.0 * math.pi * week_of_year / 52.0).astype(np.float32)
     week_cos = np.cos(2.0 * math.pi * week_of_year / 52.0).astype(np.float32)
 
+    # ── R10: Cluster proportion features ──────────────────────────────────
+    # Draw raw Beta weights for each of the four K-Means tiers, then normalize
+    # so the four proportions sum to exactly 1.0 per row.
+    # Priors reflect the typical app population:
+    #   effortless_routine and dormant are rarer; consistent_effort is the mode.
+    cluster_raw = np.column_stack([
+        rng.beta(a=2.0, b=5.0, size=rows),   # effortless_routine — rarer
+        rng.beta(a=3.0, b=4.0, size=rows),   # consistent_effort  — modal
+        rng.beta(a=2.0, b=5.0, size=rows),   # struggling
+        rng.beta(a=1.0, b=6.0, size=rows),   # dormant            — least common
+    ]).astype(np.float32)
+    cluster_sum = cluster_raw.sum(axis=1, keepdims=True).clip(min=1e-6)
+    cluster_props = (cluster_raw / cluster_sum).astype(np.float32)
+    prop_effortless  = cluster_props[:, 0]
+    prop_consistent  = cluster_props[:, 1]
+    prop_struggling  = cluster_props[:, 2]
+    prop_dormant     = cluster_props[:, 3]
+
+    # ── R10: Avg abandonment risk ──────────────────────────────────────────
+    # Correlated with (1 - lastWeekRate): users who did poorly last week are at
+    # higher abandonment risk. Additive Gaussian noise models per-habit variance.
+    avg_abandonment_risk = np.clip(
+        0.6 * (1.0 - last_week_rate) + rng.normal(0.0, 0.10, size=rows),
+        0.0, 1.0
+    ).astype(np.float32)
+
     # ── Label generation ───────────────────────────────────────────────────
 
     week_mean = rates_by_day.mean(axis=1)
@@ -147,6 +192,11 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
     adj += np.where(habit_count >= 12, -0.05, 0.0).astype(np.float32)
     adj += np.where(last_week_rate < 0.20, -0.10, 0.0).astype(np.float32)
     adj += np.where(last_week_rate > 0.80, 0.04, 0.0).astype(np.float32)
+
+    # R10 adjustments: cluster distribution and abandonment risk modulate the forecast.
+    adj += np.where(prop_effortless >= 0.40, 0.04, 0.0).astype(np.float32)
+    adj += np.where(prop_dormant >= 0.40, -0.06, 0.0).astype(np.float32)
+    adj -= (0.08 * avg_abandonment_risk).astype(np.float32)
 
     seasonality_bump = (0.02 * week_sin).astype(np.float32)
     noise = rng.normal(0.0, 0.06, size=rows).astype(np.float32)
@@ -169,6 +219,12 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
             "rateSun": rates_by_day[:, 6],
             "weekOfYearSin": week_sin,
             "weekOfYearCos": week_cos,
+            # R10 features
+            "clusterProportionEffortless": prop_effortless,
+            "clusterProportionConsistent": prop_consistent,
+            "clusterProportionStruggling": prop_struggling,
+            "clusterProportionDormant": prop_dormant,
+            "avgAbandonmentRisk": avg_abandonment_risk,
             "label": next_week_rate,
         }
     )

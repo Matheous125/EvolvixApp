@@ -85,8 +85,14 @@ class StatisticsViewModel(
     private val calculateStreakUseCase = CalculateStreakUseCase()
     private val abandonmentRiskUseCase = AbandonmentRiskUseCase(predictor)
     private val streakBreakUseCase = StreakBreakUseCase(predictor)
-    private val weeklyForecastUseCase = WeeklyForecastUseCase(predictor)
     private val behavioralClusterUseCase = BehavioralClusterUseCase(predictor)
+    /** R10 (2026-05-27): [behavioralClusterUseCase] and [abandonmentRiskUseCase] injected so
+     *  the 17-feature vector includes cluster proportions and avgAbandonmentRisk. */
+    private val weeklyForecastUseCase = WeeklyForecastUseCase(
+        predictor = predictor,
+        clusterUseCase = behavioralClusterUseCase,
+        abandonmentUseCase = abandonmentRiskUseCase
+    )
     private val spilloverUseCase = SpilloverUseCase(predictor)
     // R7: routes successProbabilityToday through the 9-feature TFLite path, injecting
     // spilloverUseCase so the BOOST aggregate is included in each habit's feature vector.
@@ -410,7 +416,18 @@ class StatisticsViewModel(
             val habitCompletions = completions.filter { it.habitId == habit.id }
             habit.id to calculateStreakUseCase(habitCompletions, habit.frequency, today).current
         }
-        weeklyForecastUseCase(allHabitData, completions, currentStreaks, today)
+        // R10: fetch skips for the last 30 days (covers BehavioralClusterUseCase window)
+        // and split off involuntary ones for AbandonmentRiskUseCase.
+        val allRecentSkips = habitSkipDao.getAllRecent(today.minusDays(30L).atStartOfDay())
+        val involuntarySkips = allRecentSkips.filter { it.reason.isInvoluntary }
+        weeklyForecastUseCase(
+            habits = allHabitData,
+            completions = completions,
+            currentStreaks = currentStreaks,
+            today = today,
+            skips = allRecentSkips,
+            involuntarySkips = involuntarySkips
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),

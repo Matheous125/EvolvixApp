@@ -1,8 +1,10 @@
 package com.example.evolvix.domain.usecase
 
 import com.example.evolvix.data.model.HabitCompletionEntity
+import com.example.evolvix.data.model.HabitSkipEntity
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.ai.WeeklyForecastFeatures
+import com.example.evolvix.domain.model.BehavioralCluster
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.domain.model.WeeklyForecast
 import java.time.LocalDate
@@ -16,19 +18,30 @@ import kotlin.math.sin
  * Use Case / Interactor that predicts the user's overall habit-completion rate
  * for the next 7 days (Phase 8.3).
  *
- * Responsibility: aggregate cross-habit signals from Room data into the 12-field
+ * Responsibility: aggregate cross-habit signals from Room data into the 17-field
  * [WeeklyForecastFeatures] vector, check data sufficiency, delegate inference to the
  * injected [HabitPredictor] (Strategy + Dependency Inversion), and wrap the raw
  * regression output in a [WeeklyForecast] with direction and confidence.
  *
+ * **R10 (2026-05-27):** Extended from 12 → 17 features. Optionally injects
+ * [BehavioralClusterUseCase] and [AbandonmentRiskUseCase] to compute cluster
+ * distribution proportions and average abandonment risk across all active habits.
+ * Both use cases default to null so existing callers compile without change.
+ *
  * This is a **user-level** (not per-habit) predictor — the feature vector and
  * output represent the aggregate of all active habits in a single week window.
  *
- * @param predictor Strategy implementation of [HabitPredictor]; injectable so
- *                  [MathHabitPredictor] and [TfliteHabitPredictor] are interchangeable.
+ * @param predictor          Strategy implementation of [HabitPredictor]; injectable so
+ *                           [MathHabitPredictor] and [TfliteHabitPredictor] are interchangeable.
+ * @param clusterUseCase     Optional: computes per-habit behavioral cluster (R10). When null,
+ *                           all cluster proportions default to 0f.
+ * @param abandonmentUseCase Optional: computes per-habit abandonment probability (R10). When
+ *                           null, avgAbandonmentRisk defaults to 0f.
  */
 class WeeklyForecastUseCase(
-    private val predictor: HabitPredictor
+    private val predictor: HabitPredictor,
+    private val clusterUseCase: BehavioralClusterUseCase? = null,
+    private val abandonmentUseCase: AbandonmentRiskUseCase? = null
 ) {
     companion object {
         /** Minimum active habits required for a meaningful prediction. */
@@ -57,13 +70,21 @@ class WeeklyForecastUseCase(
      * 3. Compute per-weekday rates over the last [WEEKDAY_WINDOW_DAYS] days.
      * 4. Compute [avgCurrentStreak] from [currentStreaks].
      * 5. Encode the current week-of-year as sin/cos (seasonality).
-     * 6. Delegate to [HabitPredictor.predictWeeklyRate] and wrap in [WeeklyForecast].
+     * 6. (R10) Compute cluster proportions via [clusterUseCase] and average abandonment
+     *    risk via [abandonmentUseCase]; both default to 0f when use cases are null or
+     *    no habit has sufficient data.
+     * 7. Delegate to [HabitPredictor.predictWeeklyRate] and wrap in [WeeklyForecast].
      *
-     * @param habits         Domain models of all active (non-paused) habits.
-     * @param completions    All historical completion records across all habits.
-     * @param currentStreaks Map of habitId → current streak (pre-computed by ViewModel
-     *                       via [CalculateStreakUseCase] to avoid recomputing here).
-     * @param today          Reference date (defaults to system clock; injectable for testing).
+     * @param habits            Domain models of all active (non-paused) habits.
+     * @param completions       All historical completion records across all habits.
+     * @param currentStreaks    Map of habitId → current streak (pre-computed by ViewModel
+     *                          via [CalculateStreakUseCase] to avoid recomputing here).
+     * @param today             Reference date (defaults to system clock; injectable for testing).
+     * @param skips             All skip records across all habits (R10; default: empty).
+     *                          Used by [BehavioralClusterUseCase] to compute skip-rate features.
+     * @param involuntarySkips  Skip records where the reason is involuntary (SICK / TRAVELING)
+     *                          (R10; default: empty). Passed to [AbandonmentRiskUseCase] to
+     *                          exclude legitimate absences from gap-based risk signals.
      * @return [WeeklyForecast] with predicted rate, direction, confidence, and
      *         data-sufficiency flag.
      */
@@ -71,7 +92,9 @@ class WeeklyForecastUseCase(
         habits: List<HabitData>,
         completions: List<HabitCompletionEntity>,
         currentStreaks: Map<Int, Int>,
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = LocalDate.now(),
+        skips: List<HabitSkipEntity> = emptyList(),
+        involuntarySkips: List<HabitSkipEntity> = emptyList()
     ): WeeklyForecast {
         val habitCount = habits.size
 
@@ -105,6 +128,59 @@ class WeeklyForecastUseCase(
         val weekSin = sin(2.0 * PI * weekOfYear / 52.0).toFloat()
         val weekCos = cos(2.0 * PI * weekOfYear / 52.0).toFloat()
 
+        // ── R10: cluster proportions + average abandonment risk ────────────────────
+        // Group completions and skips by habitId up front to avoid repeated list scans.
+        val completionsByHabit = completions.groupBy { it.habitId }
+        val skipsByHabit = skips.groupBy { it.habitId }
+        val involuntaryByHabit = involuntarySkips.groupBy { it.habitId }
+
+        var countEffortless = 0
+        var countConsistent = 0
+        var countStruggling = 0
+        var countDormant = 0
+        var abandonmentSum = 0f
+        var abandonmentCount = 0
+
+        if (clusterUseCase != null || abandonmentUseCase != null) {
+            for (habit in habits) {
+                val habitCompletions = completionsByHabit[habit.id] ?: emptyList()
+                val habitSkips      = skipsByHabit[habit.id]      ?: emptyList()
+                val habitInvoluntary = involuntaryByHabit[habit.id] ?: emptyList()
+
+                // Cluster distribution — only count habits with sufficient history.
+                if (clusterUseCase != null) {
+                    val clusterResult = clusterUseCase.invoke(habit, habitCompletions, habitSkips, today)
+                    if (clusterResult.hasSufficientData) {
+                        when (clusterResult.cluster) {
+                            is BehavioralCluster.EffortlessRoutine -> countEffortless++
+                            is BehavioralCluster.ConsistentEffort  -> countConsistent++
+                            is BehavioralCluster.Struggling        -> countStruggling++
+                            is BehavioralCluster.Dormant           -> countDormant++
+                        }
+                    }
+                }
+
+                // Abandonment risk — average probability over habits with sufficient data.
+                if (abandonmentUseCase != null) {
+                    val currentStreak = currentStreaks[habit.id] ?: 0
+                    val abanResult = abandonmentUseCase.invoke(
+                        habit, habitCompletions, currentStreak, habitInvoluntary, today
+                    )
+                    if (abanResult.hasSufficientData) {
+                        abandonmentSum += abanResult.probability
+                        abandonmentCount++
+                    }
+                }
+            }
+        }
+
+        val totalClustered = countEffortless + countConsistent + countStruggling + countDormant
+        val propEffortless  = if (totalClustered > 0) countEffortless.toFloat() / totalClustered else 0f
+        val propConsistent  = if (totalClustered > 0) countConsistent.toFloat() / totalClustered else 0f
+        val propStruggling  = if (totalClustered > 0) countStruggling.toFloat() / totalClustered else 0f
+        val propDormant     = if (totalClustered > 0) countDormant.toFloat()    / totalClustered else 0f
+        val avgAbandonmentRisk = if (abandonmentCount > 0) abandonmentSum / abandonmentCount else 0f
+
         val features = WeeklyForecastFeatures(
             lastWeekRate = lastWeekRate,
             avgCurrentStreak = avgStreak.coerceIn(0f, 200f),
@@ -117,7 +193,12 @@ class WeeklyForecastUseCase(
             rateSat = weekdayRates[5],
             rateSun = weekdayRates[6],
             weekOfYearSin = weekSin,
-            weekOfYearCos = weekCos
+            weekOfYearCos = weekCos,
+            clusterProportionEffortless = propEffortless,
+            clusterProportionConsistent = propConsistent,
+            clusterProportionStruggling = propStruggling,
+            clusterProportionDormant    = propDormant,
+            avgAbandonmentRisk          = avgAbandonmentRisk
         )
 
         val predicted = predictor.predictWeeklyRate(features)

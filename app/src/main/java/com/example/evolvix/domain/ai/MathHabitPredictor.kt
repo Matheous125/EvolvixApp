@@ -568,15 +568,27 @@ class MathHabitPredictor : HabitPredictor {
      *
      *   base = 0.70 × lastWeekRate + 0.30 × mean(rateMon..rateSun)
      *
-     * The 70/30 split gives more weight to the immediately-preceding week (strong
-     * auto-correlation in habit behaviour) while the weekday-mean grounds the
-     * prediction in the user's structural pattern across days of the week.
-     * Result is clamped to [0.0, 1.0].
+     * **R10 (2026-05-27):** Subtracts an abandonment-risk penalty:
+     *
+     *   result = clip(base − 0.10 × avgAbandonmentRisk, 0.0, 1.0)
+     *
+     * Rationale: a high aggregate abandonment risk signals structural fragility in the
+     * user's habit portfolio, which reliably depresses next-week performance beyond
+     * what `lastWeekRate` alone captures. This mirrors the −0.08 × avgAbandonmentRisk
+     * term baked into the Python label generator (coefficient raised to 0.10 here to
+     * give the math fallback slightly stronger signal, since it lacks the cluster
+     * distribution context available to the TFLite model).
+     *
+     * Cluster proportion fields ([clusterProportionEffortless] etc.) are intentionally
+     * ignored in this fallback — they refine the TFLite prediction but require enough
+     * history for [BehavioralClusterUseCase] to return meaningful values, making them
+     * unreliable as a sole math-fallback signal.
      */
     override fun predictWeeklyRate(features: WeeklyForecastFeatures): Float {
         val weekdayMean = (features.rateMon + features.rateTue + features.rateWed +
                 features.rateThu + features.rateFri + features.rateSat + features.rateSun) / 7f
-        return (0.70f * features.lastWeekRate + 0.30f * weekdayMean).coerceIn(0f, 1f)
+        val base = 0.70f * features.lastWeekRate + 0.30f * weekdayMean
+        return (base - 0.10f * features.avgAbandonmentRisk).coerceIn(0f, 1f)
     }
 
     // ── Phase 8.4 — Behavioral Clustering math fallback ──────────────────────
