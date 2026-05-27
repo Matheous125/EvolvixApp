@@ -209,6 +209,23 @@ fun StatisticsScreen(
                 )
             }
 
+            // Phase 8.1 — Abandonment Risk card (shown when ≥1 habit has HIGH or CRITICAL risk)
+            val atRiskEntries = abandonmentRisks.values
+                .filter {
+                    it.hasSufficientData &&
+                        (it.rating == AbandonmentRisk.Rating.HIGH ||
+                            it.rating == AbandonmentRisk.Rating.CRITICAL)
+                }
+                .sortedByDescending { it.probability }
+                .mapNotNull { risk ->
+                    val name = perHabit.find { it.habit.id == risk.habitId }?.habit?.name
+                        ?: return@mapNotNull null
+                    name to risk
+                }
+            if (atRiskEntries.isNotEmpty()) {
+                item { AtRiskCard(entries = atRiskEntries) }
+            }
+
             // Phase 8.4 + 8.5 — Behavioral Tiers + Spillover card (shown when either has data)
             if (behavioralClusters.isNotEmpty() || spilloverInsights.isNotEmpty()) {
                 item {

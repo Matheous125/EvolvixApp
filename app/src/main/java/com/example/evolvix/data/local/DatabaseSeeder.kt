@@ -94,8 +94,8 @@ object DatabaseSeeder {
                 currentCount = 0,
                 frequency = HabitFrequency.Daily,
                 target = 1,
-                totalProgressUpdates = 27,
-                totalTargetReaches = 27,
+                totalProgressUpdates = 28,
+                totalTargetReaches = 28,
                 colorHex = "#FF5722",
                 categories = listOf("Fitness", "Health"),
                 reminderEnabled = true,
@@ -127,6 +127,21 @@ object DatabaseSeeder {
                 completionIndex++
             }
         }
+        // Today's completion (daysAgo=0): required so SpilloverUseCase finds a non-empty
+        // completedTodayIds set. This triggers the 901→903 pair (DRAG, ≈ −0.06) because
+        // Meditate's unconditional rate30d (0.90) exceeds the conditional co-occurrence
+        // rate given Morning Run (0.857), reflecting that Meditate happens on some days
+        // Morning Run is skipped. |liftDelta| > NEUTRAL_THRESHOLD=0.05 → card shows.
+        dao.insertCompletion(
+            HabitCompletionEntity(
+                habitId = 901,
+                progressUpdate = today.atTime(7, 0),
+                isTargetReached = true,
+                fromReminder = true,
+                snoozeCount = 0,
+                perceivedDifficulty = 2
+            )
+        )
     }
 
     // ── Habit 902 — "Read 30 min" ─────────────────────────────────────────────
@@ -352,9 +367,12 @@ object DatabaseSeeder {
     //  • successProbabilityToday: LOW (sparse completions, no active streak)
     //
     private suspend fun insertWakeUpNoPhone(dao: HabitDao, skipDao: HabitSkipDao, today: LocalDate) {
-        // 8 completions spread over 28 days — only 1 in the past 7 days (day 2)
-        // giving rate7d ≈ 1/7 ≈ 0.14, which triggers CRITICAL snooze drift.
-        val completedDaysAgo = listOf(2, 7, 10, 14, 18, 22, 25, 28)
+        // 10 completions spread over 28 days — only 1 within the strict 7-day window
+        // (day 2; day 7 is excluded by the > boundary), giving rate7d ≈ 1/7 ≈ 0.14.
+        // rate30d = 10/30 ≈ 0.33 → Struggling cluster tier, satisfying the
+        // BehavioralClusterUseCase MIN_COMPLETIONS=10 guard.
+        // avgSnoozeCountLast14Days = 3.0 (≥ 2) AND rate7d < 0.30 → CRITICAL snooze drift.
+        val completedDaysAgo = listOf(2, 7, 9, 10, 13, 14, 18, 22, 25, 28)
         dao.insertHabit(
             HabitEntity(
                 id = 906,
