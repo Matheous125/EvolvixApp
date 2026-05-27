@@ -1,5 +1,6 @@
 package com.example.evolvix.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,8 +27,6 @@ import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingFlat
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -38,6 +37,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -639,10 +639,10 @@ private fun HabitStatsCard(
                     modifier = Modifier.weight(1f)
                 )
                 // Success probability from MathHabitPredictor for today's day and hour.
-                AssistChip(
-                    onClick = { },
-                    label = { Text("🎯 ${(stats.successProbabilityToday * 100).roundToInt()}%") },
-                    colors = AssistChipDefaults.assistChipColors()
+                StaticChip(
+                    label = "🎯 ${(stats.successProbabilityToday * 100).roundToInt()}%",
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 IconButton(onClick = { expanded = !expanded }) {
                     Icon(
@@ -742,6 +742,39 @@ private fun StatBox(emoji: String, value: String, label: String, modifier: Modif
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+/**
+ * Non-interactive display chip — visually identical to [androidx.compose.material3.AssistChip]
+ * but produces no ripple or interaction state. Used for purely informational labels
+ * (risk ratings, confidence tiers, difficulty levels) that do not trigger any action.
+ *
+ * @param label         Text displayed inside the chip.
+ * @param containerColor Background fill of the chip surface.
+ * @param contentColor   Colour applied to the [label] text.
+ * @param borderColor    Optional 1 dp border stroke; null = no border.
+ */
+@Composable
+private fun StaticChip(
+    label: String,
+    containerColor: Color,
+    contentColor: Color,
+    borderColor: Color? = null,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = containerColor,
+        contentColor = contentColor,
+        border = borderColor?.let { BorderStroke(1.dp, it) },
+        modifier = modifier,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+        )
     }
 }
 
@@ -1096,13 +1129,10 @@ private fun AtRiskRow(habitName: String, risk: AbandonmentRisk) {
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f)
         )
-        AssistChip(
-            onClick = {},
-            label = { Text(chipLabel, style = MaterialTheme.typography.labelSmall) },
-            colors = AssistChipDefaults.assistChipColors(
-                containerColor = chipColor,
-                labelColor = chipContentColor
-            )
+        StaticChip(
+            label = chipLabel,
+            containerColor = chipColor,
+            contentColor = chipContentColor,
         )
         Spacer(Modifier.width(8.dp))
         Text(
@@ -1291,13 +1321,10 @@ private fun SnoozeDriftRow(habitName: String, risk: SnoozeDisengagementRisk) {
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.weight(1f)
         )
-        AssistChip(
-            onClick = {},
-            label = { Text(chipLabel, style = MaterialTheme.typography.labelSmall) },
-            colors = AssistChipDefaults.assistChipColors(
-                containerColor = chipColor,
-                labelColor = chipContentColor
-            )
+        StaticChip(
+            label = chipLabel,
+            containerColor = chipColor,
+            contentColor = chipContentColor,
         )
         Spacer(Modifier.width(8.dp))
         Text(
@@ -1425,13 +1452,10 @@ private fun TargetCalibrationRow(habitName: String, adjustment: TargetAdjustment
             color = arrowColor
         )
         Spacer(Modifier.width(6.dp))
-        AssistChip(
-            onClick = {},
-            label = { Text(chipLabel, style = MaterialTheme.typography.labelSmall) },
-            colors = AssistChipDefaults.assistChipColors(
-                containerColor = chipColor,
-                labelColor = chipContentColor
-            )
+        StaticChip(
+            label = chipLabel,
+            containerColor = chipColor,
+            contentColor = chipContentColor,
         )
     }
 }
@@ -1445,7 +1469,7 @@ private fun TargetCalibrationRow(habitName: String, adjustment: TargetAdjustment
  *
  * Tier display order: Effortless Routine → Consistent Effort → Struggling → Dormant.
  * Each tier header is rendered in the tier’s representative colour; habits within each
- * tier are displayed as [AssistChip] rows so the user can scan them at a glance.
+ * tier are displayed as [StaticChip] rows so the user can scan them at a glance.
  *
  * When none of the [clusters] entries has [HabitCluster.hasSufficientData] = true the
  * card shows a single placeholder string instead of tier sections.
@@ -1541,19 +1565,15 @@ private fun BehavioralTiersCard(
                     // FlowRow wraps chips automatically — handles any number of habits.
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                     ) {
                         habits.forEach { name ->
-                            AssistChip(
-                                onClick = {},
-                                label = { Text(name, style = MaterialTheme.typography.labelSmall) },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = tierColor.copy(alpha = 0.10f),
-                                    labelColor = tierColor
-                                ),
-                                border = AssistChipDefaults.assistChipBorder(enabled = true,
-                                    borderColor = tierColor.copy(alpha = 0.35f))
+                            StaticChip(
+                                label = name,
+                                containerColor = tierColor.copy(alpha = 0.10f),
+                                contentColor = tierColor,
+                                borderColor = tierColor.copy(alpha = 0.35f),
                             )
                         }
                     }
@@ -1575,20 +1595,14 @@ private fun BehavioralTiersCard(
                     )
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         insufficientNames.forEach { name ->
-                            AssistChip(
-                                onClick = {},
-                                label = {
-                                    Text(name, style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                },
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                                ),
-                                border = AssistChipDefaults.assistChipBorder(enabled = false)
+                            StaticChip(
+                                label = name,
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -1696,7 +1710,7 @@ private fun PerceivedDifficultyCard(
  * Single row inside [PerceivedDifficultyCard].
  *
  * Shows habit name, optional user-reported average ("You: 3.5★"), predicted score
- * ("3.2★"), and an [AssistChip] coloured by the [PerceivedDifficultyEstimate.rating] enum.
+ * ("3.2★"), and a [StaticChip] coloured by the [PerceivedDifficultyEstimate.rating] enum.
  * When [PerceivedDifficultyEstimate.hasSufficientData] is false, the prediction and chip
  * are replaced by a "Collecting data…" note (cold-start safe).
  *
@@ -1770,17 +1784,11 @@ private fun DifficultyRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(end = 6.dp),
             )
-            AssistChip(
-                onClick = {},
-                label = { Text(chipLabel, style = MaterialTheme.typography.labelSmall) },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = chipColor,
-                    labelColor = chipContentColor,
-                ),
-                border = AssistChipDefaults.assistChipBorder(
-                    enabled = true,
-                    borderColor = chipColor.copy(alpha = 0.35f),
-                ),
+            StaticChip(
+                label = chipLabel,
+                containerColor = chipColor,
+                contentColor = chipContentColor,
+                borderColor = chipColor.copy(alpha = 0.35f),
             )
         }
     }
@@ -1883,24 +1891,16 @@ private fun SkipReasonForecastRow(
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
             )
-            AssistChip(
-                onClick = {},
-                label = {
-                    Text(
-                        text = prediction.topReason.displayLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                },
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = if (isLowConfidence)
-                        MaterialTheme.colorScheme.surfaceVariant
-                    else
-                        MaterialTheme.colorScheme.secondaryContainer,
-                    labelColor = if (isLowConfidence)
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    else
-                        MaterialTheme.colorScheme.onSecondaryContainer,
-                ),
+            StaticChip(
+                label = prediction.topReason.displayLabel,
+                containerColor = if (isLowConfidence)
+                    MaterialTheme.colorScheme.surfaceVariant
+                else
+                    MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = if (isLowConfidence)
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                else
+                    MaterialTheme.colorScheme.onSecondaryContainer,
             )
         }
         // Confidence bar — visual indicator of model certainty for the top reason.
