@@ -6,7 +6,16 @@ PLAN-ML-EXTENSION.md §9.3.2.
 This is a REGRESSION pipeline producing ideal_delta ∈ [-2.0, +2.0].
 The trained model replaces the hard-coded ±1 rule in AdaptiveDifficultyUseCase.
 
+R9 RETRAIN (PLAN-MODEL-RETRAINING.md): input features expanded from 8 → 9.
+    New feature (index 8): recentAvgDifficulty ∈ [1.0, 5.0] — rolling average of
+    user-reported perceivedDifficulty over the last 14 rated completions (default 3.0
+    when fewer than 3 ratings are available). Enables the grinding-suppressor rule:
+    a habit where the user is succeeding through high effort gets delta = -1 even when
+    the completion rate alone would suggest +1. n_features is derived from data shape
+    so the MLP architecture adapts automatically.
+
 Architecture differences vs Phase 8.5 (Spillover):
+    * Input features    : 9 (R9: was 8)
     * Output range      : [-2.0, +2.0]  (not [-0.5, +0.5])
     * Output layer      : Dense(1, tanh) → Lambda(x * 2.0)
                           Both ops are TFLite-compatible (Mul by constant).

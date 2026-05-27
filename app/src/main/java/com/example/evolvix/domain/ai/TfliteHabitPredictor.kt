@@ -797,7 +797,7 @@ class TfliteHabitPredictor(
         private const val SPILLOVER_FEATURE_COUNT = 5
         private const val REMINDER_LIFT_FEATURE_COUNT = 10  // R8: +snoozeCountToday, +recentAvgDifficulty
         private const val SNOOZE_DISENGAGEMENT_FEATURE_COUNT = 7
-        private const val TARGET_CHANGE_FEATURE_COUNT = 8   // Phase 9.3
+        private const val TARGET_CHANGE_FEATURE_COUNT = 9   // R9: +recentAvgDifficulty
         private const val DIFFICULTY_FEATURE_COUNT = 8       // Phase 9.4
         private const val SKIP_REASON_FEATURE_COUNT = 8       // Phase 9.5
         private const val SKIP_REASON_CLASS_COUNT = 6         // Phase 9.5

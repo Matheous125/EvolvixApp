@@ -14,11 +14,10 @@ package com.example.evolvix.domain.ai
  * performance given the current habit state," not "what would happen if we forced the
  * target to change."
  *
- * ⚠ **Phase 9.4 note:** `perceivedDifficulty` is unavailable until Phase 9.4 adds the
- * column to `HabitCompletionEntity`. [avgProgressRatio30d] serves as a proxy here (a
- * value > 1.0 signals the user is over-completing, analogous to low perceived
- * difficulty). Phase 9.4 will retrain the model with `perceivedDifficulty` as a 9th
- * input feature.
+ * ⚠ **R9 retrain (PLAN-MODEL-RETRAINING.md):** [recentAvgDifficulty] added as the 9th
+ * input feature, fulfilling the Phase 9.4 promise. It captures the grinding-suppressor
+ * signal: a user succeeding at high subjective effort gets `delta = -1` even when the
+ * raw completion rate would suggest `+1`, promoting sustainable habit calibration.
  *
  * The field order, types, and units MUST exactly mirror the Python training script
  * (`ml-training/generate_target_change_data.py` → `FEATURE_COLUMNS`) and the
@@ -36,6 +35,10 @@ package com.example.evolvix.domain.ai
  *                                  0 if the target has never been changed.
  *   8. [periodsSinceLastChange]  — periods elapsed since the last target change;
  *                                  999 sentinel when the target has never changed.
+ *   9. [recentAvgDifficulty]     — R9: rolling average of user-reported
+ *                                  `perceivedDifficulty` over the last 14 rated
+ *                                  completions ∈ [1.0, 5.0]; default 3.0 (neutral)
+ *                                  when fewer than 3 ratings are available.
  *
  * [com.example.evolvix.domain.usecase.TargetAdjustmentUseCase] builds this vector from
  * Room data before handing it to [HabitPredictor.predictTargetDelta].
@@ -44,15 +47,19 @@ data class TargetChangeFeatures(
     val currentTarget: Int,
     val rate30d: Float,
     val rate7d: Float,
-    val avgProgressRatio30d: Float,   // proxy for perceived difficulty until Phase 9.4
+    val avgProgressRatio30d: Float,
     val currentStreak: Int,
     val habitAgeDays: Int,
     val previousDelta: Int,           // 0 if target was never changed
-    val periodsSinceLastChange: Int   // 999 sentinel = never changed
+    val periodsSinceLastChange: Int,  // 999 sentinel = never changed
+    val recentAvgDifficulty: Float = 3.0f  // R9: rolling avg perceivedDifficulty [1,5]; 3.0 = neutral default
 ) {
     /**
-     * Returns the eight features as a [FloatArray] in the exact order expected by the
+     * Returns the nine features as a [FloatArray] in the exact order expected by the
      * TFLite interpreter. Called by [TfliteHabitPredictor.predictTargetDelta].
+     *
+     * Index 8 ([recentAvgDifficulty]) was added in R9 to enable the grinding-suppressor
+     * signal; matches `target_change_scaler.json` → `feature_columns[8]`.
      */
     fun toFloatArray(): FloatArray = floatArrayOf(
         currentTarget.toFloat(),
@@ -62,6 +69,7 @@ data class TargetChangeFeatures(
         currentStreak.toFloat(),
         habitAgeDays.toFloat(),
         previousDelta.toFloat(),
-        periodsSinceLastChange.toFloat()
+        periodsSinceLastChange.toFloat(),
+        recentAvgDifficulty
     )
 }

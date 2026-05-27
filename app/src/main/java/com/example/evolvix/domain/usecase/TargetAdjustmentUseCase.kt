@@ -23,14 +23,17 @@ import java.time.temporal.ChronoUnit
  *    was reached (`isTargetReached = true`). Denominator is `30 / periodDays`.
  * 3. **rate7d** — same computation over the past 7 days.
  * 4. **avgProgressRatio30d** — mean(completions per period / target) over 30 days;
- *    values > 1.0 indicate consistent over-completion. Serves as a proxy for
- *    `perceivedDifficulty` until Phase 9.4 adds that column to the completion entity.
+ *    values > 1.0 indicate consistent over-completion.
  * 5. **currentStreak** — pre-computed by the caller ([CalculateStreakUseCase]).
  * 6. **habitAgeDays** — days since the earliest completion (conservative underestimate).
  * 7. **previousDelta** — `newTarget − oldTarget` from the most recent entry in
  *    `habit_target_history`; 0 if the target has never been changed.
  * 8. **periodsSinceLastChange** — calendar periods since `changedAt` on the latest
  *    history entry; sentinel 999 when the target has never changed.
+ * 9. **recentAvgDifficulty** — R9: rolling average of [HabitCompletionEntity.perceivedDifficulty]
+ *    over the [MAX_DIFFICULTY_COMPLETIONS] most-recent rated completions ∈ [1, 5];
+ *    defaults to [DEFAULT_DIFFICULTY] (3.0 = neutral) when fewer than
+ *    [MIN_DIFFICULTY_RATINGS] rated completions are available.
  *
  * ⚠ **Thesis note — observational model:** [TargetAdjustment] is a recommendation
  * based on correlational patterns in historical data. It must be framed as
@@ -55,6 +58,24 @@ class TargetAdjustmentUseCase(
         /** Sentinel value for [TargetChangeFeatures.periodsSinceLastChange] when the
          *  target has never been changed. Matches the Python training generator. */
         private const val NEVER_CHANGED_SENTINEL = 999
+
+        /**
+         * R9: number of most-recent rated completions used for the rolling difficulty
+         * average. Mirrors the "last 14" window described in [TargetChangeFeatures].
+         */
+        private const val MAX_DIFFICULTY_COMPLETIONS = 14
+
+        /**
+         * R9: minimum number of rated completions required before [recentAvgDifficulty]
+         * is considered meaningful. Below this, [DEFAULT_DIFFICULTY] is used instead.
+         */
+        private const val MIN_DIFFICULTY_RATINGS = 3
+
+        /**
+         * R9: neutral difficulty value (mid-point of the 1–5 scale) used when the user
+         * has not yet provided enough ratings. Matches the Python training default.
+         */
+        private const val DEFAULT_DIFFICULTY = 3.0f
     }
 
     /**
@@ -133,6 +154,19 @@ class TargetAdjustmentUseCase(
             periodsSinceLastChange = (daysSinceChange / periodDays).coerceAtLeast(0)
         }
 
+        // ── Feature 9 (R9): recentAvgDifficulty ─────────────────────────────────────────────────
+        // Take the MAX_DIFFICULTY_COMPLETIONS most-recent completions that carry a
+        // non-null perceivedDifficulty rating, sorted descending by timestamp.
+        val ratedCompletions = completions
+            .filter { it.perceivedDifficulty != null }
+            .sortedByDescending { it.progressUpdate }
+            .take(MAX_DIFFICULTY_COMPLETIONS)
+        val recentAvgDifficulty: Float = if (ratedCompletions.size >= MIN_DIFFICULTY_RATINGS) {
+            ratedCompletions.map { it.perceivedDifficulty!!.toFloat() }.average().toFloat()
+        } else {
+            DEFAULT_DIFFICULTY
+        }
+
         // ── Assemble feature vector and run the model ───────────────────────────────────
         val features = TargetChangeFeatures(
             currentTarget           = habit.target,
@@ -142,7 +176,8 @@ class TargetAdjustmentUseCase(
             currentStreak           = currentStreak,
             habitAgeDays            = habitAgeDays,
             previousDelta           = previousDelta,
-            periodsSinceLastChange  = periodsSinceLastChange
+            periodsSinceLastChange  = periodsSinceLastChange,
+            recentAvgDifficulty     = recentAvgDifficulty.coerceIn(1f, 5f)  // R9
         )
 
         val rawDelta = predictor.predictTargetDelta(features)

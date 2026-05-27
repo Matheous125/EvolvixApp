@@ -14,11 +14,13 @@ regressor replaces the hard-coded ±1 rule in `AdaptiveDifficultyUseCase`.
   predicts "what target tends to correlate with sustained high performance given the
   current habit state," not "what would happen if we forced the target to change."
 
-  ⚠ PHASE 9.4 NOTE:
-  `perceivedDifficulty` is unavailable until Phase 9.4 adds the column to
-  HabitCompletionEntity.  `avgProgressRatio30d` serves as a proxy here (a ratio > 1.0
-  signals the user is over-completing, analogous to low perceived difficulty).
-  Phase 9.4 will retrain with `perceivedDifficulty` as a 9th input feature.
+  ⚠ R9 RETRAIN (PLAN-MODEL-RETRAINING.md):
+  Phase 9.4 added `perceivedDifficulty` to HabitCompletionEntity.  R9 fulfils the
+  promise made there: `recentAvgDifficulty` (rolling 14-completion average of user-
+  reported difficulty, default 3.0 when no ratings exist) is now the 9th input feature.
+  The R9 prior pushes the recommended delta to -1 when the user is succeeding through
+  grinding (recentAvgDifficulty ≥ 4.0 AND rate30d ≥ 0.80), even though the raw
+  completion rate would otherwise trigger a +1 recommendation.
 
 Features per row (field order MUST exactly mirror TargetChangeFeatures.kt
 → toFloatArray() and target_change_scaler.json → feature_columns):
@@ -33,11 +35,19 @@ Features per row (field order MUST exactly mirror TargetChangeFeatures.kt
     7. previousDelta           −2..+2   last target delta applied (0 if no prior change)
     8. periodsSinceLastChange  0..999   periods elapsed since the last target change;
                                         999 sentinel when the target has never changed
+    9. recentAvgDifficulty     1..5     rolling average of user-reported perceivedDifficulty
+                                        over the last 14 rated completions; 3.0 default
+                                        when fewer than 3 ratings are available (neutral)
 
 Label:
     ideal_delta ∈ [−2.0, +2.0]  (continuous; caller rounds to integer after inference)
 
 Generative model (baked-in behavioral priors):
+
+    R9 grinding suppressor (checked before all other rules):
+        recentAvgDifficulty ≥ 4.0  AND  rate30d ≥ 0.80
+        → user is succeeding through sheer grinding; ease target down by −1 to
+          promote sustainable habit formation even though rate looks acceptable.
 
     Strong increase (+2) signal:
         rate30d ≥ 0.95  AND  avgProgressRatio30d ≥ 1.30  AND  habitAgeDays ≥ 30
@@ -97,6 +107,7 @@ FEATURE_COLUMNS: list[str] = [
     "habitAgeDays",
     "previousDelta",
     "periodsSinceLastChange",
+    "recentAvgDifficulty",  # R9: rolling avg of user-reported perceivedDifficulty (1–5)
 ]
 
 
@@ -166,6 +177,32 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
         rng.integers(1, 200, size=rows)
     ).astype(np.int32)
 
+    # recentAvgDifficulty (R9): rolling average of user-reported perceivedDifficulty (1–5)
+    # over the last 14 rated completions.  Modelled as inversely correlated with rate30d
+    # so the R9 grinding-suppressor rule has realistic training signal:
+    #   • Low performers (rate30d < 0.45) tend to find habits hard   → mean ≈ 4.0
+    #   • Mid performers                                              → mean ≈ 3.0
+    #   • High performers (rate30d ≥ 0.75): most find it easy, but
+    #     ~22% are grinding at high difficulty (the R9 target group)  → mean ≈ 2.0
+    # Normal noise (σ = 0.5) applied; result clipped to [1.0, 5.0].
+    difficulty_base = np.where(
+        rate30d < 0.45,
+        rng.normal(loc=4.0, scale=0.5, size=rows),
+        np.where(
+            rate30d < 0.75,
+            rng.normal(loc=3.0, scale=0.5, size=rows),
+            rng.normal(loc=2.0, scale=0.6, size=rows),
+        ),
+    )
+    # Inject grinding subset: ~22% of high-rate rows get difficulty ≥ 4.0.
+    grinding_mask = (rate30d >= 0.80) & (rng.random(size=rows) < 0.22)
+    difficulty_base = np.where(
+        grinding_mask,
+        rng.uniform(4.0, 5.0, size=rows),
+        difficulty_base,
+    )
+    recent_avg_difficulty = np.clip(difficulty_base, 1.0, 5.0).astype(np.float32)
+
     # ── Label (ideal_delta) generation ────────────────────────────────────
 
     r30 = rate30d.astype(np.float64)
@@ -206,6 +243,12 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
     habituation_mask = (np.abs(prev) == 2) & (psc < 10)
     raw_delta = np.where(habituation_mask, raw_delta * 0.5, raw_delta)
 
+    # R9 grinding suppressor: override increase signals when the user is succeeding
+    # through grinding (high difficulty despite good completion rate).  Applied BEFORE
+    # noise so the model learns a clean decision boundary for this regime.
+    grinding_prior = (recent_avg_difficulty.astype(np.float64) >= 4.0) & (r30 >= 0.80)
+    raw_delta = np.where(grinding_prior, -1.0, raw_delta)
+
     # Noise and clip.
     noise = rng.normal(0.0, 0.20, size=rows)
     ideal_delta = np.clip(raw_delta + noise, -2.0, 2.0).astype(np.float32)
@@ -220,6 +263,7 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
             "habitAgeDays": habit_age,
             "previousDelta": previous_delta.astype(np.int8),
             "periodsSinceLastChange": periods_since,
+            "recentAvgDifficulty": recent_avg_difficulty,  # R9
             "ideal_delta": ideal_delta,
         }
     )

@@ -716,6 +716,11 @@ class MathHabitPredictor : HabitPredictor {
      * Mirrors the generative priors in `generate_target_change_data.py` exactly,
      * so both implementations produce consistent recommendations at the boundary:
      *
+     *   0. **R9 grinding suppressor** — checked FIRST before all increase rules.
+     *      `recentAvgDifficulty ≥ 4.0 AND rate30d ≥ 0.80` → -1.0
+     *      Rationale: the user is succeeding through grinding (high subjective effort
+     *      despite an acceptable completion rate). Easing the target promotes
+     *      sustainable habit formation even though the raw rate looks fine.
      *   1. Strong over-completion → +2.0  (raise the bar significantly)
      *      `rate30d ≥ 0.90 AND avgProgressRatio30d ≥ 1.20 AND habitAgeDays ≥ 21`
      *   2. Moderate over-completion → +1.0  (nudge up)
@@ -725,13 +730,18 @@ class MathHabitPredictor : HabitPredictor {
      *   4. Moderate under-performance → -1.0  (ease slightly)
      *      `rate30d ≤ 0.40 AND avgProgressRatio30d ≤ 0.72`
      *   5. Default → 0.0  (target is well-calibrated)
+     *
+     * R9 retrain: [TargetChangeFeatures.recentAvgDifficulty] added as 9th input.
      */
     override fun predictTargetDelta(features: TargetChangeFeatures): Float {
         val r30  = features.rate30d.coerceIn(0f, 1f)
         val apr  = features.avgProgressRatio30d.coerceIn(0f, 3f)
         val age  = features.habitAgeDays
+        val diff = features.recentAvgDifficulty.coerceIn(1f, 5f)
 
         return when {
+            // R9: grinding suppressor — checked before all increase rules.
+            diff >= 4.0f && r30 >= 0.80f              -> -1.0f
             r30 >= 0.90f && apr >= 1.20f && age >= 21 ->  2.0f
             r30 >= 0.78f && apr >= 1.02f              ->  1.0f
             r30 <= 0.22f && apr <= 0.45f              -> -2.0f
