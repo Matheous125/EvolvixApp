@@ -157,7 +157,6 @@ private fun localizedSummaryTitle(row: DailySummaryEntity): String = when {
 /** Mirrors [DailySummaryWorker.localizedBody] but via Compose string resources. */
 @Composable
 private fun localizedSummaryBody(row: DailySummaryEntity): String {
-    val title = localizedSummaryTitle(row)
     val parts = remember(row) { mutableListOf<String>() }.also { it.clear() }
 
     val habitsTargetLine = if (row.todayTargetReaches > 0)
@@ -195,8 +194,6 @@ private fun localizedSummaryBody(row: DailySummaryEntity): String {
     }
 
     return buildString {
-        appendLine(title)
-        appendLine()
         parts.forEach { appendLine("• $it") }
         appendLine()
         append(encouragement)

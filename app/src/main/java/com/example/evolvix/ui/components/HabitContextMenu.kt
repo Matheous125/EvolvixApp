@@ -11,7 +11,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -46,8 +45,6 @@ import com.example.evolvix.domain.model.HabitUiState
  *
  * @param habit The habit driving the menu — used to flip the Pause/Resume label.
  * @param onMarkProgress Action 1 — record +1 completion.
- * @param onSkip         Action 1b (Phase 9.5) — log a skip and capture the reason via
- *   [com.example.evolvix.notifications.SkipReasonPickerActivity].
  * @param onNavigateToStatistics Action 2 — open Statistics screen.
  * @param onPauseUntil Action 3 (pause path) — receives epoch-millis deadline.
  * @param onResume Action 3 (resume path) — clears the pause.
@@ -66,7 +63,6 @@ import com.example.evolvix.domain.model.HabitUiState
 fun HabitContextMenu(
     habit: HabitUiState,
     onMarkProgress: () -> Unit,
-    onSkip: () -> Unit,
     onNavigateToStatistics: () -> Unit,
     onPauseUntil: (Long) -> Unit,
     onResume: () -> Unit,
@@ -153,17 +149,6 @@ fun HabitContextMenu(
                 onClick = {
                     menuExpanded = false
                     onMarkProgress()
-                }
-            )
-
-            // Phase 9.5: Skip today — opens SkipReasonPickerActivity so the user can tag
-            // the skip with a reason (TOO_TIRED, TOO_BUSY, FORGOT, SICK, TRAVELING, NO_REASON).
-            DropdownMenuItem(
-                text = { Text("Skip today") },
-                leadingIcon = { Icon(Icons.Filled.RemoveCircle, contentDescription = null) },
-                onClick = {
-                    menuExpanded = false
-                    onSkip()
                 }
             )
 

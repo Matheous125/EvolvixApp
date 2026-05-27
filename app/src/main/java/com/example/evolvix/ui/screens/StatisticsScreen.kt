@@ -562,11 +562,6 @@ private fun LifeBalanceBody(entries: List<LifeBalanceEntry>) {
             }
         }
 
-        Spacer(Modifier.height(4.dp))
-        AiPlaceholderBox(
-            title = stringResource(R.string.card_ai_insight_title),
-            body = stringResource(R.string.card_ai_insight_placeholder)
-        )
     }
 }
 
@@ -1028,40 +1023,6 @@ private fun BehavioralPatternsCard(
             stringResource(R.string.patterns_recovery_speed, it.roundToInt())
         } ?: stringResource(R.string.patterns_no_recovery)
         Text(text = resilienceText, style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-/* -------------------------------------------------------------------------------------
- *  PLACEHOLDERS & EMPTY STATES
- * ------------------------------------------------------------------------------------- */
-
-/**
- * Generic styled box used for all AI-driven sections until the AI layer ships in Phase 6.
- * Kept visually distinct from real data cards by using [MaterialTheme.colorScheme.surfaceVariant]
- * so it's obvious that the content is intentionally a stub.
- */
-@Composable
-private fun AiPlaceholderBox(title: String, body: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(12.dp)
-    ) {
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = body,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 

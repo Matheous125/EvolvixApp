@@ -134,8 +134,6 @@
     <string name="label_today_habits">%1$d/%2$d nawyków ukończonych dziś</string>
     <string name="card_life_balance_title">⚖️ Balans życiowy (ostatnie 30 dni)</string>
     <string name="empty_life_balance">Przypisz kategorie do nawyków, aby zobaczyć balans.</string>
-    <string name="card_ai_insight_title">💡 Wgląd AI</string>
-    <string name="card_ai_insight_placeholder">Rekomendacje balansowe oparte na AI pojawią się tutaj po włączeniu modelu on-device (Faza 6).</string>
     <string name="card_smart_insight_title">✨ Inteligentna analiza AI</string>
     <string name="card_optimal_timing_title">🕒 Optymalny czas</string>
     <string name="card_behavioral_patterns_title">🧠 Wzorce zachowań</string>

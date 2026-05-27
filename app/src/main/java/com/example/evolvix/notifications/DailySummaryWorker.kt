@@ -171,7 +171,6 @@ class DailySummaryWorker(
      * Returns the expanded notification body in the device locale.
      */
     private fun localizedBody(ctx: Context, summary: DailySummaryEntity): String {
-        val title = localizedTitle(ctx, summary)
         val parts = mutableListOf<String>()
         if (summary.todayTargetReaches > 0) {
             parts += ctx.getString(R.string.summary_line_habits_target, summary.todayTargetReaches, summary.totalActiveHabits)
@@ -203,8 +202,6 @@ class DailySummaryWorker(
         }
 
         return buildString {
-            appendLine(title)
-            appendLine()
             parts.forEach { appendLine("• $it") }
             appendLine()
             append(encouragement)

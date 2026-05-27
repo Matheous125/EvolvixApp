@@ -135,8 +135,6 @@
     <string name="label_today_habits">%1$d/%2$d habits completed today</string>
     <string name="card_life_balance_title">⚖️ Life Balance (Last 30 days)</string>
     <string name="empty_life_balance">Assign categories to your habits to see balance.</string>
-    <string name="card_ai_insight_title">💡 AI Insight</string>
-    <string name="card_ai_insight_placeholder">AI-powered balance recommendations will appear here once the on-device AI layer is enabled (Phase 6).</string>
     <string name="card_smart_insight_title">✨ AI Smart Insight</string>
     <string name="card_optimal_timing_title">🕒 Optimal Timing</string>
     <string name="card_behavioral_patterns_title">🧠 Behavioral Patterns</string>

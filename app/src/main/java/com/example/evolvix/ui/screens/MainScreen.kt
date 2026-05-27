@@ -41,7 +41,6 @@ import com.example.evolvix.ui.viewmodel.SummaryInboxViewModel
 import com.example.evolvix.ui.viewmodel.SummaryInboxViewModelFactory
 import com.example.evolvix.BuildConfig
 import android.content.Intent
-import com.example.evolvix.notifications.HabitActionReceiver
 import com.example.evolvix.notifications.SkipReasonPickerActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material.icons.filled.BugReport
@@ -350,9 +349,6 @@ fun MainScreen(
                             }
                         }
                     }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.cd_settings))
-                    }
                     // ── Phase 7.2v2 — daily-summary inbox button with unread badge ──
                     BadgedBox(
                         badge = {
@@ -364,6 +360,9 @@ fun MainScreen(
                         IconButton(onClick = onNavigateToInbox) {
                             Icon(Icons.Filled.Inbox, contentDescription = stringResource(R.string.cd_daily_summaries))
                         }
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
                     // ── Phase 7.2v2 — DEBUG-only quick-test menu ──
                     if (BuildConfig.DEBUG) {
@@ -1438,15 +1437,6 @@ private fun HabitRow(
     HabitContextMenu(
         habit = habit,
         onMarkProgress = { viewModel.incrementHabitCompletion(habit.id) },
-        onSkip = {
-            // Phase 9.5: launch the translucent SkipReasonPickerActivity so the user
-            // can tag today's skip with a reason from the main-screen context menu.
-            val pickerIntent = Intent(context, SkipReasonPickerActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                putExtra(HabitActionReceiver.EXTRA_HABIT_ID, habit.id)
-            }
-            context.startActivity(pickerIntent)
-        },
         onNavigateToStatistics = onNavigateToStatistics,
         onPauseUntil = { until -> viewModel.pauseHabit(habit.id, until) },
         onResume = { viewModel.resumeHabit(habit.id) },

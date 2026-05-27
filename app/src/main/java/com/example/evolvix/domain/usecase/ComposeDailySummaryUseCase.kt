@@ -97,8 +97,6 @@ class ComposeDailySummaryUseCase {
             } else null
 
         val body = buildString {
-            appendLine(title)
-            appendLine()
             parts.forEach { appendLine("• $it") }
             appendLine()
             append(encouragement)
