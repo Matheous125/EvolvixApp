@@ -648,12 +648,12 @@ private fun HabitStatsCard(
             }
 
             // ---- Category chips — helps identify habits at a glance ----
-            if (stats.habit.categories.isNotEmpty()) {
+            if (stats.resolvedCategoryEmojis.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    stats.habit.categories.take(3).forEach { cat ->
+                    stats.resolvedCategoryEmojis.take(3).forEach { (cat, emoji) ->
                         Text(
-                            text = "🏷️ ${categoryDisplayName(cat)}",
+                            text = "$emoji ${categoryDisplayName(cat)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1064,44 +1064,26 @@ private fun AtRiskCard(entries: List<Pair<String, AbandonmentRisk>>) {
  */
 @Composable
 private fun AtRiskRow(habitName: String, risk: AbandonmentRisk) {
-    // Map rating to chip colours; early-return for ratings below HIGH (should not occur).
-    val (chipLabel, chipColor, chipContentColor) = when (risk.rating) {
-        AbandonmentRisk.Rating.CRITICAL -> Triple(
-            stringResource(R.string.label_rating_critical),
-            MaterialTheme.colorScheme.error,
-            MaterialTheme.colorScheme.onError
+    val pct = (risk.probability * 100).roundToInt()
+    // B4-ext: Full-sentence description — rating, habit name, probability, and a plain-language
+    // call-to-action so any user understands both the severity and what to do next.
+    val (sentence, textColor) = when (risk.rating) {
+        AbandonmentRisk.Rating.CRITICAL -> Pair(
+            stringResource(R.string.at_risk_row_critical, habitName, pct),
+            MaterialTheme.colorScheme.error
         )
-        AbandonmentRisk.Rating.HIGH -> Triple(
-            stringResource(R.string.label_rating_high),
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer
+        AbandonmentRisk.Rating.HIGH -> Pair(
+            stringResource(R.string.at_risk_row_high, habitName, pct),
+            MaterialTheme.colorScheme.onSurfaceVariant
         )
         else -> return
     }
-    val pct = (risk.probability * 100).roundToInt()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = habitName,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        StaticChip(
-            label = chipLabel,
-            containerColor = chipColor,
-            contentColor = chipContentColor,
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = stringResource(R.string.label_risk_pct, pct),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
+    Text(
+        text = sentence,
+        style = MaterialTheme.typography.bodyMedium,
+        color = textColor,
+        modifier = Modifier.padding(vertical = 4.dp)
+    )
 }
 
 /**
@@ -1168,42 +1150,22 @@ private fun SmartRemindersCard(
                 if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 val name = habitNames[lift.habitId] ?: return@forEachIndexed
                 val liftPct = (lift.lift * 100).roundToInt()
-                val liftLabel = if (liftPct >= 0) "+${liftPct}%" else "${liftPct}%"
-                val statusColor = if (lift.recommendSend) {
+                // B4: Full-sentence description so any user understands the decision + reason.
+                val sentence = if (lift.recommendSend) {
+                    stringResource(R.string.smart_reminders_row_on, name, liftPct)
+                } else {
+                    stringResource(R.string.smart_reminders_row_off, name, kotlin.math.abs(liftPct))
+                }
+                val sentenceColor = if (lift.recommendSend) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.error
                 }
-                val statusText = if (lift.recommendSend) {
-                    stringResource(R.string.smart_reminders_send)
-                } else {
-                    stringResource(R.string.smart_reminders_suppress)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = liftLabel,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = statusColor
-                        )
-                        Text(
-                            text = statusText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = statusColor
-                        )
-                    }
-                }
+                Text(
+                    text = sentence,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = sentenceColor
+                )
             }
         }
     }
@@ -1257,43 +1219,23 @@ private fun SnoozeDriftCard(entries: List<Pair<String, SnoozeDisengagementRisk>>
  */
 @Composable
 private fun SnoozeDriftRow(habitName: String, risk: SnoozeDisengagementRisk) {
-    val (chipLabel, chipColor, chipContentColor) = when (risk.rating) {
-        SnoozeDisengagementRisk.Rating.CRITICAL -> Triple(
-            stringResource(R.string.label_rating_critical),
-            MaterialTheme.colorScheme.error,
-            MaterialTheme.colorScheme.onError
-        )
-        SnoozeDisengagementRisk.Rating.HIGH -> Triple(
-            stringResource(R.string.label_rating_high),
-            MaterialTheme.colorScheme.errorContainer,
-            MaterialTheme.colorScheme.onErrorContainer
-        )
+    val ratingLabel = when (risk.rating) {
+        SnoozeDisengagementRisk.Rating.CRITICAL -> stringResource(R.string.label_rating_critical)
+        SnoozeDisengagementRisk.Rating.HIGH -> stringResource(R.string.label_rating_high)
         else -> return  // Only HIGH/CRITICAL reach this composable
     }
     val pct = (risk.probability * 100).roundToInt()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = habitName,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        StaticChip(
-            label = chipLabel,
-            containerColor = chipColor,
-            contentColor = chipContentColor,
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = stringResource(R.string.label_risk_pct, pct),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
+    // B4: Full-sentence description — risk level, habit, and probability in plain language.
+    Text(
+        text = stringResource(R.string.snooze_drift_row, habitName, ratingLabel, pct),
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (risk.rating == SnoozeDisengagementRisk.Rating.CRITICAL) {
+            MaterialTheme.colorScheme.error
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        modifier = Modifier.padding(vertical = 4.dp)
+    )
 }
 
 /* -------------------------------------------------------------------------------------
@@ -1358,67 +1300,33 @@ private fun TargetCalibrationCard(entries: List<Pair<String, TargetAdjustment>>)
  */
 @Composable
 private fun TargetCalibrationRow(habitName: String, adjustment: TargetAdjustment) {
-    val arrowLabel = if (adjustment.delta > 0) {
-        stringResource(R.string.target_adjustment_arrow_up, adjustment.delta)
-    } else {
-        stringResource(R.string.target_adjustment_arrow_down, adjustment.delta)
+    // B4: Full-sentence description — habit name, concrete targets, and plain-language
+    // confidence hint so a non-developer can judge how strongly to act on the suggestion.
+    val sentence = when (adjustment.confidence) {
+        TargetAdjustment.Confidence.HIGH -> stringResource(
+            R.string.target_adj_row_high,
+            habitName, adjustment.currentTarget, adjustment.suggestedTarget
+        )
+        TargetAdjustment.Confidence.MEDIUM -> stringResource(
+            R.string.target_adj_row_medium,
+            habitName, adjustment.currentTarget, adjustment.suggestedTarget
+        )
+        TargetAdjustment.Confidence.LOW -> stringResource(
+            R.string.target_adj_row_low,
+            habitName, adjustment.currentTarget, adjustment.suggestedTarget
+        )
     }
-    val arrowColor = if (adjustment.delta > 0) {
+    val textColor = if (adjustment.delta > 0) {
         MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.error
     }
-    val (chipLabel, chipColor, chipContentColor) = when (adjustment.confidence) {
-        TargetAdjustment.Confidence.HIGH -> Triple(
-            "HIGH",
-            MaterialTheme.colorScheme.primary,
-            MaterialTheme.colorScheme.onPrimary
-        )
-        TargetAdjustment.Confidence.MEDIUM -> Triple(
-            "MEDIUM",
-            MaterialTheme.colorScheme.secondary,
-            MaterialTheme.colorScheme.onSecondary
-        )
-        TargetAdjustment.Confidence.LOW -> Triple(
-            "LOW",
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = habitName,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = stringResource(
-                R.string.target_adjustment_current_to_suggested,
-                adjustment.currentTarget,
-                adjustment.suggestedTarget
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = arrowLabel,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = arrowColor
-        )
-        Spacer(Modifier.width(6.dp))
-        StaticChip(
-            label = chipLabel,
-            containerColor = chipColor,
-            contentColor = chipContentColor,
-        )
-    }
+    Text(
+        text = sentence,
+        style = MaterialTheme.typography.bodyMedium,
+        color = textColor,
+        modifier = Modifier.padding(vertical = 4.dp)
+    )
 }
 
 /* -------------------------------------------------------------------------------------

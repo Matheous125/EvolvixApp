@@ -28,6 +28,13 @@ import com.example.evolvix.data.model.HabitEntity
  * @property motivationMessageKey String resource key resolved at the View layer via strings.xml.
  * @property routinePrecision Std-dev of completion time (minutes from midnight); null if < 5 records.
  * @property resilience Average number of periods to recover after a gap; null if no gaps observed.
+ * @property resolvedCategoryEmojis Per-category emoji resolutions for this habit's [HabitEntity.categories].
+ *   Each [Pair] holds the raw category key (first) and the resolved emoji (second).
+ *   Priority for emoji resolution:
+ *     1. [StatisticsViewModel.BUILTIN_CATEGORY_EMOJI] — deterministic for the 7 built-in keys.
+ *     2. [StatisticsViewModel.CATEGORY_EMOJI] keyed by [HabitPredictor.classifyIcon] output — ML-driven for custom categories.
+ *     3. `"🏷️"` fallback when no model prediction is available.
+ *   The raw key is kept so the View can still call [categoryDisplayName] for localization.
  */
 data class PerHabitStats(
     val habit: HabitEntity,
@@ -43,5 +50,7 @@ data class PerHabitStats(
     val targetDelta: Int,
     val motivationMessageKey: String,
     val routinePrecision: Double?,
-    val resilience: Double?
+    val resilience: Double?,
+    // ── B1: ML-driven category emoji ─────────────────────────────────────────
+    val resolvedCategoryEmojis: List<Pair<String, String>> = emptyList()
 )

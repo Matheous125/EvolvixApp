@@ -241,7 +241,13 @@ class StatisticsViewModel(
                     habitData, habitCompletions, streak.current, now.dayOfWeek.value
                 ),
                 routinePrecision = predictor.computeRoutinePrecision(habitCompletions),
-                resilience = predictor.computeResilience(habitData, habitCompletions)
+                resilience = predictor.computeResilience(habitData, habitCompletions),
+                // B1: resolve emoji for each category (built-in first, then ML, then fallback).
+                resolvedCategoryEmojis = habit.categories.map { cat ->
+                    cat to (BUILTIN_CATEGORY_EMOJI[cat]
+                        ?: CATEGORY_EMOJI[predictor.classifyIcon(cat)]
+                        ?: "🏷️")
+                }
             )
         }
     }.stateIn(
@@ -771,6 +777,23 @@ class StatisticsViewModel(
          * Matches the fallback used by [com.example.evolvix.domain.usecase.IconResolverUseCase].
          */
         private const val FALLBACK_ICON_EMOJI = "⭐"
+
+        /**
+         * Maps the 7 built-in category keys (as stored in [com.example.evolvix.data.model.HabitEntity.categories])
+         * to their display emoji. Checked first before the ML-based [CATEGORY_EMOJI] fallback,
+         * so built-in habits always get a deterministic emoji regardless of predictor output.
+         *
+         * Keys must exactly match those in [com.example.evolvix.ui.screens.ALL_CATEGORIES].
+         */
+        private val BUILTIN_CATEGORY_EMOJI: Map<String, String> = mapOf(
+            "Health"       to "❤️",
+            "Fitness"      to "💪",
+            "Learning"     to "📚",
+            "Mindfulness"  to "🧘",
+            "Productivity" to "📅",
+            "Social"       to "💬",
+            "Finance"      to "💰"
+        )
 
         /**
          * Maps the 17 category labels emitted by [HabitPredictor.classifyIcon] (defined

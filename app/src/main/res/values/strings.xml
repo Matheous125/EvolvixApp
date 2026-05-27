@@ -167,6 +167,9 @@
     <string name="label_rating_high">HIGH</string>
     <string name="label_rating_critical">CRITICAL</string>
     <string name="label_risk_pct">%1$d%%</string>
+    <!-- B4-ext: verbose per-habit sentence rows -->
+    <string name="at_risk_row_critical">🚨 %1$s — CRITICAL abandonment risk (%2$d%%): the model predicts this habit is very likely to be dropped. Act now — set a reminder or lower the target.</string>
+    <string name="at_risk_row_high">⚠️ %1$s — HIGH abandonment risk (%2$d%%): engagement is declining. A reminder or a small streak goal may help reverse the trend.</string>
 
     <!-- ── Phase 8.4 — Behavioral Cluster card ── -->
     <string name="card_cluster_title">🧬 Behavioral Tiers</string>
@@ -193,10 +196,15 @@
     <string name="smart_reminders_subtitle">Predicted reminder lift — how much a notification is estimated to raise your completion probability (observational, not causal).</string>
     <string name="smart_reminders_send">Send reminder</string>
     <string name="smart_reminders_suppress">Suppressing reminder</string>
+    <!-- B4: verbose per-habit sentence rows -->
+    <string name="smart_reminders_row_on">🔔 Sending reminders for %1$s lifts completion by ~%2$d%% vs. silent days — recommend ON.</string>
+    <string name="smart_reminders_row_off">🔕 Reminders for %1$s show no measurable boost (~%2$d%%) — recommend OFF.</string>
 
     <!-- Phase 9.2 — Snooze Drift (Snooze Disengagement) -->
     <string name="snooze_drift_title">😴 Snooze Drift</string>
     <string name="snooze_drift_subtitle">Habits where frequent snoozing correlates with disengagement risk (observational, not causal).</string>
+    <!-- B4: verbose per-habit sentence row -->
+    <string name="snooze_drift_row">⚠️ %1$s — %2$s snooze drift: %3$d%% predicted chance of zero completions in the next 7 days.</string>
 
     <!-- Phase 9.3 — Target Calibration -->
     <string name="target_adjustment_title">🎯 Target Calibration</string>
@@ -205,6 +213,10 @@
     <string name="target_adjustment_arrow_up">↑ +%d</string>
     <string name="target_adjustment_arrow_down">↓ %d</string>
     <string name="target_adjustment_current_to_suggested">%d → %d</string>
+    <!-- B4: verbose per-habit sentence rows -->
+    <string name="target_adj_row_high">🎯 %1$s — Suggest target %2$d → %3$d (HIGH confidence — model is decisive).</string>
+    <string name="target_adj_row_medium">🎯 %1$s — Suggest target %2$d → %3$d (MEDIUM confidence — moderate certainty).</string>
+    <string name="target_adj_row_low">🎯 %1$s — Suggest target %2$d → %3$d (LOW confidence — model is uncertain, treat as a hint).</string>
 
     <!-- ── Phase 9.4 — Perceived Difficulty card ── -->
     <string name="difficulty_card_title">🧠 Perceived Difficulty</string>
