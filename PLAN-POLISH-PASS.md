@@ -72,19 +72,18 @@ Currently chips for Perceived Difficulty (easy / very hard) and the per-habit Su
   - `FirebaseAuthRepository` (when introduced in Phase 10): perform `reauthenticateWithCredential(EmailAuthProvider.getCredential(email, oldPassword))` before `updatePassword(newPassword)`.
 - **Verify:** wrong old password → red error under field; matching old + matching new pair → success snackbar.
 
-### B3. `[IMPROVE]` Engagement Window — StatisticsScreen retention correlation · Risk: M · Opus? **Yes (light)**
+### B3. `[IMPROVE]` Engagement Window — StatisticsScreen retention correlation · Risk: M · Opus? **Yes**
 The `screensVisited` field is logged but never read. Need to surface the correlation between StatisticsScreen visits and 7-day retention.
-- **Opus action:** decide the metric. Suggested simple version (defensible for thesis):
-  - For each user-session window of last 30 days, label sessions as `analyticsViewer = "StatisticsScreen" in screensVisited`.
-  - Compute `retentionWithViewer = uniqueActiveDays(analyticsViewer=true) / 30`
-  - Compute `retentionWithoutViewer = uniqueActiveDays(analyticsViewer=false) / 30`
-  - Compute `lift = retentionWithViewer - retentionWithoutViewer` (Bernoulli-style).
-  - Show only if ≥10 sessions of each kind (otherwise hide for insufficient data).
-- **Sonnet execution after Opus signs off:**
-  - New use case `AnalyticsEngagementUseCase` in `domain/usecase/`. Pure Kotlin, reads `AppSessionDao.getAll()`.
-  - Returns `data class AnalyticsEngagement(lift: Float, hasSufficientData: Boolean, viewerActiveDays: Int, nonViewerActiveDays: Int)`.
-  - Inject into `StatisticsViewModel`, expose via `uiState`.
-  - Render at the top of `SummaryGroupCard` as one line: "Analytics viewers stay active +X days/month longer (lift Y%)."
+- decide the metric. Suggested simple version (defensible for thesis):
+- For each user-session window of last 30 days, label sessions as `analyticsViewer = "StatisticsScreen" in screensVisited`.
+- Compute `retentionWithViewer = uniqueActiveDays(analyticsViewer=true) / 30`
+- Compute `retentionWithoutViewer = uniqueActiveDays(analyticsViewer=false) / 30`
+- Compute `lift = retentionWithViewer - retentionWithoutViewer` (Bernoulli-style).
+- Show only if ≥10 sessions of each kind (otherwise hide for insufficient data).
+- New use case `AnalyticsEngagementUseCase` in `domain/usecase/`. Pure Kotlin, reads `AppSessionDao.getAll()`.
+- Returns `data class AnalyticsEngagement(lift: Float, hasSufficientData: Boolean, viewerActiveDays: Int, nonViewerActiveDays: Int)`.
+- Inject into `StatisticsViewModel`, expose via `uiState`.
+- Render at the top of `SummaryGroupCard` as one line: "Analytics viewers stay active +X days/month longer (lift Y%)."
 - **Seeder:** see C-section.
 - **Verify:** seed shows the headline; emulator session without StatisticsScreen visits over 7 days hides it.
 
@@ -102,8 +101,8 @@ The `screensVisited` field is logged but never read. Need to surface the correla
 
 > Goal: every analytical card on StatisticsScreen has at least one habit that triggers it, AND BehavioralTiers shows both BOOST and DRAG.
 
-### C1. `[SEED]` Add habits + tweak existing to demonstrate every feature · Risk: M · Opus? **Yes (one-shot data design)**
-- **Opus action:** design the seed habits matrix on paper before coding. Per habit, declare: id, name, frequency, target, category, completion pattern (days-ago list), `fromReminder`, `snoozeCount`, `perceivedDifficulty`, expected card(s) it triggers.
+### C1. `[SEED]` Add habits + tweak existing to demonstrate every feature · Risk: M · Opus? **Yes **
+- design the seed habits matrix on paper before coding. Per habit, declare: id, name, frequency, target, category, completion pattern (days-ago list), `fromReminder`, `snoozeCount`, `perceivedDifficulty`, expected card(s) it triggers.
 - **Required coverage matrix (each row must have ≥1 habit):**
   | Card | Currently | Action |
   |---|---|---|
@@ -122,7 +121,7 @@ The `screensVisited` field is logged but never read. Need to surface the correla
   | Target Calibration LOW confidence | likely missing | add a habit with rawDelta ≈ 0.5 (ambiguous) |
   | Perceived Difficulty | partially covered | ensure ≥1 habit with diverse 1–5 ratings across recent completions |
   | Skip Reason forecast | check — need ≥1 habit with several `HabitSkipEntity` rows with varied `SkipReason` |
-- **Sonnet execution:** after Opus matrix:
+- after the matrix:
   1. Extend `DatabaseSeeder.kt` — add habits 907–912 (or however many the matrix needs).
   2. Add seeded `AppSessionEntity` rows for B3 retention (loop generating 30 days).
   3. Add seeded `HabitSkipEntity` rows where missing.
@@ -133,8 +132,8 @@ The `screensVisited` field is logged but never read. Need to surface the correla
 
 ## Group D — StatisticsScreen Reorganization (single big session)
 
-### D1. `[REFACTOR]` Three collapsible global blocks + self-contained habit cards · Risk: H · Opus? **Yes (review final layout before merge)**
-- **Opus action up-front:** review the wireframe below + confirm collapse/expand state strategy (LocalSavedState? hoisted? remembered in ViewModel for cross-process?). Suggested: per-block `rememberSaveable { mutableStateOf(true) }` — simple, survives config change, no persistence across process death (acceptable).
+### D1. `[REFACTOR]` Three collapsible global blocks + self-contained habit cards · Risk: H · Opus? **Yes**
+- review the wireframe below + confirm collapse/expand state strategy (LocalSavedState? hoisted? remembered in ViewModel for cross-process?). Suggested: per-block `rememberSaveable { mutableStateOf(true) }` — simple, survives config change, no persistence across process death (acceptable).
 - **New LazyColumn order:**
   ```
   Block 1 — "Your Week" (collapsible, default EXPANDED)
@@ -178,16 +177,15 @@ The `screensVisited` field is logged but never read. Need to surface the correla
 - **Confirmation dialog:** AlertDialog "This will erase progress for *Morning Run* but keep your achievements. Continue?"
 - **Verify:** create habit, complete 5 times, reset → completions gone, streak 0, achievements remain.
 
-### E2. `[FEATURE]` Email change · Risk: M · Opus? **Yes (Firebase reauth design)**
+### E2. `[FEATURE]` Email change · Risk: M · Opus? **Yes**
 Firebase Auth supports it but requires **recent sign-in or reauthentication** to call `user.updateEmail()`. Newer Firebase SDKs require `verifyBeforeUpdateEmail()` (sends verification to new address).
-- **Opus action:** confirm which Firebase Auth flow (legacy `updateEmail` vs. `verifyBeforeUpdateEmail`) and update `PLAN.md` Phase 10 accordingly. Decide whether to ship this pre-Phase-10 against `FakeAuthRepository` only.
-- **Sonnet execution after sign-off:**
-  - Extend `AuthRepository` with `suspend fun changeEmail(currentPassword: String, newEmail: String): Result<Unit>`.
-  - `FakeAuthRepository`: store current email; verify password; update email.
-  - `FirebaseAuthRepository` (Phase 10): reauthenticate → `verifyBeforeUpdateEmail(newEmail)`.
-  - New screen `ChangeEmailScreen.kt` (mirror `ChangePasswordScreen` structure): fields `currentPassword`, `newEmail`, `confirmNewEmail`.
-  - Settings: add entry "Change e-mail address" below "Change password". Update string `R.string.settings_account_section`.
-  - Nav graph: new route `change_email`.
+- confirm which Firebase Auth flow (legacy `updateEmail` vs. `verifyBeforeUpdateEmail`) and update `PLAN.md` Phase 10 accordingly. Decide whether to ship this pre-Phase-10 against `FakeAuthRepository` only.
+- Extend `AuthRepository` with `suspend fun changeEmail(currentPassword: String, newEmail: String): Result<Unit>`.
+- `FakeAuthRepository`: store current email; verify password; update email.
+- `FirebaseAuthRepository` (Phase 10): reauthenticate → `verifyBeforeUpdateEmail(newEmail)`.
+- New screen `ChangeEmailScreen.kt` (mirror `ChangePasswordScreen` structure): fields `currentPassword`, `newEmail`, `confirmNewEmail`.
+- Settings: add entry "Change e-mail address" below "Change password". Update string `R.string.settings_account_section`.
+- Nav graph: new route `change_email`.
 - **Verify:** with fake repo, change email → settings shows new email; with wrong password → error.
 
 ---

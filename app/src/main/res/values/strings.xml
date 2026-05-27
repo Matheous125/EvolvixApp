@@ -224,6 +224,13 @@
     <string name="difficulty_no_data">Collecting data… keep logging to unlock this insight.</string>
     <string name="difficulty_no_data_inline">Collecting data…</string>
 
+    <!-- ── D1 (PLAN-POLISH-PASS) — Statistics screen collapsible blocks ── -->
+    <string name="block_your_week">📅 Your Week</string>
+    <string name="block_attention_needed">⚠️ Attention Needed</string>
+    <string name="block_habit_interactions">🔗 Habit Interactions</string>
+    <string name="spillover_card_title">🔁 Habit Spillover</string>
+    <string name="per_habit_predictions_title">🧠 ML Predictions for this habit</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 

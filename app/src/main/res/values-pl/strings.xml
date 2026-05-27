@@ -111,6 +111,12 @@
     <string name="target_adj_row_high">🎯 %1$s — Sugeruj cel %2$d → %3$d (WYSOKA pewność — model jest zdecydowany).</string>
     <string name="target_adj_row_medium">🎯 %1$s — Sugeruj cel %2$d → %3$d (ŚREDNIA pewność — umiarkowana pewność).</string>
     <string name="target_adj_row_low">🎯 %1$s — Sugeruj cel %2$d → %3$d (NISKA pewność — model jest niepewny, traktuj jako wskazówkę).</string>
+    <!-- D1 (PLAN-POLISH-PASS) — Statistics screen collapsible blocks -->
+    <string name="block_your_week">📅 Twój tydzień</string>
+    <string name="block_attention_needed">⚠️ Wymaga uwagi</string>
+    <string name="block_habit_interactions">🔗 Interakcje nawyków</string>
+    <string name="spillover_card_title">🔁 Wpływ między nawykami</string>
+    <string name="per_habit_predictions_title">🧠 Przewidywania ML dla tego nawyku</string>
     <string name="section_emoji">Emoji</string>
     <string name="hint_emoji">Dotknij, aby wybrać emoji</string>
     <string name="menu_reset_progress">Resetuj postęp</string>

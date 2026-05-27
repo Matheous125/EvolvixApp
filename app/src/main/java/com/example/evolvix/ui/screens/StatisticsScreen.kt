@@ -2,6 +2,7 @@ package com.example.evolvix.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -198,18 +200,25 @@ fun StatisticsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // ── D1 (PLAN-POLISH-PASS) — Three collapsible global blocks ──
+            //  Block 1 "Your Week" is the existing SummaryGroupCard (already collapsible);
+            //  the card now also embeds the EngagementWindow tile inside its expanded body.
+            //  Block 2 "Attention Needed" wraps AtRisk + Snooze Drift sub-cards.
+            //  Block 3 "Habit Interactions" wraps Behavioral Tiers + Spillover sub-cards.
+            //  Standalone Smart-Reminders / Target-Calibration / Difficulty / Skip-Reason
+            //  cards from earlier phases moved into the per-habit ML Predictions panel.
             item {
-                // Top summary is a single collapsible group so the user can hide it once they
-                // scroll into the per-habit cards. Default state: expanded.
                 SummaryGroupCard(
                     overview = overview,
                     previousWeekRate = prevRate,
                     lifeBalance = lifeBalance,
-                    weeklyForecast = weeklyForecast
+                    weeklyForecast = weeklyForecast,
+                    engagementWindow = engagementWindow
                 )
             }
 
-            // Phase 8.1 — Abandonment Risk card (shown when ≥1 habit has HIGH or CRITICAL risk)
+            // Block 2 — Attention Needed (only rendered when at least one entry exists)
+            val habitNameMap = perHabit.associate { it.habit.id to it.habit.name }
             val atRiskEntries = abandonmentRisks.values
                 .filter {
                     it.hasSufficientData &&
@@ -218,36 +227,9 @@ fun StatisticsScreen(
                 }
                 .sortedByDescending { it.probability }
                 .mapNotNull { risk ->
-                    val name = perHabit.find { it.habit.id == risk.habitId }?.habit?.name
-                        ?: return@mapNotNull null
+                    val name = habitNameMap[risk.habitId] ?: return@mapNotNull null
                     name to risk
                 }
-            if (atRiskEntries.isNotEmpty()) {
-                item { AtRiskCard(entries = atRiskEntries) }
-            }
-
-            // Phase 8.4 + 8.5 — Behavioral Tiers + Spillover card (shown when either has data)
-            if (behavioralClusters.isNotEmpty() || spilloverInsights.isNotEmpty()) {
-                item {
-                    BehavioralTiersCard(
-                        clusters = behavioralClusters,
-                        habitNames = perHabit.associate { it.habit.id to it.habit.name },
-                        spilloverInsights = spilloverInsights
-                    )
-                }
-            }
-
-            // Phase 9.1 — Smart Reminders card (shown when ≥1 habit has sufficient data)
-            if (reminderLifts.values.any { it.hasSufficientData }) {
-                item {
-                    SmartRemindersCard(
-                        reminderLifts = reminderLifts,
-                        habitNames = perHabit.associate { it.habit.id to it.habit.name }
-                    )
-                }
-            }
-
-            // Phase 9.2 — Snooze Drift card (shown when ≥1 habit has HIGH or CRITICAL risk)
             val snoozeDriftEntries = snoozeDisengagementRisks.values
                 .filter {
                     it.hasSufficientData &&
@@ -256,48 +238,39 @@ fun StatisticsScreen(
                 }
                 .sortedByDescending { it.probability }
                 .mapNotNull { risk ->
-                    val name = perHabit.find { it.habit.id == risk.habitId }?.habit?.name
-                        ?: return@mapNotNull null
+                    val name = habitNameMap[risk.habitId] ?: return@mapNotNull null
                     name to risk
                 }
-            if (snoozeDriftEntries.isNotEmpty()) {
-                item { SnoozeDriftCard(entries = snoozeDriftEntries) }
-            }
-
-            // Phase 9.3 — Target Calibration card (shown when ≥1 habit has a non-zero suggestion)
-            val targetAdjustmentEntries = targetAdjustments.entries
-                .filter { (_, adj) -> adj.hasSufficientData && adj.delta != 0 }
-                .sortedByDescending { (_, adj) -> kotlin.math.abs(adj.delta) }
-                .mapNotNull { (habitId, adj) ->
-                    val name = perHabit.find { it.habit.id == habitId }?.habit?.name
-                        ?: return@mapNotNull null
-                    name to adj
-                }
-            item {
-                TargetCalibrationCard(entries = targetAdjustmentEntries)
-            }
-
-            // Phase 9.4 — Perceived Difficulty card (always shown; empty state handled inside)
-            item {
-                PerceivedDifficultyCard(
-                    estimates = difficultyEstimates,
-                    habitNames = perHabit.associate { it.habit.id to it.habit.name }
-                )
-            }
-
-            // Phase 9.5 — Skip Reason Forecast card (shown when ≥1 habit has ≥3 skip records)
-            if (skipReasonPredictions.values.any { it.hasSufficientData }) {
+            if (atRiskEntries.isNotEmpty() || snoozeDriftEntries.isNotEmpty()) {
                 item {
-                    SkipReasonForecastCard(
-                        predictions = skipReasonPredictions,
-                        habitNames = perHabit.associate { it.habit.id to it.habit.name }
-                    )
+                    CollapsibleBlock(
+                        titleRes = R.string.block_attention_needed,
+                        defaultExpanded = true
+                    ) {
+                        if (atRiskEntries.isNotEmpty()) AtRiskCard(entries = atRiskEntries)
+                        if (snoozeDriftEntries.isNotEmpty()) SnoozeDriftCard(entries = snoozeDriftEntries)
+                    }
                 }
             }
 
-            // Phase 9.6 — Engagement Window card (always shown; cold-start placeholder inside)
-            item {
-                EngagementWindowCard(window = engagementWindow)
+            // Block 3 — Habit Interactions (default collapsed; heavy reading)
+            if (behavioralClusters.isNotEmpty() || spilloverInsights.isNotEmpty()) {
+                item {
+                    CollapsibleBlock(
+                        titleRes = R.string.block_habit_interactions,
+                        defaultExpanded = false
+                    ) {
+                        if (behavioralClusters.isNotEmpty()) {
+                            BehavioralTiersCard(
+                                clusters = behavioralClusters,
+                                habitNames = habitNameMap
+                            )
+                        }
+                        if (spilloverInsights.isNotEmpty()) {
+                            SpilloverCard(insights = spilloverInsights)
+                        }
+                    }
+                }
             }
 
             if (perHabit.isEmpty()) {
@@ -312,7 +285,11 @@ fun StatisticsScreen(
                     HabitStatsCard(
                         stats = stats,
                         completionsForHabit = perHabitCompletions,
-                        streakBreakRisk = streakBreakRisks[stats.habit.id]
+                        streakBreakRisk = streakBreakRisks[stats.habit.id],
+                        reminderLift = reminderLifts[stats.habit.id],
+                        targetAdjustment = targetAdjustments[stats.habit.id],
+                        difficultyEstimate = difficultyEstimates[stats.habit.id],
+                        skipReasonPrediction = skipReasonPredictions[stats.habit.id]
                     )
                 }
             }
@@ -336,10 +313,12 @@ private fun SummaryGroupCard(
     overview: WeeklyOverview,
     previousWeekRate: Float,
     lifeBalance: List<LifeBalanceEntry>,
-    weeklyForecast: WeeklyForecast
+    weeklyForecast: WeeklyForecast,
+    engagementWindow: EngagementWindow
 ) {
     // Local UI state — expansion is purely a View concern, so it stays out of the VM.
-    var expanded by remember { mutableStateOf(true) }
+    // rememberSaveable so expansion survives configuration changes (D1 PLAN-POLISH-PASS).
+    var expanded by rememberSaveable { mutableStateOf(true) }
     val pct = (overview.weekCompletionRate * 100).roundToInt()
 
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
@@ -347,7 +326,7 @@ private fun SummaryGroupCard(
             // ---- Header row: title + week % badge + expand toggle ----
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = stringResource(R.string.card_overview_title),
+                    text = stringResource(R.string.block_your_week),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
@@ -373,6 +352,69 @@ private fun SummaryGroupCard(
                 WeeklyForecastStrip(forecast = weeklyForecast)
                 Spacer(Modifier.height(16.dp))
                 LifeBalanceBody(entries = lifeBalance)
+                Spacer(Modifier.height(12.dp))
+                // Phase 9.6 EngagementWindow — moved inside Block 1 by D1 layout refactor.
+                EngagementWindowCard(window = engagementWindow)
+            }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  COLLAPSIBLE BLOCK (D1 PLAN-POLISH-PASS)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * Reusable section wrapper used by the D1 statistics-screen reorganisation.
+ *
+ * Renders a tappable header row (title + chevron) followed by [content] when expanded.
+ * Used for both the "Attention Needed" and "Habit Interactions" blocks; "Your Week"
+ * keeps its own header inside [SummaryGroupCard] because it predates this refactor and
+ * shows additional metadata in the header (week-percentage badge).
+ *
+ * Expansion state is held with [rememberSaveable] so it survives configuration changes
+ * (rotation, dark-mode toggle) — accepted thesis-defence trade-off vs. process death.
+ *
+ * @param titleRes         String resource for the block header title.
+ * @param defaultExpanded  Whether the block starts expanded on first composition.
+ * @param content          Composable children rendered (vertically stacked, 12 dp gap) when expanded.
+ */
+@Composable
+private fun CollapsibleBlock(
+    titleRes: Int,
+    defaultExpanded: Boolean,
+    content: @Composable () -> Unit
+) {
+    var expanded by rememberSaveable(titleRes) { mutableStateOf(defaultExpanded) }
+    val title = stringResource(titleRes)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 4.dp, vertical = 8.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = stringResource(
+                    if (expanded) R.string.cd_collapse_section else R.string.cd_expand_section,
+                    title
+                )
+            )
+        }
+        if (expanded) {
+            Spacer(Modifier.height(4.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                content()
             }
         }
     }
@@ -608,7 +650,11 @@ private fun CategoryRow(entry: LifeBalanceEntry) {
 private fun HabitStatsCard(
     stats: PerHabitStats,
     completionsForHabit: List<HabitCompletionEntity>,
-    streakBreakRisk: StreakBreakRisk?
+    streakBreakRisk: StreakBreakRisk?,
+    reminderLift: ReminderLift?,
+    targetAdjustment: TargetAdjustment?,
+    difficultyEstimate: PerceivedDifficultyEstimate?,
+    skipReasonPrediction: SkipReasonPrediction?
 ) {
     var expanded by remember { mutableStateOf(false) }
     val habitColor = remember(stats.habit.colorHex) {
@@ -707,7 +753,11 @@ private fun HabitStatsCard(
                     stats = stats,
                     completions = completionsForHabit,
                     color = habitColor,
-                    streakBreakRisk = streakBreakRisk
+                    streakBreakRisk = streakBreakRisk,
+                    reminderLift = reminderLift,
+                    targetAdjustment = targetAdjustment,
+                    difficultyEstimate = difficultyEstimate,
+                    skipReasonPrediction = skipReasonPrediction
                 )
             }
         }
@@ -779,7 +829,16 @@ private fun StaticChip(
  * backed by [MathHabitPredictor] data surfaced through [PerHabitStats].
  */
 @Composable
-private fun ExpandedSection(stats: PerHabitStats, completions: List<HabitCompletionEntity>, color: Color, streakBreakRisk: StreakBreakRisk?) {
+private fun ExpandedSection(
+    stats: PerHabitStats,
+    completions: List<HabitCompletionEntity>,
+    color: Color,
+    streakBreakRisk: StreakBreakRisk?,
+    reminderLift: ReminderLift?,
+    targetAdjustment: TargetAdjustment?,
+    difficultyEstimate: PerceivedDifficultyEstimate?,
+    skipReasonPrediction: SkipReasonPrediction?
+) {
     var range by remember { mutableStateOf(ChartRange.SEVEN_DAYS) }
 
     val today = remember { LocalDate.now() }
@@ -835,6 +894,18 @@ private fun ExpandedSection(stats: PerHabitStats, completions: List<HabitComplet
             relatedHabitNames = stats.relatedHabitNames,
             routinePrecision = stats.routinePrecision,
             resilience = stats.resilience
+        )
+        // D1 (PLAN-POLISH-PASS): per-habit ML Predictions panel — replaces the four
+        // standalone global cards (Smart Reminders / Target / Difficulty / Skip Reason)
+        // by surfacing each habit's predictions inline. Internally guarded so it only
+        // renders when at least one prediction has sufficient data.
+        Spacer(Modifier.height(12.dp))
+        MlPredictionsSection(
+            habitName = stats.habit.name,
+            reminderLift = reminderLift,
+            targetAdjustment = targetAdjustment,
+            difficultyEstimate = difficultyEstimate,
+            skipReasonPrediction = skipReasonPrediction
         )
     }
 }
@@ -957,13 +1028,9 @@ private fun SmartInsightCard(stats: PerHabitStats, streakBreakRisk: StreakBreakR
                 color = MaterialTheme.colorScheme.error
             )
         }
-        Spacer(Modifier.height(6.dp))
-        val targetText = when {
-            stats.targetDelta > 0 -> stringResource(R.string.insight_raise_target)
-            stats.targetDelta < 0 -> stringResource(R.string.insight_lower_target)
-            else                  -> stringResource(R.string.insight_target_calibrated)
-        }
-        Text(text = targetText, style = MaterialTheme.typography.bodySmall)
+        // D1 (PLAN-POLISH-PASS): the Phase 6 rule-based target-delta hint has been
+        // removed from this card — the Phase 9.3 ML TargetAdjustment is now surfaced
+        // in the per-habit ML Predictions panel below (see MlPredictionsSection).
     }
 }
 
@@ -1350,8 +1417,7 @@ private fun TargetCalibrationRow(habitName: String, adjustment: TargetAdjustment
 @OptIn(ExperimentalLayoutApi::class)
 private fun BehavioralTiersCard(
     clusters: Map<Int, HabitCluster>,
-    habitNames: Map<Int, String>,
-    spilloverInsights: List<SpilloverPair>
+    habitNames: Map<Int, String>
 ) {
     // Tier display order: best to worst, matching the four archetype labels.
     val tierOrder = listOf(
@@ -1477,41 +1543,56 @@ private fun BehavioralTiersCard(
                     }
                 }
             }
+            // D1 (PLAN-POLISH-PASS): the embedded Spillover section moved out of this
+            // card and is now rendered by SpilloverCard inside the Habit Interactions block.
+        }
+    }
+}
 
-            // ── Phase 8.5 Spillover section (shown only when today produced results) ──
-            if (spilloverInsights.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = stringResource(R.string.spillover_section_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = stringResource(R.string.spillover_section_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(8.dp))
-                spilloverInsights.forEach { pair ->
-                    val pct = (kotlin.math.abs(pair.liftDelta) * 100).roundToInt()
-                    val (color, text) = when (pair.direction) {
-                        SpilloverPair.Direction.BOOST -> MaterialTheme.colorScheme.primary to
-                            stringResource(R.string.spillover_boost, pair.habitAName, pair.habitBName, pct)
-                        SpilloverPair.Direction.DRAG  -> MaterialTheme.colorScheme.error to
-                            stringResource(R.string.spillover_drag, pair.habitAName, pair.habitBName, pct)
-                        // NEUTRAL pairs are filtered by SpilloverUseCase; defensive fallback only.
-                        SpilloverPair.Direction.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant to ""
-                    }
-                    if (text.isNotEmpty()) {
-                        Text(
-                            text = text,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = color,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                    }
+/* -------------------------------------------------------------------------------------
+ *  SPILLOVER CARD (Phase 8.5 — split out from BehavioralTiersCard in D1)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * ElevatedCard listing BOOST / DRAG spillover relationships between today's completed
+ * habits, produced by [com.example.evolvix.domain.usecase.SpilloverUseCase].
+ *
+ * Caller guards: only rendered when [insights] is non-empty.
+ * Observational caveat (thesis): regression on co-occurrence, not causal inference.
+ */
+@Composable
+private fun SpilloverCard(insights: List<SpilloverPair>) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.spillover_card_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.spillover_section_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            insights.forEach { pair ->
+                val pct = (kotlin.math.abs(pair.liftDelta) * 100).roundToInt()
+                val (color, text) = when (pair.direction) {
+                    SpilloverPair.Direction.BOOST -> MaterialTheme.colorScheme.primary to
+                        stringResource(R.string.spillover_boost, pair.habitAName, pair.habitBName, pct)
+                    SpilloverPair.Direction.DRAG -> MaterialTheme.colorScheme.error to
+                        stringResource(R.string.spillover_drag, pair.habitAName, pair.habitBName, pct)
+                    // NEUTRAL pairs are filtered by SpilloverUseCase; defensive fallback only.
+                    SpilloverPair.Direction.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant to ""
+                }
+                if (text.isNotEmpty()) {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = color,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
                 }
             }
         }
@@ -1865,4 +1946,83 @@ private fun EngagementWindowCard(window: EngagementWindow) {
             }
         }
     }
+}
+
+/* -------------------------------------------------------------------------------------
+ *  PER-HABIT ML PREDICTIONS PANEL (D1 PLAN-POLISH-PASS)
+ * ------------------------------------------------------------------------------------- */
+
+/**
+ * Compact per-habit predictions panel rendered inside [HabitStatsCard]'s expanded body.
+ *
+ * Aggregates the four Phase 9 per-habit ML outputs that previously lived in standalone
+ * global cards (Smart Reminders, Target Calibration, Perceived Difficulty, Skip Reason
+ * Forecast). Each sub-row is independently guarded by its `hasSufficientData` flag so
+ * the panel gracefully degrades when a habit lacks the required history.
+ *
+ * If nothing has sufficient data the entire panel is omitted (return from caller).
+ */
+@Composable
+private fun MlPredictionsSection(
+    habitName: String,
+    reminderLift: ReminderLift?,
+    targetAdjustment: TargetAdjustment?,
+    difficultyEstimate: PerceivedDifficultyEstimate?,
+    skipReasonPrediction: SkipReasonPrediction?
+) {
+    val showTarget = targetAdjustment != null &&
+        targetAdjustment.hasSufficientData &&
+        targetAdjustment.delta != 0
+    val showReminder = reminderLift != null && reminderLift.hasSufficientData
+    val showDifficulty = difficultyEstimate != null && difficultyEstimate.hasSufficientData
+    val showSkip = skipReasonPrediction != null && skipReasonPrediction.hasSufficientData
+
+    if (!showTarget && !showReminder && !showDifficulty && !showSkip) return
+
+    AiDataCard(title = stringResource(R.string.per_habit_predictions_title)) {
+        var first = true
+        if (showTarget) {
+            TargetCalibrationRow(habitName = habitName, adjustment = targetAdjustment!!)
+            first = false
+        }
+        if (showReminder) {
+            if (!first) HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            ReminderLiftRow(habitName = habitName, lift = reminderLift!!)
+            first = false
+        }
+        if (showDifficulty) {
+            if (!first) HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            DifficultyRow(habitName = habitName, estimate = difficultyEstimate!!)
+            first = false
+        }
+        if (showSkip) {
+            if (!first) HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            SkipReasonForecastRow(habitName = habitName, prediction = skipReasonPrediction!!)
+        }
+    }
+}
+
+/**
+ * Single-line reminder-effectiveness sentence used by [MlPredictionsSection].
+ * Reuses the verbose B4 strings authored for the (now removed) global SmartRemindersCard
+ * so wording stays consistent across the app and Polish translations carry over.
+ */
+@Composable
+private fun ReminderLiftRow(habitName: String, lift: ReminderLift) {
+    val liftPct = (lift.lift * 100).roundToInt()
+    val sentence = if (lift.recommendSend) {
+        stringResource(R.string.smart_reminders_row_on, habitName, liftPct)
+    } else {
+        stringResource(R.string.smart_reminders_row_off, habitName, kotlin.math.abs(liftPct))
+    }
+    val sentenceColor = if (lift.recommendSend) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.error
+    }
+    Text(
+        text = sentence,
+        style = MaterialTheme.typography.bodyMedium,
+        color = sentenceColor
+    )
 }
