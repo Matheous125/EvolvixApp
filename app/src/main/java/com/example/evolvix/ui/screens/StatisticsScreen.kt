@@ -137,6 +137,8 @@ private enum class ChartRange(val label: String) {
 @Composable
 fun StatisticsScreen(
     modifier: Modifier = Modifier,
+    /** When false (set via Settings → Developer), hides the seed-test-data icon button. */
+    showSeederButton: Boolean = true,
     viewModel: StatisticsViewModel = viewModel(
         factory = StatisticsViewModelFactory(
             dao = AppDatabase.getDatabase(LocalContext.current).habitDao(),
@@ -180,13 +182,16 @@ fun StatisticsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.screen_statistics_title)) },
                 actions = {
-                    // Dev-only seed button: inserts 5 test habits (IDs 901–905).
+                    // Dev-only seed button: inserts test habits (IDs 901–909).
                     // Safe to tap multiple times — re-seeds cleanly.
-                    IconButton(onClick = { viewModel.seedDatabase() }) {
-                        Icon(
-                            imageVector = Icons.Filled.Science,
-                            contentDescription = stringResource(R.string.cd_seed_test_data)
-                        )
+                    // Hidden when the user disables it via Settings → Developer.
+                    if (showSeederButton) {
+                        IconButton(onClick = { viewModel.seedDatabase() }) {
+                            Icon(
+                                imageVector = Icons.Filled.Science,
+                                contentDescription = stringResource(R.string.cd_seed_test_data)
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

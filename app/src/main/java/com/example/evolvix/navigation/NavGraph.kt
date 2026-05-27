@@ -19,6 +19,8 @@ import com.example.evolvix.ui.screens.auth.SetNewPasswordScreen
 import com.example.evolvix.ui.viewmodel.AchievementsViewModel
 import com.example.evolvix.ui.viewmodel.AuthViewModel
 import com.example.evolvix.ui.viewmodel.HabitViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import com.example.evolvix.ui.viewmodel.SettingsViewModel
 
 /**
@@ -60,8 +62,10 @@ fun HabitNavGraph(
 
     // Main screen with habit list    
         composable(route = Screen.Habits.route) {
+            val showDebugButton by settingsViewModel.showDebugOnHabits.collectAsState()
             MainScreen(
                 habitViewModel = habitViewModel,
+                showDebugButton = showDebugButton,
                 onDismissFabHint = onDismissFabHint,
                 onNavigateToAddHabit = {
                     navController.navigate(Screen.AddNewHabit.route)
@@ -103,7 +107,8 @@ fun HabitNavGraph(
 
         // Statistics screen
         composable(route = Screen.Statistics.route) {
-            StatisticsScreen()
+            val showSeederButton by settingsViewModel.showSeederOnStats.collectAsState()
+            StatisticsScreen(showSeederButton = showSeederButton)
         }
 
         // Edit habit screen with habitId parameter

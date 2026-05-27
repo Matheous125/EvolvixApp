@@ -102,8 +102,10 @@ fun SettingsScreen(
     val displayName     by settingsViewModel.displayName.collectAsState()
     // Current account e-mail — shown as the subtitle of the Change-e-mail row so the
     // user always sees which address is active. Null while logged out (Phase-9 dev state).
-    val authState       by authViewModel.uiState.collectAsState()
-    val currentEmail    = authState.currentEmail
+    val authState           by authViewModel.uiState.collectAsState()
+    val currentEmail        = authState.currentEmail
+    val showDebugOnHabits   by settingsViewModel.showDebugOnHabits.collectAsState()
+    val showSeederOnStats    by settingsViewModel.showSeederOnStats.collectAsState()
 
     // Compute rank from achievements points
     val achievements by achievementsViewModel.achievements.collectAsState()
@@ -289,6 +291,30 @@ fun SettingsScreen(
                         }
                         runCatching { context.startActivity(intent) }
                     }
+                )
+            }
+
+            // ── 6. Developer ──────────────────────────────────────────────────
+            item(key = "section_developer") {
+                Spacer(Modifier.height(8.dp))
+                SettingsSectionHeader(title = stringResource(R.string.section_developer))
+            }
+            item(key = "debug_habits_switch") {
+                SettingsSwitchRow(
+                    icon            = Icons.Filled.BugReport,
+                    title           = stringResource(R.string.label_show_debug_habits),
+                    subtitle        = stringResource(R.string.subtitle_show_debug_habits),
+                    checked         = showDebugOnHabits,
+                    onCheckedChange = settingsViewModel::setShowDebugOnHabits
+                )
+            }
+            item(key = "seeder_stats_switch") {
+                SettingsSwitchRow(
+                    icon            = Icons.Filled.Science,
+                    title           = stringResource(R.string.label_show_seeder_stats),
+                    subtitle        = stringResource(R.string.subtitle_show_seeder_stats),
+                    checked         = showSeederOnStats,
+                    onCheckedChange = settingsViewModel::setShowSeederOnStats
                 )
             }
         }

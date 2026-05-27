@@ -154,11 +154,39 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _displayName.value = trimmed
     }
 
+    // ── Developer visibility prefs ────────────────────────────────────────────
+
+    private val _showDebugOnHabits = MutableStateFlow(
+        prefs.getBoolean(KEY_SHOW_DEBUG_ON_HABITS, true)
+    )
+    /** Whether the DEBUG bug-report icon button is shown in the Habits screen top bar. */
+    val showDebugOnHabits: StateFlow<Boolean> = _showDebugOnHabits.asStateFlow()
+
+    /** Persists the developer toggle for the Habits debug button. */
+    fun setShowDebugOnHabits(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_DEBUG_ON_HABITS, enabled).apply()
+        _showDebugOnHabits.value = enabled
+    }
+
+    private val _showSeederOnStats = MutableStateFlow(
+        prefs.getBoolean(KEY_SHOW_SEEDER_ON_STATS, true)
+    )
+    /** Whether the seed-test-data icon button is shown in the Statistics screen top bar. */
+    val showSeederOnStats: StateFlow<Boolean> = _showSeederOnStats.asStateFlow()
+
+    /** Persists the developer toggle for the Statistics seeder button. */
+    fun setShowSeederOnStats(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_SEEDER_ON_STATS, enabled).apply()
+        _showSeederOnStats.value = enabled
+    }
+
     companion object {
-        private const val PREFS_FILE          = "habit_ui_prefs"
-        private const val KEY_THEME           = "settings_theme_mode"
-        private const val KEY_LANGUAGE        = "settings_language_code"
-        private const val KEY_DISPLAY_NAME    = "settings_display_name"
+        private const val PREFS_FILE               = "habit_ui_prefs"
+        private const val KEY_THEME                = "settings_theme_mode"
+        private const val KEY_LANGUAGE             = "settings_language_code"
+        private const val KEY_DISPLAY_NAME         = "settings_display_name"
+        private const val KEY_SHOW_DEBUG_ON_HABITS = "dev_show_debug_on_habits"
+        private const val KEY_SHOW_SEEDER_ON_STATS = "dev_show_seeder_on_stats"
         // Same key used by SummaryPreferences — referenced here so the listener
         // can filter only the relevant change without importing a private constant.
         private const val KEY_SUMMARY_DISABLED = "summary_disabled"

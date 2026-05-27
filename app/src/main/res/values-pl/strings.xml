@@ -190,6 +190,11 @@
     <string name="section_notifications">Powiadomienia</string>
     <string name="section_account">Konto</string>
     <string name="section_support">Pomoc</string>
+    <string name="section_developer">Deweloper</string>
+    <string name="label_show_debug_habits">Pokaż przycisk debugowania w nawykach</string>
+    <string name="subtitle_show_debug_habits">Menu debugowania na pasku ekranu nawyków</string>
+    <string name="label_show_seeder_stats">Pokaż seeder w statystykach</string>
+    <string name="subtitle_show_seeder_stats">Przycisk seedowania na pasku ekranu statystyk</string>
     <string name="label_theme">Motyw</string>
     <string name="theme_light">Jasny</string>
     <string name="theme_dark">Ciemny</string>

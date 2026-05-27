@@ -127,7 +127,9 @@ fun MainScreen(
     onNavigateToStatistics: () -> Unit = {},
     onNavigateToHistory: (Int, String) -> Unit = { _, _ -> },
     onNavigateToInbox: () -> Unit = {},
-    habitViewModel: HabitViewModel
+    habitViewModel: HabitViewModel,
+    /** When false (set via Settings → Developer), hides the BugReport icon button even in DEBUG builds. */
+    showDebugButton: Boolean = true
 ) {
     // Reset daily/weekly/monthly/yearly progress whenever the screen resumes
     // (covers: cold start, returning from background, navigating back to this screen).
@@ -365,7 +367,7 @@ fun MainScreen(
                         Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
                     // ── Phase 7.2v2 — DEBUG-only quick-test menu ──
-                    if (BuildConfig.DEBUG) {
+                    if (BuildConfig.DEBUG && showDebugButton) {
                         val debugScope = rememberCoroutineScope()
                         Box {
                             IconButton(onClick = { debugMenuExpanded = true }) {

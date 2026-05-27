@@ -250,6 +250,11 @@
     <string name="section_notifications">Notifications</string>
     <string name="section_account">Account</string>
     <string name="section_support">Support</string>
+    <string name="section_developer">Developer</string>
+    <string name="label_show_debug_habits">Show debug button on Habits</string>
+    <string name="subtitle_show_debug_habits">Debug menu in the Habits screen top bar</string>
+    <string name="label_show_seeder_stats">Show seeder on Statistics</string>
+    <string name="subtitle_show_seeder_stats">Seed button in the Statistics screen top bar</string>
     <string name="label_theme">Theme</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
