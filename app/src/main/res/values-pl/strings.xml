@@ -117,6 +117,8 @@
     <string name="block_habit_interactions">🔗 Interakcje nawyków</string>
     <string name="spillover_card_title">🔁 Wpływ między nawykami</string>
     <string name="per_habit_predictions_title">🧠 Przewidywania ML dla tego nawyku</string>
+    <!-- B3 (PLAN-POLISH-PASS) — Analytics retention lift headline -->
+    <string name="analytics_retention_headline">📊 Użytkownicy oglądający statystyki są aktywni o +%1$d dni/miesiąc dłużej (lift %2$d%%).</string>
     <string name="section_emoji">Emoji</string>
     <string name="hint_emoji">Dotknij, aby wybrać emoji</string>
     <string name="menu_reset_progress">Resetuj postęp</string>

@@ -57,6 +57,7 @@ app/src/main/java/com/example/evolvix
 │   ├── model/              # Domain models and state classes
 │   │   ├── AbandonmentRisk.kt        # Output of AbandonmentRiskUseCase (Phase 8.1); wraps raw probability into a Rating tier (LOW/MEDIUM/HIGH/CRITICAL) + data-sufficiency flag
 │   │   ├── AchievementDefinition.kt  # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
+│   │   ├── AnalyticsEngagement.kt    # Output of AnalyticsEngagementUseCase (B3, PLAN-POLISH-PASS); fields: lift: Float ∈ [-1,1], hasSufficientData: Boolean, viewerActiveDays: Int, nonViewerActiveDays: Int; companion: MIN_SESSIONS_PER_BUCKET=5, WINDOW_DAYS=30, insufficient sentinel
 │   │   ├── BehavioralCluster.kt      # Sealed class hierarchy for 4 K-Means behavioral tiers (Phase 8.4): EffortlessRoutine, ConsistentEffort, Struggling, Dormant; also contains HabitCluster wrapper
 │   │   ├── DifficultyAdjustment.kt   # Output of AdaptiveDifficultyUseCase; bundles delta (+1/0/-1), rolling rate, current and suggested target
 │   │   ├── EngagementWindow.kt        # Output of EngagementWindowUseCase (Phase 9.6); fields: predictedHour: Int [0–23], rawPredictedHour: Float, confidence: Float [0–1], hasSufficientData: Boolean; companion: MIN_SESSIONS=14, CONFIDENCE_THRESHOLD=0.6f, confidenceFrom(stddevHours): Float, insufficient sentinel instance
@@ -88,6 +89,7 @@ app/src/main/java/com/example/evolvix
 │   │   └── WeeklyOverview.kt         # 7-day aggregated summary (DaySummary list + week rate); output of WeeklyOverviewUseCase
 │   └── usecase/
 │       ├── AbandonmentRiskUseCase.kt       # Interactor: extracts 7 AbandonmentFeatures from Room data, delegates to HabitPredictor, maps probability → AbandonmentRisk (Phase 8.1)
+│       ├── AnalyticsEngagementUseCase.kt   # Interactor (B3, PLAN-POLISH-PASS): reads last 200 AppSessionEntity rows, filters to 30-day window, partitions by `screensVisited.contains("StatisticsScreen")`, applies MIN_SESSIONS_PER_BUCKET=5 guard on both buckets, then computes lift = (viewerActiveDays − nonViewerActiveDays) / 30; powers the one-line headline at the top of SummaryGroupCard on StatisticsScreen
 │       ├── AdaptiveDifficultyUseCase.kt    # Interactor: suggests target +1/0/-1 based on 14-day rolling rate; delegates to HabitPredictor; Phase 9.4 adds optional predictedDifficulty: Float? nudge (≥4.0 suppresses increase, ≤2.0 suppresses decrease)
 │       ├── BehavioralClusterUseCase.kt     # Interactor: extracts 5 ClusterFeatures (with training-median null substitution), checks 10-completion/14-day guards, delegates to HabitPredictor.classifyBehavioralCluster, resolves → HabitCluster (Phase 8.4)
 │       ├── CalculateStreakUseCase.kt        # Interactor: computes current + best streak; pure function with injectable today date
@@ -177,7 +179,7 @@ app/src/main/java/com/example/evolvix
 │       ├── HistoryViewModelFactory.kt      # Factory for HistoryViewModel (injects HabitDao + habitId)
 │       ├── SettingsViewModel.kt            # AndroidViewModel managing ThemeMode (SharedPreferences) and daily-summary WorkManager worker toggling
 │       ├── SettingsViewModelFactory.kt     # Factory for SettingsViewModel (injects Application context)
-│       ├── StatisticsViewModel.kt          # Combines habits+completions Flows; runs all analytics use cases; exposes overview, lifeBalance, perHabitStats, AI cards as StateFlows; Phase 9.4 adds difficultyEstimates; Phase 9.5 adds skipReasonPredictions: StateFlow<Map<Int, SkipReasonPrediction>>; Phase 9.6 adds appSessionDao: AppSessionDao constructor param + engagementWindow: StateFlow<EngagementWindow> (one-shot flow via EngagementWindowUseCase, WhileSubscribed 5 s)
+│       ├── StatisticsViewModel.kt          # Combines habits+completions Flows; runs all analytics use cases; exposes overview, lifeBalance, perHabitStats, AI cards as StateFlows; Phase 9.4 adds difficultyEstimates; Phase 9.5 adds skipReasonPredictions: StateFlow<Map<Int, SkipReasonPrediction>>; Phase 9.6 adds appSessionDao: AppSessionDao constructor param + engagementWindow: StateFlow<EngagementWindow> (one-shot flow via EngagementWindowUseCase, WhileSubscribed 5 s); B3 (PLAN-POLISH-PASS) adds analyticsEngagement: StateFlow<AnalyticsEngagement> driven by AnalyticsEngagementUseCase
 │       ├── StatisticsViewModelFactory.kt   # Factory for StatisticsViewModel; Phase 9.5 adds habitSkipDao: HabitSkipDao parameter; Phase 9.6 adds appSessionDao: AppSessionDao parameter
 │       └── SummaryInboxViewModel.kt        # AndroidViewModel exposing DailySummaryEntity list + unreadCount StateFlow; resets dismissStreak on open
 │

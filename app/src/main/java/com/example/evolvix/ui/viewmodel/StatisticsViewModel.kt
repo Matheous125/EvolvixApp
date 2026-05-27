@@ -10,6 +10,7 @@ import com.example.evolvix.data.local.TargetHistoryDao
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.ai.HabitPredictor
 import com.example.evolvix.domain.model.AbandonmentRisk
+import com.example.evolvix.domain.model.AnalyticsEngagement
 import com.example.evolvix.domain.model.EngagementWindow
 import com.example.evolvix.domain.model.HabitCluster
 import com.example.evolvix.domain.model.HabitData
@@ -25,6 +26,7 @@ import com.example.evolvix.domain.model.WeeklyForecast
 import com.example.evolvix.domain.model.WeeklyOverview
 import com.example.evolvix.domain.model.SpilloverPair
 import com.example.evolvix.domain.usecase.AbandonmentRiskUseCase
+import com.example.evolvix.domain.usecase.AnalyticsEngagementUseCase
 import com.example.evolvix.domain.usecase.BehavioralClusterUseCase
 import com.example.evolvix.domain.usecase.EngagementWindowUseCase
 import com.example.evolvix.domain.usecase.CalculateStreakUseCase
@@ -109,6 +111,8 @@ class StatisticsViewModel(
     // Phase 9.5 — Skip Reason Classifier
     private val skipReasonPredictorUseCase = SkipReasonPredictorUseCase(predictor)
     // Phase 9.6 — Engagement Window Regressor
+    // B3 (PLAN-POLISH-PASS) — StatisticsScreen retention correlation
+    private val analyticsEngagementUseCase = AnalyticsEngagementUseCase(appSessionDao)
     private val engagementWindowUseCase = EngagementWindowUseCase(appSessionDao, predictor)
 
     /**
@@ -132,6 +136,25 @@ class StatisticsViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = EngagementWindow.insufficient
+    )
+
+    /**
+     * Retention-lift correlation between StatisticsScreen visits and active days
+     * over the last 30 days (B3, PLAN-POLISH-PASS).
+     *
+     * Drives the one-line headline at the top of `SummaryGroupCard`. When
+     * [AnalyticsEngagement.hasSufficientData] is false the View hides the row.
+     *
+     * (Pattern: one-shot suspend flow → StateFlow; re-executes on each
+     *  WhileSubscribed subscription, which is sufficient because session data
+     *  only changes between foreground/background transitions.)
+     */
+    val analyticsEngagement: StateFlow<AnalyticsEngagement> = flow {
+        emit(analyticsEngagementUseCase.execute())
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = AnalyticsEngagement.insufficient
     )
 
     /**

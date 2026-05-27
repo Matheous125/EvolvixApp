@@ -231,6 +231,9 @@
     <string name="spillover_card_title">🔁 Habit Spillover</string>
     <string name="per_habit_predictions_title">🧠 ML Predictions for this habit</string>
 
+    <!-- ── B3 (PLAN-POLISH-PASS) — Analytics retention lift headline ── -->
+    <string name="analytics_retention_headline">📊 Analytics viewers stay active +%1$d days/month longer (lift %2$d%%).</string>
+
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
 

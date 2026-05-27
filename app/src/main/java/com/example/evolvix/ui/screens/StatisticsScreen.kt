@@ -64,6 +64,7 @@ import com.example.evolvix.R
 import com.example.evolvix.data.local.AppDatabase
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.domain.model.AbandonmentRisk
+import com.example.evolvix.domain.model.AnalyticsEngagement
 import com.example.evolvix.domain.model.BehavioralCluster
 import com.example.evolvix.domain.model.EngagementWindow
 import com.example.evolvix.domain.model.HabitCluster
@@ -171,6 +172,8 @@ fun StatisticsScreen(
     val skipReasonPredictions by viewModel.skipReasonPredictions.collectAsState()
     // Phase 9.6: predicted most-likely active hour from EngagementWindowUseCase.
     val engagementWindow by viewModel.engagementWindow.collectAsState()
+    // B3 (PLAN-POLISH-PASS): retention lift for users who visit StatisticsScreen.
+    val analyticsEngagement by viewModel.analyticsEngagement.collectAsState()
 
     Scaffold(
         topBar = {
@@ -213,7 +216,8 @@ fun StatisticsScreen(
                     previousWeekRate = prevRate,
                     lifeBalance = lifeBalance,
                     weeklyForecast = weeklyForecast,
-                    engagementWindow = engagementWindow
+                    engagementWindow = engagementWindow,
+                    analyticsEngagement = analyticsEngagement
                 )
             }
 
@@ -302,6 +306,40 @@ fun StatisticsScreen(
  * ------------------------------------------------------------------------------------- */
 
 /**
+ * One-line retention-lift headline (B3, PLAN-POLISH-PASS) rendered at the very top of
+ * [SummaryGroupCard]'s expanded body.
+ *
+ * Source data: [com.example.evolvix.domain.usecase.AnalyticsEngagementUseCase] partitions
+ * the last 30 days of [com.example.evolvix.data.model.AppSessionEntity] rows into
+ * "viewer" sessions (StatisticsScreen visited) and "non-viewer" sessions, then reports the
+ * difference in active days as a Bernoulli-style lift.
+ *
+ * The row is suppressed entirely when [AnalyticsEngagement.hasSufficientData] is false
+ * (cold-start guard); the rest of the body keeps its layout because no [Spacer] is emitted.
+ */
+@Composable
+private fun AnalyticsRetentionHeadline(engagement: AnalyticsEngagement) {
+    if (!engagement.hasSufficientData) return
+
+    val diffDays = engagement.viewerActiveDays - engagement.nonViewerActiveDays
+    val liftPct = (engagement.lift * 100).roundToInt()
+
+    // Distinguish positive (informative) vs zero/negative (neutral) styling. We still
+    // surface negative lifts honestly — that's a defensible thesis-level signal.
+    val tint = if (diffDays > 0) MaterialTheme.colorScheme.primary
+               else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Text(
+        text = stringResource(R.string.analytics_retention_headline, diffDays, liftPct),
+        style = MaterialTheme.typography.bodyMedium,
+        color = tint,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 6.dp)
+    )
+}
+
+/**
  * Combined collapsible card containing the Global Overview and Life Balance sections.
  *
  * The user can collapse the whole summary group to focus on per-habit cards below.
@@ -314,7 +352,9 @@ private fun SummaryGroupCard(
     previousWeekRate: Float,
     lifeBalance: List<LifeBalanceEntry>,
     weeklyForecast: WeeklyForecast,
-    engagementWindow: EngagementWindow
+    engagementWindow: EngagementWindow,
+    // B3 (PLAN-POLISH-PASS): rendered as a single headline at the top of the body.
+    analyticsEngagement: AnalyticsEngagement
 ) {
     // Local UI state — expansion is purely a View concern, so it stays out of the VM.
     // rememberSaveable so expansion survives configuration changes (D1 PLAN-POLISH-PASS).
@@ -347,6 +387,9 @@ private fun SummaryGroupCard(
             // ---- Body: visible only when expanded ----
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
+                // B3: retention-lift headline. Only renders when both viewer and
+                // non-viewer buckets meet the MIN_SESSIONS_PER_BUCKET guard.
+                AnalyticsRetentionHeadline(engagement = analyticsEngagement)
                 GlobalOverviewBody(overview = overview, previousWeekRate = previousWeekRate)
                 Spacer(Modifier.height(12.dp))
                 WeeklyForecastStrip(forecast = weeklyForecast)
