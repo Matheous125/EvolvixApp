@@ -40,12 +40,14 @@ interface AuthRepository {
     /**
      * Updates the currently authenticated user's password to [newPassword].
      *
-     * Requires the user to already be logged in. In Firebase this triggers
-     * re-authentication if the session is stale.
+     * Requires the user to already be logged in and to supply their [oldPassword]
+     * for verification. In Firebase (Phase 10) this triggers
+     * `reauthenticateWithCredential` before `updatePassword`.
      *
-     * @return [Result.success] on success; [Result.failure] on auth or network errors.
+     * @return [Result.success] on success; [Result.failure] with a descriptive
+     * exception if [oldPassword] is wrong or the user is not logged in.
      */
-    suspend fun changePassword(newPassword: String): Result<Unit>
+    suspend fun changePassword(oldPassword: String, newPassword: String): Result<Unit>
 
     /**
      * Signs out the currently authenticated user and clears any cached credentials.

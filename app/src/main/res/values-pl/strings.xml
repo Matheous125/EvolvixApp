@@ -125,6 +125,9 @@
     <string name="menu_delete">Usuń</string>
     <string name="dialog_delete_habit_title">Usuń nawyk</string>
     <string name="dialog_delete_habit_text">Czy na pewno chcesz usunąć ten nawyk? Tej operacji nie można cofnąć.</string>
+    <string name="dialog_reset_progress_title">Resetuj postęp</string>
+    <string name="dialog_reset_progress_text">To usunie cały postęp dla \u201e%s\u201d, ale zachowa Twoje osiągnięcia. Kontynuować?</string>
+    <string name="btn_reset_confirm">Resetuj</string>
     <string name="dialog_error_title">Błąd</string>
     <string name="error_update_habit">Nie udało się zaktualizować nawyku. Spróbuj ponownie.</string>
 
@@ -498,6 +501,7 @@
     <string name="label_email">E-mail</string>
     <string name="label_password">Hasło</string>
     <string name="label_new_password">Nowe hasło</string>
+    <string name="label_old_password">Obecne hasło</string>
     <string name="label_confirm_password">Potwierdź hasło</string>
     <string name="btn_sign_in">Zaloguj się</string>
     <string name="btn_create_account">Utwórz konto</string>

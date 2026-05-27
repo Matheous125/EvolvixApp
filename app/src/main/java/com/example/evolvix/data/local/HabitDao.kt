@@ -364,4 +364,40 @@ abstract class HabitDao {
         WHERE date(progressUpdate) = date(:today)
     """)
     abstract suspend fun countProgressUpdatesOnDay(today: LocalDateTime): Int
+
+    // ── E1 (PLAN-POLISH-PASS) — Manual "Reset Progress" from EditHabitScreen ─────────
+
+    @Query("DELETE FROM habit_completions WHERE habitId = :habitId")
+    protected abstract suspend fun deleteCompletionsForHabit(habitId: Int)
+
+    @Query("DELETE FROM habit_skips WHERE habitId = :habitId")
+    protected abstract suspend fun deleteSkipsForHabit(habitId: Int)
+
+    @Query("DELETE FROM habit_target_history WHERE habitId = :habitId")
+    protected abstract suspend fun deleteTargetHistoryForHabit(habitId: Int)
+
+    @Query("UPDATE habits SET currentCount = 0, totalProgressUpdates = 0, totalTargetReaches = 0, lastResetDate = :now WHERE id = :habitId")
+    protected abstract suspend fun resetHabitCounters(habitId: Int, now: LocalDateTime)
+
+    /**
+     * Atomically erases all progress data for a single habit.
+     *
+     * Deletes every completion, skip, and target-change history row for [habitId],
+     * then resets the running counters on the habit row itself so the app starts
+     * fresh from the next user action. Wrapped in `@Transaction` so all four writes
+     * are committed together — no partial state can be observed by the active Flows.
+     *
+     * Called by [HabitViewModel.resetProgress] which is triggered from the
+     * "Reset Progress" overflow menu item on [EditHabitScreen].
+     *
+     * @param habitId The primary key of the habit to reset.
+     * @param now     The current timestamp stored as the new [HabitEntity.lastResetDate].
+     */
+    @Transaction
+    open suspend fun resetHabitProgress(habitId: Int, now: LocalDateTime) {
+        deleteCompletionsForHabit(habitId)
+        deleteSkipsForHabit(habitId)
+        deleteTargetHistoryForHabit(habitId)
+        resetHabitCounters(habitId, now)
+    }
 }

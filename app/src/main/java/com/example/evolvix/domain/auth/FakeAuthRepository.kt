@@ -57,9 +57,13 @@ class FakeAuthRepository : AuthRepository {
         return Result.success(Unit)
     }
 
-    override suspend fun changePassword(newPassword: String): Result<Unit> {
+    override suspend fun changePassword(oldPassword: String, newPassword: String): Result<Unit> {
         val email = loggedInEmail
             ?: return Result.failure(IllegalStateException("No user is currently logged in."))
+        val storedPassword = accounts[email]
+        if (storedPassword != oldPassword) {
+            return Result.failure(IllegalArgumentException("Current password is incorrect."))
+        }
         accounts[email] = newPassword
         return Result.success(Unit)
     }

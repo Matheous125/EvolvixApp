@@ -45,12 +45,18 @@ import com.example.evolvix.R
 import com.example.evolvix.ui.viewmodel.AuthViewModel
 
 /**
- * Set-new-password screen (Phase 9).
+ * Set-new-password screen (Phase 9 / Polish Pass B2).
  *
- * Used from the Account section in [SettingsScreen] after the user is logged in.
- * Validates that both fields are non-empty, ≥ 6 characters, and match before calling
- * [AuthViewModel.changePassword]. On success [AuthUiState.resetEmailSent] is set to
- * true (reused as a generic "operation done" signal) and a confirmation card is shown.
+ * Presents three password fields — current password, new password, and confirm new
+ * password — before calling [AuthViewModel.changePassword]. The current password is
+ * verified by [FakeAuthRepository] (and later `FirebaseAuthRepository`) so an
+ * attacker with a stolen unlocked device cannot silently reset the credential.
+ *
+ * Validation rules (client-side, before the repository call):
+ * - oldPassword: non-blank
+ * - newPassword: non-blank, ≥ 6 characters
+ * - confirmPassword: must equal newPassword
+ * Wrong current password → repository returns failure → shown in Snackbar.
  *
  * (Pattern: **MVVM** — pure View. State flows down; events flow up.)
  *
@@ -65,10 +71,13 @@ fun SetNewPasswordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    var oldPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var oldPasswordVisible by remember { mutableStateOf(false) }
     var newPasswordVisible by remember { mutableStateOf(false) }
     var confirmVisible by remember { mutableStateOf(false) }
+    var oldPasswordError by remember { mutableStateOf<String?>(null) }
     var newPasswordError by remember { mutableStateOf<String?>(null) }
     var confirmError by remember { mutableStateOf<String?>(null) }
 
@@ -78,6 +87,7 @@ fun SetNewPasswordScreen(
     val tooShort = stringResource(R.string.error_password_too_short)
     val noMatch = stringResource(R.string.error_passwords_no_match)
     val passwordChangedMsg = stringResource(R.string.auth_password_changed)
+    val labelOldPassword = stringResource(R.string.label_old_password)
 
     // Show a Toast and navigate back as soon as the password change succeeds.
     LaunchedEffect(uiState.resetEmailSent) {
@@ -120,6 +130,31 @@ fun SetNewPasswordScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            // ── Current (old) password field ──────────────────────────────────
+            OutlinedTextField(
+                value = oldPassword,
+                onValueChange = { oldPassword = it; oldPasswordError = null },
+                label = { Text(labelOldPassword) },
+                singleLine = true,
+                isError = oldPasswordError != null,
+                supportingText = oldPasswordError?.let { { Text(it) } },
+                visualTransformation = if (oldPasswordVisible) VisualTransformation.None
+                                       else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                trailingIcon = {
+                    IconButton(onClick = { oldPasswordVisible = !oldPasswordVisible }) {
+                        Icon(
+                            imageVector = if (oldPasswordVisible) Icons.Filled.VisibilityOff
+                                          else Icons.Filled.Visibility,
+                            contentDescription = stringResource(R.string.cd_toggle_password)
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // ── New password field ────────────────────────────────────────────
             OutlinedTextField(
                 value = newPassword,
@@ -174,10 +209,11 @@ fun SetNewPasswordScreen(
             Button(
                 onClick = {
                     var valid = true
+                    if (oldPassword.isBlank()) { oldPasswordError = emptyPassword; valid = false }
                     if (newPassword.isBlank()) { newPasswordError = emptyPassword; valid = false }
                     else if (newPassword.length < 6) { newPasswordError = tooShort; valid = false }
                     if (confirmPassword != newPassword) { confirmError = noMatch; valid = false }
-                    if (valid) viewModel.changePassword(newPassword)
+                    if (valid) viewModel.changePassword(oldPassword, newPassword)
                 },
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth()

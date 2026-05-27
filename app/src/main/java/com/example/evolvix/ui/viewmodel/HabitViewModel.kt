@@ -531,6 +531,25 @@ class HabitViewModel(
     }
 
     /**
+     * Erases all progress for [habitId] — completions, skips, target history, and
+     * running counters — inside a single Room transaction (see [HabitDao.resetHabitProgress]).
+     *
+     * This is a manual, user-initiated reset distinct from the periodic
+     * [checkAndResetProgress] which only resets counters at the end of each frequency
+     * cycle. Achievement rows are NOT touched; they are user-level records with no
+     * foreign key to the habit.
+     *
+     * Called from [EditHabitScreen] after the user confirms the AlertDialog.
+     *
+     * @param habitId Primary key of the habit whose progress will be erased.
+     */
+    fun resetProgress(habitId: Int) {
+        viewModelScope.launch {
+            habitDao.resetHabitProgress(habitId, LocalDateTime.now())
+        }
+    }
+
+    /**
      * Persists a new display order for all habits after a drag-and-drop gesture.
      *
      * Receives [orderedIds] — the full list of habit IDs in the desired order —

@@ -94,14 +94,15 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     /**
-     * Updates the current user's password to [newPassword].
+     * Updates the current user's password from [oldPassword] to [newPassword].
+     * Verifies [oldPassword] against the stored credentials before applying the change.
      * On success sets [AuthUiState.resetEmailSent] as a reusable "done" signal
-     * that the SetNewPasswordScreen uses to show a success banner.
+     * that the SetNewPasswordScreen uses to show a success toast.
      */
-    fun changePassword(newPassword: String) {
+    fun changePassword(oldPassword: String, newPassword: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            repository.changePassword(newPassword)
+            repository.changePassword(oldPassword, newPassword)
                 .onSuccess { _uiState.update { it.copy(isLoading = false, resetEmailSent = true) } }
                 .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = e.message) } }
         }

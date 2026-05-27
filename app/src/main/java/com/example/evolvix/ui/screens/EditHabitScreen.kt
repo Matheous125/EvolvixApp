@@ -141,6 +141,7 @@ fun EditHabitScreen(
     // Reminder toggle is local for now — Phase 7 wires it to WorkManager scheduling.
     var reminderEnabled by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
 
@@ -200,6 +201,33 @@ fun EditHabitScreen(
         )
     }
 
+    // ── Reset Progress confirmation dialog ─────────────────────────────────────
+    // Shows the habit name in the body text so the user is certain about which
+    // habit's data will be wiped before confirming (safer UX for a destructive action).
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text(stringResource(R.string.dialog_reset_progress_title)) },
+            text = { Text(stringResource(R.string.dialog_reset_progress_text, habitName)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        habitViewModel.resetProgress(habitId)
+                        showResetDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text(stringResource(R.string.btn_reset_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -229,10 +257,12 @@ fun EditHabitScreen(
                             expanded = showOverflowMenu,
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
-                            // Placeholder — reset logic will be implemented in a later phase
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.menu_reset_progress)) },
-                                onClick = { showOverflowMenu = false }
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showResetDialog = true
+                                }
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.menu_delete), color = MaterialTheme.colorScheme.error) },
