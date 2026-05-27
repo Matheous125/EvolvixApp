@@ -643,21 +643,28 @@ class MathHabitPredictor : HabitPredictor {
      * Base completion probability is a weighted blend of recent-rate signals:
      *   `base = 0.4 × rate7d + 0.4 × rate30d + 0.05 × (streak ≥ 3 bonus)`
      * When [ReminderLiftFeatures.reminderSent] == 1, an additive boost is applied:
-     *   `boost = 0.10 + 0.20 × (1 − rate7d)`
+     *   `boost = (0.10 + 0.20 × (1 − rate7d)) × (1 − snoozeCount/3).coerceIn(0, 0.5)`
      * so users with weaker recent engagement receive a larger expected reminder lift —
      * mirroring the generative prior in `generate_reminder_lift_data.py`.
+     *
+     * R8 suppression: if `snoozeCountToday ≥ 3 AND recentAvgDifficulty ≥ 4.0`, the boost
+     * is zeroed — the reminder would produce no lift and should be suppressed.
      */
     override fun predictReminderCompletion(features: ReminderLiftFeatures): Float {
         val rate7d  = features.completionRateLast7Days.coerceIn(0f, 1f)
         val rate30d = features.completionRateLast30Days.coerceIn(0f, 1f)
         val streakBonus = if (features.currentStreak >= 3) 0.05f else 0f
         val base = (0.4f * rate7d + 0.4f * rate30d + streakBonus).coerceIn(0f, 1f)
-        return if (features.reminderSent == 1) {
-            val boost = 0.10f + 0.20f * (1f - rate7d)
-            (base + boost).coerceIn(0f, 1f)
-        } else {
-            base
-        }
+
+        if (features.reminderSent != 1) return base
+
+        // R8: heavy snooze + high perceived difficulty → reminder produces no lift
+        if (features.snoozeCountToday >= 3 && features.recentAvgDifficulty >= 4.0f) return base
+
+        // R8: scale boost down proportionally to snooze count (0 snoozes → full, 3+ → 50% cap)
+        val snoozePenalty = (features.snoozeCountToday / 3f).coerceIn(0f, 0.5f)
+        val boost = (0.10f + 0.20f * (1f - rate7d)) * (1f - snoozePenalty)
+        return (base + boost).coerceIn(0f, 1f)
     }
 
     // ── Phase 9.2 — Snooze Disengagement Predictor ───────────────────────────

@@ -795,7 +795,7 @@ class TfliteHabitPredictor(
         /** Number of input features for the K-Means clustering model (R4: 7 features). */
         private const val CLUSTER_FEATURE_COUNT = 7
         private const val SPILLOVER_FEATURE_COUNT = 5
-        private const val REMINDER_LIFT_FEATURE_COUNT = 8
+        private const val REMINDER_LIFT_FEATURE_COUNT = 10  // R8: +snoozeCountToday, +recentAvgDifficulty
         private const val SNOOZE_DISENGAGEMENT_FEATURE_COUNT = 7
         private const val TARGET_CHANGE_FEATURE_COUNT = 8   // Phase 9.3
         private const val DIFFICULTY_FEATURE_COUNT = 8       // Phase 9.4

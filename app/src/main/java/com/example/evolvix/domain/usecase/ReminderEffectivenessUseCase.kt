@@ -13,7 +13,8 @@ import java.time.LocalDateTime
  * Use Case / Interactor that decides whether sending a push reminder is worth it
  * for a given habit at a specific time slot (Phase 9.1).
  *
- * Responsibility: extract the eight [ReminderLiftFeatures] from raw Room data, call the
+ * Responsibility: extract the ten [ReminderLiftFeatures] (R8: +snoozeCountToday, +recentAvgDifficulty)
+ * from raw Room data, call the
  * injected [HabitPredictor.predictReminderCompletion] **twice** (once with `reminderSent=0`,
  * once with `reminderSent=1`), compute predicted lift, and return a [ReminderLift]
  * wrapping the recommendation.
@@ -57,11 +58,13 @@ class ReminderEffectivenessUseCase(
      *    probabilities.
      * 4. Compute lift and decide [ReminderLift.recommendSend].
      *
-     * @param habit         Domain model of the habit to evaluate.
-     * @param completions   All historical completion records for this habit.
-     * @param currentStreak Pre-computed current streak (from [CalculateStreakUseCase]).
-     * @param reminderTime  The candidate reminder slot (defaults to now).
-     * @param today         Reference date (injectable for testing).
+     * @param habit              Domain model of the habit to evaluate.
+     * @param completions        All historical completion records for this habit.
+     * @param currentStreak      Pre-computed current streak (from [CalculateStreakUseCase]).
+     * @param reminderTime       The candidate reminder slot (defaults to now).
+     * @param today              Reference date (injectable for testing).
+     * @param snoozeCountToday   R8: number of times the user snoozed today (from [SnoozePreferences]).
+     *                           Defaults to 0 when Context is unavailable (e.g. StatisticsViewModel).
      * @return [ReminderLift] with probabilities, lift, recommendation, and sufficiency flag.
      */
     operator fun invoke(
@@ -69,7 +72,8 @@ class ReminderEffectivenessUseCase(
         completions: List<HabitCompletionEntity>,
         currentStreak: Int,
         reminderTime: LocalDateTime = LocalDateTime.now(),
-        today: LocalDate = LocalDate.now()
+        today: LocalDate = LocalDate.now(),
+        snoozeCountToday: Int = 0
     ): ReminderLift {
         // Guard: not enough history — safe default is to always send
         if (completions.size < MIN_COMPLETIONS) {
@@ -100,15 +104,25 @@ class ReminderEffectivenessUseCase(
         // dayOfWeek: 0 = Monday … 6 = Sunday (matches Python training ordinal)
         val dayOfWeekOrdinal = reminderTime.dayOfWeek.value - 1
 
+        // R8: rolling avg perceived difficulty across the last 14 non-null completions
+        val recentAvgDifficulty = completions
+            .filter { it.perceivedDifficulty != null }
+            .sortedByDescending { it.progressUpdate }
+            .take(14)
+            .map { it.perceivedDifficulty!!.toFloat() }
+            .let { if (it.isEmpty()) 3.0f else it.average().toFloat() }
+
         val baseFeatures = ReminderLiftFeatures(
-            habitAge               = habitAge,
+            habitAge                 = habitAge,
             completionRateLast7Days  = rate7d,
             completionRateLast30Days = rate30d,
-            currentStreak          = currentStreak,
-            hourOfDay              = reminderTime.hour,
-            dayOfWeekOrdinal       = dayOfWeekOrdinal,
-            frequencyOrdinal       = frequencyOrdinal,
-            reminderSent           = 0
+            currentStreak            = currentStreak,
+            hourOfDay                = reminderTime.hour,
+            dayOfWeekOrdinal         = dayOfWeekOrdinal,
+            frequencyOrdinal         = frequencyOrdinal,
+            snoozeCountToday         = snoozeCountToday,
+            recentAvgDifficulty      = recentAvgDifficulty,
+            reminderSent             = 0
         )
 
         val baselineProb     = predictor.predictReminderCompletion(baseFeatures)

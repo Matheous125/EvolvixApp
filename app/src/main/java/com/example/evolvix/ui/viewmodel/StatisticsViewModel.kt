@@ -510,6 +510,10 @@ class StatisticsViewModel(
      * Habits with [ReminderLift.hasSufficientData] = false are included in the map so the
      * View can show a "not enough data" placeholder instead of suppressing the card entirely.
      *
+     * R8 note: `snoozeCountToday` is passed as the default value (0) because the ViewModel
+     * has no access to [android.content.Context]. The accurate per-notification snooze count
+     * is used by [ScheduleReminderUseCase] which does have Context at scheduling time.
+     *
      * ⚠ **Thesis note:** Lift values are predicted estimates, not causal effects.
      *
      * (Pattern: Observer via StateFlow — same upstream pair as [spilloverInsights];

@@ -29,7 +29,10 @@ Features per row (field order MUST exactly mirror ReminderLiftFeatures.kt
     5. hourOfDay               int     0..23  (the reminder slot hour)
     6. dayOfWeekOrdinal        int     0=Mon .. 6=Sun
     7. frequencyOrdinal        int     0=DAILY, 1=WEEKLY, 2=MONTHLY
-    8. reminderSent            int     0 or 1  (the treatment variable)
+    8. snoozeCountToday        int     0..6   (R8: how many times user snoozed today)
+    9. recentAvgDifficulty     float   1.0..5.0 (R8: rolling avg perceivedDifficulty,
+                                       last 14 completions; default 3.0 = neutral)
+   10. reminderSent            int     0 or 1  (the treatment variable, always last)
 
 Label:
     1  if the habit is completed within 30 min of the reminder slot (or, for
@@ -56,11 +59,19 @@ Generative model (logit-based, matching generate_abandonment_data.py convention)
         +0.3  dayOfWeekOrdinal in {5, 6}       (weekend = more free time)
         -0.3  dayOfWeekOrdinal in {0, 1}       (Monday/Tuesday = busy start of week)
 
+        R8 — SNOOZE + DIFFICULTY SIGNALS (base; applied regardless of reminderSent):
+        -0.5  snoozeCountToday >= 2  (user is actively deferring the habit)
+        -0.3  recentAvgDifficulty >= 4.0  (habit consistently feels hard)
+
         REMINDER TREATMENT (this is the lift signal the model must learn):
         Applied only when reminderSent == 1.
         Lift is LARGER for struggling users (reminder helps most when engagement is low).
         Lift is SMALLER for high-streak users (reminder is redundant when habit is automatic).
-        reminder_boost = base_boost * engagement_penalty
+        R8 — SUPPRESSION: when snoozeCountToday >= 3 AND recentAvgDifficulty >= 4.0,
+            the reminder_boost is set to 0 (no lift). The user is both actively avoiding
+            the reminder (snoozing heavily) and rating the habit as very hard, so another
+            reminder won't change behaviour.
+        reminder_boost = base_boost * engagement_penalty  (unless suppressed, see above)
         where:
             base_boost = +1.2
             engagement_penalty = 1.0 - clamp(completionRateLast7Days, 0, 1) * 0.7
@@ -94,6 +105,8 @@ SEED = 42
 
 # Field order mirrors ReminderLiftFeatures.kt → toFloatArray() and
 # reminder_lift_scaler.json → feature_columns.  DO NOT reorder.
+# R8 (2026-05-27): added snoozeCountToday (idx 7) and recentAvgDifficulty (idx 8);
+# reminderSent moved from idx 7 to idx 9 (treatment variable always last).
 FEATURE_COLUMNS: list[str] = [
     "habitAge",
     "completionRateLast7Days",
@@ -102,7 +115,9 @@ FEATURE_COLUMNS: list[str] = [
     "hourOfDay",
     "dayOfWeekOrdinal",
     "frequencyOrdinal",
-    "reminderSent",
+    "snoozeCountToday",       # R8: how many times user snoozed today (0..6)
+    "recentAvgDifficulty",    # R8: rolling avg perceivedDifficulty last 14 completions (1.0..5.0)
+    "reminderSent",           # treatment variable — always last so lift probe logic stays simple
 ]
 
 
@@ -161,6 +176,20 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
     # reminderSent: balanced 50/50 treatment assignment (mimics A/B style split).
     reminder_sent = rng.integers(0, 2, size=rows).astype(np.int8)
 
+    # R8: snoozeCountToday — Poisson(λ=0.8) clipped to [0, 6].
+    # Most reminder cycles are not snoozed (mode = 0); occasional heavy snoozers
+    # follow the tail of the distribution. λ=0.8 gives realistic marginal rates.
+    snooze_count_today = np.clip(
+        rng.poisson(lam=0.8, size=rows), 0, 6
+    ).astype(np.int8)
+
+    # R8: recentAvgDifficulty — Beta(2, 4) scaled to [1.0, 5.0].
+    # Beta(2, 4) is right-skewed (mode ≈ 0.25), mapping most habits to the 1–3
+    # difficulty range, with a long tail of genuinely hard habits reaching 4–5.
+    recent_avg_difficulty = (
+        rng.beta(a=2.0, b=4.0, size=rows) * 4.0 + 1.0
+    ).astype(np.float32)  # maps [0,1] → [1.0, 5.0]
+
     # ── Label generation (logit-based) ─────────────────────────────────────
 
     # Baseline negative logit: completing a habit *within a specific 30-min
@@ -186,10 +215,21 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
     logit += np.where(np.isin(day_of_week, [5, 6]), 0.3, 0.0)
     logit += np.where(np.isin(day_of_week, [0, 1]), -0.3, 0.0)
 
+    # R8 — SNOOZE + DIFFICULTY BASE SIGNALS (apply before the treatment)
+    logit += np.where(snooze_count_today >= 2, -0.5, 0.0)        # user is actively deferring
+    logit += np.where(recent_avg_difficulty >= 4.0, -0.3, 0.0)   # habit feels hard
+
     # REMINDER TREATMENT — only when reminderSent == 1.
     # Boost is larger for struggling habits (engagement_penalty down-weights high-rate).
     engagement_penalty = 1.0 - np.clip(rate_7d.astype(np.float64), 0.0, 1.0) * 0.7
     reminder_boost = 1.2 * engagement_penalty                    # range: 0.36 .. 1.20
+
+    # R8 — SUPPRESS boost when snoozeCountToday >= 3 AND recentAvgDifficulty >= 4.0.
+    # Both conditions together signal the user is avoiding a genuinely hard habit;
+    # another reminder yields zero lift in this regime.
+    suppress_mask = (snooze_count_today >= 3) & (recent_avg_difficulty >= 4.0)
+    reminder_boost = np.where(suppress_mask, 0.0, reminder_boost)
+
     logit += reminder_sent.astype(np.float64) * reminder_boost   # zero for sent=0 rows
 
     # Scale logit before sigmoid to spread probability mass away from 0.5.
@@ -207,6 +247,8 @@ def generate(rows: int = 50_000, seed: int = SEED) -> pd.DataFrame:
             "hourOfDay": hour_of_day,
             "dayOfWeekOrdinal": day_of_week,
             "frequencyOrdinal": frequency_ordinal,
+            "snoozeCountToday": snooze_count_today,       # R8
+            "recentAvgDifficulty": recent_avg_difficulty,  # R8
             "reminderSent": reminder_sent,
             "completed_within_30min": label,
         }

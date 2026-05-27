@@ -12,6 +12,7 @@ import com.example.evolvix.domain.ai.AiContainer
 import com.example.evolvix.domain.model.EngagementWindow
 import com.example.evolvix.domain.model.HabitData
 import com.example.evolvix.notifications.HabitReminderWorker
+import com.example.evolvix.notifications.SnoozePreferences
 import kotlinx.coroutines.flow.firstOrNull
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -199,7 +200,8 @@ class ScheduleReminderUseCase(private val context: Context) {
                 streak++
                 checkDate = checkDate.minusDays(1)
             }
-            val lift = useCase(habitData, completions, streak)
+            val snoozeCountToday = SnoozePreferences.getCount(context, habit.id)
+            val lift = useCase(habitData, completions, streak, snoozeCountToday = snoozeCountToday)
             !lift.recommendSend && lift.hasSufficientData
         } catch (t: Throwable) {
             Log.w(TAG, "shouldSuppressReminder failed; defaulting to send", t)

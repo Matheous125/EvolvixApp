@@ -173,7 +173,7 @@ Spillover aggregation runs per habit per prediction. Cache in the use case (in-m
 
 # R8 — 9.1 Reminder Lift + `snoozeCount` + `perceivedDifficulty`
 
-**Status:** `[ ]`
+**Status:** `[x]`
 **Trigger:** Causal lift estimator gets sharper when it knows the user is currently snoozing heavily or rating recent completions hard.
 **Goal:** A heavily-snoozing user with high difficulty rating has lower realistic lift from another reminder — model should learn to recommend suppression.
 
@@ -259,3 +259,4 @@ After completing each R-task, append a 3-line summary here:
 - **R5 — 2026-05-26:** before F1=N/A (no 9-feature baseline), after acc=0.7655, macro F1=0.7551, AUC=0.8485 (50k rows). Notes: involuntarySkipDays7d (field 8) + recentAvgDifficulty (field 9) added to StreakBreakFeatures; difficulty boost +0.15 in MathHabitPredictor when recentAvgDifficulty ≥ 4.0f (Rule 8); involuntarySkipDays7d is TFLite-only (no math fallback rule); StreakBreakUseCaseTest added (11 tests, all green).
 - **R6 — 2026-05-26:** before acc=N/A (no 7-feature baseline recorded), after acc=0.8240, AUC=0.8939 (30k rows, 50 epochs — passed on first attempt). recentAvgDifficulty added as 8th feature to HabitSuccessClassifier; logit penalty −0.5*(difficulty−3.0) in training data; difficulty multiplier (1−0.05*(d−3.0)) added to MathHabitPredictor fallback; SuccessProbabilityUseCase switched from successProbability() to predictSuccess(HabitFeatures), wiring TFLite inference end-to-end for the first time.
 - **R7 — 2026-05-26:** before acc=0.8240, AUC=0.8939 (R6 baseline), after acc=0.8267, AUC=0.9006 (30k rows, 9 features). spilloverLiftAggregate added as 9th feature — sum of BOOST liftDelta from SpilloverUseCase where the evaluated habit is the target, clamped to [−0.5, +0.5]; R7 logit rule: score += 1.5 × spilloverLiftAggregate (applied before ×2.0 amplification). SuccessProbabilityUseCase gains optional spilloverUseCase constructor param + per-day cache; MathHabitPredictor fallback adds p += spilloverLiftAggregate.coerceIn(−0.3f, 0.3f) after weekend penalty.
+- **R8 — 2026-05-27:** before acc=N/A (no 8-feature baseline recorded), after acc=0.8079, macro F1=0.8046, AUC=0.8980, Lift MAE=0.0096 (50k rows, 10 features). Notes: snoozeCountToday (index 7) + recentAvgDifficulty (index 8) added; reminderSent stays treatment variable at index 9; R8 suppression fires when snoozeCountToday≥3 AND recentAvgDifficulty≥4.0f → lift=0 in both TFLite and MathHabitPredictor; boost scaled by (1−snooze/3).coerceIn(0,0.5) for partial snooze; ScheduleReminderUseCase reads SnoozePreferences.getCount(context, habit.id); ReminderEffectivenessUseCaseTest added (5 tests, all green).
