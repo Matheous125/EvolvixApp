@@ -3,6 +3,7 @@ package com.example.evolvix.data.auth
 import com.example.evolvix.domain.auth.AuthRepository
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -39,9 +40,24 @@ class FirebaseAuthRepository : AuthRepository {
     /**
      * Creates a new account with [email] and [password].
      * Firebase enforces minimum password length (≥6 chars) server-side.
+     *
+     * When [displayName] is non-blank it is persisted on the FirebaseUser profile
+     * via [UserProfileChangeRequest] so the name survives reinstalls and is available
+     * on every device the user signs in on (read back via [currentDisplayName]).
      */
-    override suspend fun register(email: String, password: String): Result<Unit> = runCatching {
-        auth.createUserWithEmailAndPassword(email, password).await()
+    override suspend fun register(email: String, password: String, displayName: String): Result<Unit> = runCatching {
+        val result = auth.createUserWithEmailAndPassword(email, password).await()
+        val trimmed = displayName.trim()
+        if (trimmed.isNotEmpty()) {
+            // Best-effort profile update; if it fails the account still exists so we
+            // do not surface an error to the caller — the local SharedPreferences copy
+            // (set by AuthViewModel.register) is enough to render the Settings header.
+            runCatching {
+                result.user?.updateProfile(
+                    UserProfileChangeRequest.Builder().setDisplayName(trimmed).build()
+                )?.await()
+            }
+        }
         Unit
     }
 
@@ -92,6 +108,14 @@ class FirebaseAuthRepository : AuthRepository {
      * Synchronous — safe to call during recomposition.
      */
     override fun currentEmail(): String? = auth.currentUser?.email
+
+    /**
+     * Returns the display name stored on the FirebaseUser profile, or `null` if the
+     * user is signed out or never set one. Used by [SettingsViewModel.reloadDisplayName]
+     * as a fallback when the UID-scoped SharedPreferences key is missing (e.g. after a
+     * reinstall or first sign-in on a new device).
+     */
+    override fun currentDisplayName(): String? = auth.currentUser?.displayName?.takeIf { it.isNotBlank() }
 
     /**
      * Signs out the current user and clears the local Firebase session cache.

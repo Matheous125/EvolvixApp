@@ -265,11 +265,17 @@
     <string name="label_daily_summary">Daily Summary</string>
     <string name="subtitle_daily_summary">Receive a daily habits recap notification</string>
     <string name="menu_change_password">Change Password</string>
-    <string name="subtitle_change_password">Available after signing in (Phase 9)</string>
+    <string name="subtitle_change_password">Update your account password</string>
     <string name="menu_change_email">Change e-mail address</string>
     <string name="subtitle_change_email_logged_out">Available after signing in</string>
     <string name="menu_login_logout">Login / Logout</string>
     <string name="subtitle_login_logout">Cloud sync available in a future update</string>
+    <string name="menu_logout">Log Out</string>
+    <string name="menu_login">Log In</string>
+    <string name="label_not_signed_in">Not signed in</string>
+    <string name="dialog_logout_title">Log Out</string>
+    <string name="dialog_logout_body">Are you sure you want to log out?</string>
+    <string name="btn_log_out">Log Out</string>
     <string name="menu_help">Help</string>
     <string name="menu_feedback">Feedback</string>
     <string name="subtitle_feedback">Send us your thoughts</string>
@@ -571,7 +577,7 @@
     <string name="auth_sign_in_link">Sign in</string>
     <string name="auth_reset_email_sent">Reset link sent — check your inbox.</string>
     <string name="auth_password_changed">Password changed successfully.</string>
-    <string name="auth_email_changed">E-mail address changed successfully.</string>
+    <string name="auth_email_changed">E-mail address change link sent — check your inbox.</string>
     <string name="screen_change_email_title">Change e-mail address</string>
     <string name="label_new_email">New e-mail</string>
     <string name="label_confirm_email">Confirm new e-mail</string>

@@ -8,7 +8,9 @@ import com.example.evolvix.data.model.AchievementEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.domain.model.AchievementDefinition
+import com.example.evolvix.domain.sync.SyncController
 import com.example.evolvix.domain.usecase.EvaluateAchievementsUseCase
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -24,12 +26,16 @@ import kotlinx.coroutines.launch
  * without polling. The reducer is **idempotent**: re-running it on the same inputs
  * produces the same DB state.
  *
- * @property habitDao      Source for the habit list and full completion history.
- * @property achievementDao Persistence layer for [AchievementEntity] rows.
+ * @property habitDao       Source for the habit list and full completion history.
+ * @property achievementDao  Persistence layer for [AchievementEntity] rows.
+ * @property syncController  Used to push newly-unlocked achievements to Firestore in
+ *   real-time so they survive a `logout → clearAllTables → login` cycle without
+ *   triggering spurious banner emissions on every re-login.
  */
 class AchievementsViewModel(
     private val habitDao: HabitDao,
-    private val achievementDao: AchievementDao
+    private val achievementDao: AchievementDao,
+    private val syncController: SyncController
 ) : ViewModel() {
 
     // Pure-function interactor — stateless, safe to reuse across emissions.
@@ -69,6 +75,22 @@ class AchievementsViewModel(
                 habitDao.getAllCompletions()
             ) { habits, completions -> habits to completions }
                 .collect { (habits, completions) ->
+                    // Guard #1: skip evaluation while no user is signed in. During
+                    // logout the FirebaseAuth listener fires before clearAllTables
+                    // finishes, so this collector can still see a transient pair of
+                    // (cached habits, cached completions) on a signed-out session.
+                    // Persisting / emitting in that window would (a) flash banners on
+                    // the just-logged-out user's screen, and (b) leave achievement
+                    // rows in Room that SyncController.syncAchievements would later
+                    // push to the NEXT user's Firestore on their first login.
+                    if (FirebaseAuth.getInstance().currentUser == null) return@collect
+
+                    // Guard #2: skip evaluation when the database has just been cleared
+                    // (post-logout via clearAllTables). Without this guard, the pipeline
+                    // would seed 50 locked ghost rows into an empty achievements table.
+                    // Those rows then cause ALL earned achievements to appear as
+                    // "newly unlocked" on the next login+sync cycle, producing a banner storm.
+                    if (habits.isEmpty() && completions.isEmpty()) return@collect
                     persistDeltas(habits, completions)
                 }
         }
@@ -112,15 +134,20 @@ class AchievementsViewModel(
             when {
                 existing == null -> {
                     // First time this achievement is reached — insert a fresh row.
-                    achievementDao.insert(
-                        AchievementEntity(key = def.key, unlockedAt = now, progress = def.threshold)
-                    )
+                    val entity = AchievementEntity(key = def.key, unlockedAt = now, progress = def.threshold)
+                    achievementDao.insert(entity)
                     _newlyUnlocked.emit(def)
+                    // Push to Firestore immediately so it survives logout+clearAllTables.
+                    // [SyncController.syncAchievements] will then pull it back on the
+                    // next login BEFORE habits/completions sync — preventing a re-banner.
+                    viewModelScope.launch { runCatching { syncController.pushAchievement(entity) } }
                 }
                 existing.unlockedAt == null -> {
                     // Previously tracked as in-progress — now earned. Stamp the timestamp.
-                    achievementDao.update(existing.copy(unlockedAt = now, progress = def.threshold))
+                    val updated = existing.copy(unlockedAt = now, progress = def.threshold)
+                    achievementDao.update(updated)
                     _newlyUnlocked.emit(def)
+                    viewModelScope.launch { runCatching { syncController.pushAchievement(updated) } }
                 }
                 // else: already unlocked — no-op; preserves the original unlock timestamp.
             }

@@ -53,17 +53,16 @@ import com.example.evolvix.ui.viewmodel.AuthViewModel
  *  - Password is at least 6 characters
  *  - Confirm-password matches
  *
- * After successful registration, [onSaveDisplayName] is called with the entered name
- * so [SettingsViewModel] can persist it to SharedPreferences, then [onLoginSuccess] fires
- * to trigger the nav-graph guard.
+ * After successful registration, [onLoginSuccess] fires to trigger the nav-graph guard.
+ * The display name is sent through [AuthViewModel.register] so it is persisted both on
+ * the Firebase user profile (survives reinstalls) AND in the UID-scoped SharedPreferences
+ * (immediately available to the Settings screen).
  *
  * (Pattern: **MVVM** — pure View, no business logic. State flows down from ViewModel;
  *  user events flow up through ViewModel functions.)
  *
  * @param viewModel           Shared [AuthViewModel] scoped to the auth nav graph.
  * @param onLoginSuccess      Called after successful registration (user is now logged in).
- * @param onSaveDisplayName   Called with the entered name just before [onLoginSuccess];
- *                            wired in NavGraph to [SettingsViewModel.setDisplayName].
  * @param onNavigateBack      Pops back to [LoginScreen].
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,7 +70,6 @@ import com.example.evolvix.ui.viewmodel.AuthViewModel
 fun RegisterScreen(
     viewModel: AuthViewModel,
     onLoginSuccess: () -> Unit,
-    onSaveDisplayName: (String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -97,7 +95,6 @@ fun RegisterScreen(
 
     LaunchedEffect(uiState.isAuthenticated) {
         if (uiState.isAuthenticated) {
-            onSaveDisplayName(displayName.trim())
             onLoginSuccess()
         }
     }
@@ -224,7 +221,7 @@ fun RegisterScreen(
                     if (password.isBlank()) { passwordError = emptyPassword; valid = false }
                     else if (password.length < 6) { passwordError = tooShort; valid = false }
                     if (confirmPassword != password) { confirmError = noMatch; valid = false }
-                    if (valid) viewModel.register(email.trim(), password)
+                    if (valid) viewModel.register(email.trim(), password, displayName.trim())
                 },
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth()

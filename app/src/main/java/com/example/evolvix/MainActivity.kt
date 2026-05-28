@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -66,6 +67,7 @@ import com.example.evolvix.ui.viewmodel.SettingsViewModel
 import com.example.evolvix.ui.viewmodel.SettingsViewModelFactory
 import com.example.evolvix.ui.viewmodel.ThemeMode
 import com.example.evolvix.data.auth.FirebaseAuthRepository
+import com.example.evolvix.domain.sync.SyncController
 
 /**
  * Main entry point for the application.
@@ -152,27 +154,47 @@ fun AppContent() {
 
     EvolvixTheme(darkTheme = useDarkTheme) {
 
+    // Database and SyncController are created once and shared between AchievementsViewModel
+    // (for real-time Firestore push on unlock) and AuthViewModel (for login/logout sync).
+    // Using remember ensures SyncController is not recreated on every recomposition.
+    val database = AppDatabase.getDatabase(context)
+    val syncController = remember {
+        SyncController(
+            habitDao       = database.habitDao(),
+            achievementDao = database.achievementDao()
+        )
+    }
+
     // Activity-scoped ViewModel — shared with MainScreen via HabitNavGraph.
     val habitViewModel: HabitViewModel = viewModel(
         factory = HabitViewModelFactory(
             application = context.applicationContext as android.app.Application,
-            habitDao = AppDatabase.getDatabase(context).habitDao(),
-            targetHistoryDao = AppDatabase.getDatabase(context).targetHistoryDao()
+            habitDao = database.habitDao(),
+            targetHistoryDao = database.targetHistoryDao()
         )
     )
     // Activity-scoped ViewModel — shared with AchievementsScreen and AchievementBanner.
     val achievementsViewModel: AchievementsViewModel = viewModel(
         factory = AchievementsViewModelFactory(
-            habitDao = AppDatabase.getDatabase(context).habitDao(),
-            achievementDao = AppDatabase.getDatabase(context).achievementDao()
+            habitDao       = database.habitDao(),
+            achievementDao = database.achievementDao(),
+            syncController = syncController
         )
     )
 
     // Activity-scoped ViewModel for all authentication screens (Phase 10).
-    // FirebaseAuthRepository is the production implementation — wired here via
-    // Liskov substitution; no ViewModel or screen code changed (Pattern: Strategy + DI).
+    // SyncController is wired here so AuthViewModel can:
+    //   • Pull the user's Firestore data into Room immediately after login.
+    //   • Clear all Room tables on logout (Pattern: per-user data isolation).
+    // settingsViewModel is passed so the UID-scoped display name is reloaded on
+    // each auth transition without an Activity restart.
     val authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModelFactory(FirebaseAuthRepository())
+        factory = AuthViewModelFactory(
+            repository        = FirebaseAuthRepository(),
+            syncController    = syncController,
+            database          = database,
+            settingsViewModel = settingsViewModel
+        )
     )
     val reorderMode by habitViewModel.reorderMode.collectAsState()
 
@@ -207,6 +229,26 @@ fun AppContent() {
     }
 
     val navController = rememberNavController()
+
+    // Global auth guard (Pattern: Observer via Flow).
+    // Collects isAuthenticated changes AFTER the initial value (startDestination already
+    // handles the initial auth check). On every transition to `false` — whether triggered
+    // by the Settings logout dialog, a programmatic signOut, or a Firebase session
+    // revocation — the entire back stack is cleared and the user is sent to Login.
+    // Without this guard, the user stays on whichever screen they were on (showing
+    // empty Room data after clearAllTables) and can interact with the app while signed out.
+    LaunchedEffect(navController) {
+        authViewModel.uiState
+            .drop(1) // skip the replay of the initial value emitted by StateFlow
+            .collect { state ->
+                if (!state.isAuthenticated) {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            }
+    }
 
     // Phase 9.6 — log each navigation destination so SessionTracker can persist
     // the screens visited list per session row in app_sessions.

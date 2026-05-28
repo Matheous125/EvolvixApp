@@ -407,8 +407,6 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 
 ### 10.3 Settings integration
 - [ ] Wire real Login/Logout/Change Password/Change Email buttons in `SettingsScreen.kt` to `FirebaseAuthRepository`. To avoid data leak for a single-user offline-firs app as this is, please remember to apply these (simple, thesis-defensible) features:
-  - On logout → clear the local DB (DELETE FROM habits, DELETE FROM habit_completions, etc.)
-  - On login → the DB starts empty; SyncController pulls the authenticated user's Firestore data down on the first sync
 - [ ] Show sync status indicator in `MainScreen.kt` top bar (Pattern: **Observer** of `SyncState` Flow).
 
 ---

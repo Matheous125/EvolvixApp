@@ -81,6 +81,9 @@ private fun initials(name: String): String {
  *                                   under the Change-e-mail row and the logout action.
  * @param onNavigateToChangePassword Navigates to the SetNewPassword screen (Phase 9).
  * @param onNavigateToChangeEmail    Navigates to the ChangeEmail screen (Polish-Pass E2).
+ * @param onNavigateToLogin          Navigates to the Login screen and clears the back stack;
+ *                                   invoked both when the user is not signed in (direct tap) and
+ *                                   after a successful logout (post-confirmation).
  * @param onNavigateBack             Callback to pop the back stack.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,6 +94,7 @@ fun SettingsScreen(
     authViewModel: AuthViewModel,
     onNavigateToChangePassword: () -> Unit,
     onNavigateToChangeEmail: () -> Unit,
+    onNavigateToLogin: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -120,6 +124,7 @@ fun SettingsScreen(
     var showNameDialog     by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showHelpDialog     by remember { mutableStateOf(false) }
+    var showLogoutDialog   by remember { mutableStateOf(false) }
 
     // ── Dialogs ───────────────────────────────────────────────────────────────
 
@@ -153,6 +158,31 @@ fun SettingsScreen(
             text             = { Text(stringResource(R.string.dialog_help_body)) },
             confirmButton    = {
                 TextButton(onClick = { showHelpDialog = false }) { Text(stringResource(R.string.btn_got_it)) }
+            }
+        )
+    }
+
+    // Logout confirmation — shown when an authenticated user taps the "Log Out" row.
+    // Calls authViewModel.logout() (clears Firebase session) then navigates to Login.
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            icon             = { Icon(Icons.Filled.Logout, contentDescription = null) },
+            title            = { Text(stringResource(R.string.dialog_logout_title)) },
+            text             = { Text(stringResource(R.string.dialog_logout_body)) },
+            confirmButton    = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        authViewModel.logout()
+                        onNavigateToLogin()
+                    }
+                ) { Text(stringResource(R.string.btn_log_out)) }
+            },
+            dismissButton    = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
             }
         )
     }
@@ -239,7 +269,11 @@ fun SettingsScreen(
                 SettingsListItem(
                     icon     = Icons.Filled.Lock,
                     title    = stringResource(R.string.menu_change_password),
-                    subtitle = stringResource(R.string.subtitle_change_password),
+                    // Show a meaningful subtitle only when signed in; otherwise prompt sign-in.
+                    subtitle = if (currentEmail != null)
+                        stringResource(R.string.subtitle_change_password)
+                    else
+                        stringResource(R.string.subtitle_change_email_logged_out),
                     onClick  = onNavigateToChangePassword
                 )
             }
@@ -255,12 +289,26 @@ fun SettingsScreen(
                 )
             }
             item(key = "login_logout") {
-                SettingsListItem(
-                    icon     = Icons.Filled.AccountCircle,
-                    title    = stringResource(R.string.menu_login_logout),
-                    subtitle = stringResource(R.string.subtitle_login_logout),
-                    onClick  = { /* Phase 10 placeholder */ }
-                )
+                // Context-aware Login / Logout row:
+                // Authenticated → shows "Log Out" with the active e-mail as subtitle;
+                //   tapping opens a confirmation dialog before signing out.
+                // Not authenticated → shows "Log In" with a "Not signed in" subtitle;
+                //   tapping navigates directly to the Login screen.
+                if (currentEmail != null) {
+                    SettingsListItem(
+                        icon     = Icons.Filled.Logout,
+                        title    = stringResource(R.string.menu_logout),
+                        subtitle = currentEmail,
+                        onClick  = { showLogoutDialog = true }
+                    )
+                } else {
+                    SettingsListItem(
+                        icon     = Icons.Filled.Login,
+                        title    = stringResource(R.string.menu_login),
+                        subtitle = stringResource(R.string.label_not_signed_in),
+                        onClick  = onNavigateToLogin
+                    )
+                }
             }
 
             // ── 5. Support ────────────────────────────────────────────────────

@@ -24,10 +24,15 @@ interface AuthRepository {
     /**
      * Creates a new account with [email] and [password].
      *
+     * @param displayName Optional human-readable name. When non-blank the
+     * implementation must persist it on the auth profile (e.g. Firebase
+     * `UserProfileChangeRequest.setDisplayName`) so it survives reinstalls and
+     * is available on other devices via [currentDisplayName].
+     *
      * @return [Result.success] on success; [Result.failure] if the email is already
      * in use or the password does not meet strength requirements.
      */
-    suspend fun register(email: String, password: String): Result<Unit>
+    suspend fun register(email: String, password: String, displayName: String = ""): Result<Unit>
 
     /**
      * Sends a password-reset e-mail to [email].
@@ -77,6 +82,13 @@ interface AuthRepository {
      * coroutine.
      */
     fun currentEmail(): String?
+
+    /**
+     * Returns the display name of the currently authenticated user, or `null` when
+     * logged out or when no name has been set. Synchronous so the Settings screen
+     * can fall back to it without launching a coroutine.
+     */
+    fun currentDisplayName(): String?
 
     /**
      * Signs out the currently authenticated user and clears any cached credentials.

@@ -31,6 +31,18 @@ interface AchievementDao {
     @Update
     suspend fun update(achievement: AchievementEntity)
 
+    /**
+     * Inserts or replaces a row by [AchievementEntity.key].
+     *
+     * Used exclusively by [com.example.evolvix.domain.sync.SyncController.syncAchievements]
+     * to restore the user's achievement state from Firestore before the reactive evaluator
+     * runs. By pre-populating [unlockedAt], the evaluator sees `existing.unlockedAt != null`
+     * for already-earned achievements and skips the banner emit — preventing the spurious
+     * banner storm that would otherwise occur on every login after a logout+clearAllTables.
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertForSync(achievement: AchievementEntity)
+
     /** Emits the full achievement list whenever any row changes. */
     @Query("SELECT * FROM achievements ORDER BY unlockedAt DESC")
     fun getAllAchievements(): Flow<List<AchievementEntity>>

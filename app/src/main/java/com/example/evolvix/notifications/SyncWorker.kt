@@ -55,8 +55,8 @@ class SyncWorker(
         if (FirebaseAuth.getInstance().currentUser == null) return Result.success()
 
         return try {
-            val dao = AppDatabase.getDatabase(applicationContext).habitDao()
-            SyncController(dao).sync()
+            val db = AppDatabase.getDatabase(applicationContext)
+            SyncController(db.habitDao(), db.achievementDao()).sync()
             Result.success()
         } catch (e: Exception) {
             // Return failure so WorkManager applies exponential backoff and retries.

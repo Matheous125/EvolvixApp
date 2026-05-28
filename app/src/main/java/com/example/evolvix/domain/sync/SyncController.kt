@@ -1,6 +1,8 @@
 package com.example.evolvix.domain.sync
 
+import com.example.evolvix.data.local.AchievementDao
 import com.example.evolvix.data.local.HabitDao
+import com.example.evolvix.data.model.AchievementEntity
 import com.example.evolvix.data.model.HabitCompletionEntity
 import com.example.evolvix.data.model.HabitEntity
 import com.example.evolvix.data.model.HabitFrequency
@@ -44,10 +46,12 @@ import java.time.ZoneOffset
  * Firestore. Neither the DAO nor Firestore knows about each other; all coordination
  * logic lives here.
  *
- * @param habitDao Room DAO for habits and completions.
+ * @param habitDao       Room DAO for habits and completions.
+ * @param achievementDao Room DAO for achievement persistence.
  */
 class SyncController(
-    private val habitDao: HabitDao
+    private val habitDao: HabitDao,
+    private val achievementDao: AchievementDao
 ) {
 
     private val auth = FirebaseAuth.getInstance()
@@ -69,6 +73,9 @@ class SyncController(
     private fun completionsRef() =
         firestore.collection("users").document(uid()).collection("completions")
 
+    private fun achievementsRef() =
+        firestore.collection("users").document(uid()).collection("achievements")
+
     // ── Public API ────────────────────────────────────────────────────────────
 
     /**
@@ -81,8 +88,92 @@ class SyncController(
      * @throws IllegalStateException if no user is signed in.
      */
     suspend fun sync() {
+        // Achievement sync MUST run before habits/completions.
+        // Pre-populating the achievements table with correct unlockedAt timestamps
+        // ensures the reactive evaluator in AchievementsViewModel sees
+        // existing.unlockedAt != null for already-earned achievements,
+        // preventing spurious banner emissions on every post-logout re-login.
+        syncAchievements()
         syncHabits()
         syncCompletions()
+    }
+
+    /**
+     * Pushes a single newly-unlocked achievement to Firestore immediately.
+     *
+     * Called by [com.example.evolvix.ui.viewmodel.AchievementsViewModel] in real-time
+     * whenever an achievement is first earned. This ensures the achievement survives a
+     * subsequent `logout → clearAllTables → login` cycle: [syncAchievements] will pull
+     * it back into Room before the reactive evaluator fires, so no banner is re-emitted.
+     *
+     * No-ops silently if the user is not signed in (e.g. called during a race with logout).
+     */
+    suspend fun pushAchievement(achievement: AchievementEntity) {
+        if (auth.currentUser == null) return
+        achievementsRef().document(achievement.key).set(
+            mapOf(
+                "key"        to achievement.key,
+                "unlockedAt" to achievement.unlockedAt,
+                "progress"   to achievement.progress
+            )
+        ).await()
+    }
+
+    // ── Achievement sync ──────────────────────────────────────────────────────
+
+    /**
+     * Bidirectional achievement sync.
+     *
+     * **Push (local → Firestore):** All locally-unlocked achievements are written to
+     * Firestore so they survive a `clearAllTables` on logout.
+     *
+     * **Pull (Firestore → local):** All Firestore achievements with a non-null
+     * `unlockedAt` are upserted into Room using [AchievementDao.upsertForSync].
+     * Because this runs **before** [syncHabits] and [syncCompletions], the reactive
+     * evaluator in [com.example.evolvix.ui.viewmodel.AchievementsViewModel] will find
+     * `existing.unlockedAt != null` for each already-earned achievement, skipping the
+     * banner emit path and showing banners only for genuinely new unlocks.
+     */
+    private suspend fun syncAchievements() {
+        // ── Local → Firestore ─────────────────────────────────────────────────
+        val localUnlocked = achievementDao.getAllAchievementsOnce()
+            .filter { it.unlockedAt != null }
+        if (localUnlocked.isNotEmpty()) {
+            val batch = firestore.batch()
+            for (a in localUnlocked) {
+                batch.set(
+                    achievementsRef().document(a.key),
+                    mapOf(
+                        "key"        to a.key,
+                        "unlockedAt" to a.unlockedAt,
+                        "progress"   to a.progress
+                    )
+                )
+            }
+            batch.commit().await()
+        }
+
+        // ── Firestore → local ─────────────────────────────────────────────────
+        val remoteSnapshot = achievementsRef().get().await()
+        for (doc in remoteSnapshot.documents) {
+            val key        = doc.getString("key")   ?: continue
+            val unlockedAt = doc.getLong("unlockedAt") ?: continue // skip non-unlocked docs
+            val progress   = (doc.getLong("progress") ?: 0L).toInt()
+            val local      = achievementDao.findByKey(key)
+            // Only upsert when the local row is missing or not yet stamped as unlocked.
+            // Preserving an existing local unlockedAt avoids overwriting the original
+            // timestamp with a value from another device's clock.
+            if (local == null || local.unlockedAt == null) {
+                achievementDao.upsertForSync(
+                    AchievementEntity(
+                        id         = local?.id ?: 0,
+                        key        = key,
+                        unlockedAt = unlockedAt,
+                        progress   = progress
+                    )
+                )
+            }
+        }
     }
 
     // ── Habit sync ────────────────────────────────────────────────────────────

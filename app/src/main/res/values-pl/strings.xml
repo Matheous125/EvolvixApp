@@ -205,11 +205,17 @@
     <string name="label_daily_summary">Dzienne podsumowanie</string>
     <string name="subtitle_daily_summary">Otrzymuj codzienne powiadomienie z podsumowaniem nawyków</string>
     <string name="menu_change_password">Zmień hasło</string>
-    <string name="subtitle_change_password">Dostępne po zalogowaniu (Faza 9)</string>
+    <string name="subtitle_change_password">Zaktualizuj hasło konta</string>
     <string name="menu_change_email">Zmień adres e-mail</string>
     <string name="subtitle_change_email_logged_out">Dostępne po zalogowaniu</string>
     <string name="menu_login_logout">Zaloguj / Wyloguj</string>
     <string name="subtitle_login_logout">Synchronizacja w chmurze dostępna w przyszłej aktualizacji</string>
+    <string name="menu_logout">Wyloguj</string>
+    <string name="menu_login">Zaloguj się</string>
+    <string name="label_not_signed_in">Nie zalogowano</string>
+    <string name="dialog_logout_title">Wyloguj</string>
+    <string name="dialog_logout_body">Czy na pewno chcesz się wylogować?</string>
+    <string name="btn_log_out">Wyloguj</string>
     <string name="menu_help">Pomoc</string>
     <string name="menu_feedback">Opinia</string>
     <string name="subtitle_feedback">Podziel się swoją opinią</string>
@@ -521,7 +527,7 @@
     <string name="auth_sign_in_link">Zaloguj się</string>
     <string name="auth_reset_email_sent">Link resetujący wysłany — sprawdź skrzynkę.</string>
     <string name="auth_password_changed">Hasło zostało zmienione.</string>
-    <string name="auth_email_changed">Adres e-mail został zmieniony.</string>
+    <string name="auth_email_changed">Link do zmiany adresu email wysłany — sprawdź skrzynkę.</string>
     <string name="screen_change_email_title">Zmień adres e-mail</string>
     <string name="label_new_email">Nowy e-mail</string>
     <string name="label_confirm_email">Potwierdź nowy e-mail</string>

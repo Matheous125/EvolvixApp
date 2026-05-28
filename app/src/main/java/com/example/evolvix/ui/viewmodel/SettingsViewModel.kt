@@ -9,6 +9,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.example.evolvix.notifications.DailySummaryWorker
 import com.example.evolvix.notifications.SummaryPreferences
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -141,17 +142,66 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     // ── Display name ──────────────────────────────────────────────────────────
 
+    /**
+     * Returns the SharedPreferences key for the display name, scoped to the currently
+     * signed-in Firebase user's UID. Falls back to a global key when no user is signed in
+     * (e.g. during the very first launch before any account is created).
+     *
+     * Scoping by UID ensures that switching accounts on the same device shows each
+     * user's own chosen display name rather than sharing a single global value.
+     */
+    private fun displayNameKey(): String {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        return if (uid != null) "${KEY_DISPLAY_NAME}_$uid" else KEY_DISPLAY_NAME
+    }
+
     private val _displayName = MutableStateFlow(
-        prefs.getString(KEY_DISPLAY_NAME, "Evolvix User") ?: "Evolvix User"
+        resolveStoredOrFirebaseName()
     )
     /** User's display name shown in the Settings profile header. */
     val displayName: StateFlow<String> = _displayName.asStateFlow()
 
-    /** Persists the new display name. */
+    /** Persists the new display name under the current user's UID-scoped key. */
     fun setDisplayName(name: String) {
         val trimmed = name.trim().ifEmpty { "Evolvix User" }
-        prefs.edit().putString(KEY_DISPLAY_NAME, trimmed).apply()
+        prefs.edit().putString(displayNameKey(), trimmed).apply()
         _displayName.value = trimmed
+    }
+
+    /**
+     * Re-reads the display name from SharedPreferences for the currently signed-in user.
+     *
+     * Call this after every login and logout so the profile header immediately reflects
+     * the correct account's name without requiring an Activity restart.
+     * [AuthViewModel] invokes this as part of its login, register, and logout sequences.
+     *
+     * Falls back to `FirebaseAuth.currentUser.displayName` when the UID-scoped local
+     * key is missing — this is the path that hydrates the Settings header after a
+     * reinstall or the first sign-in on a new device, where SharedPreferences was
+     * wiped but the user's Firebase profile still carries the name they registered with.
+     * When the fallback fires the name is also written back to SharedPreferences so the
+     * next read is a fast in-memory hit instead of touching FirebaseAuth again.
+     */
+    fun reloadDisplayName() {
+        _displayName.value = resolveStoredOrFirebaseName()
+    }
+
+    /**
+     * Resolution order, applied by both VM init and [reloadDisplayName]:
+     *  1. UID-scoped SharedPreferences key (fast, primary source of truth).
+     *  2. `FirebaseAuth.currentUser.displayName` (cloud fallback for reinstalls /
+     *     new devices). Cached back to SharedPreferences on a hit so step 1 wins next time.
+     *  3. Hard-coded "Evolvix User" default (covers logged-out state).
+     */
+    private fun resolveStoredOrFirebaseName(): String {
+        val key = displayNameKey()
+        prefs.getString(key, null)?.takeIf { it.isNotBlank() }?.let { return it }
+        val cloud = FirebaseAuth.getInstance().currentUser?.displayName?.trim()
+        if (!cloud.isNullOrEmpty()) {
+            prefs.edit().putString(key, cloud).apply()
+            return cloud
+        }
+        return "Evolvix User"
     }
 
     // ── Developer visibility prefs ────────────────────────────────────────────

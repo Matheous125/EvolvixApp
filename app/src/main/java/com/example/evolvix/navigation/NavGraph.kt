@@ -177,6 +177,14 @@ fun HabitNavGraph(
                 onNavigateToChangeEmail = {
                     navController.navigate(Screen.ChangeEmail.route)
                 },
+                // After logout: clear the entire back stack so the user cannot press
+                // Back to return to the main app without authenticating again.
+                onNavigateToLogin   = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
                 onNavigateBack      = { navController.navigateUp() }
             )
         }
@@ -226,7 +234,6 @@ fun HabitNavGraph(
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
-                onSaveDisplayName = { name -> settingsViewModel.setDisplayName(name) },
                 onNavigateBack = { navController.navigateUp() }
             )
         }

@@ -21,6 +21,9 @@ class FakeAuthRepository : AuthRepository {
     /** Registered accounts: email → password. */
     private val accounts = mutableMapOf<String, String>()
 
+    /** Display name per account: email -> name (kept in-memory only for the fake). */
+    private val displayNames = mutableMapOf<String, String>()
+
     /** The e-mail of the currently authenticated user, or null when logged out. */
     private var loggedInEmail: String? = null
 
@@ -40,12 +43,14 @@ class FakeAuthRepository : AuthRepository {
         }
     }
 
-    override suspend fun register(email: String, password: String): Result<Unit> {
+    override suspend fun register(email: String, password: String, displayName: String): Result<Unit> {
         val key = email.lowercase()
         return if (accounts.containsKey(key)) {
             Result.failure(IllegalStateException("An account with this e-mail already exists."))
         } else {
             accounts[key] = password
+            val trimmed = displayName.trim()
+            if (trimmed.isNotEmpty()) displayNames[key] = trimmed
             loggedInEmail = key
             Result.success(Unit)
         }
@@ -94,6 +99,8 @@ class FakeAuthRepository : AuthRepository {
     }
 
     override fun currentEmail(): String? = loggedInEmail
+
+    override fun currentDisplayName(): String? = loggedInEmail?.let { displayNames[it] }
 
     override fun logout() {
         loggedInEmail = null
