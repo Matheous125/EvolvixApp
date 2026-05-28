@@ -24,7 +24,7 @@ import com.example.evolvix.data.model.HabitTargetHistoryEntity
         HabitSkipEntity::class,
         AppSessionEntity::class
     ],
-    version = 21, // Phase 9.6: added app_sessions table. Reinstall app.
+    version = 22, // Phase 10.2: added lastModified + syncedAt to HabitEntity and HabitCompletionEntity. Reinstall app.
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

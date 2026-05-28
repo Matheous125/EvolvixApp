@@ -49,6 +49,7 @@ import com.example.evolvix.domain.usecase.ScheduleReminderUseCase
 import com.example.evolvix.navigation.HabitNavGraph
 import com.example.evolvix.navigation.Screen
 import com.example.evolvix.notifications.DailySummaryWorker
+import com.example.evolvix.notifications.SyncWorker
 import com.example.evolvix.notifications.NotificationChannels
 import com.example.evolvix.notifications.OnboardingPreferences
 import com.example.evolvix.notifications.SessionTracker
@@ -98,8 +99,13 @@ class MainActivity : AppCompatActivity() {
         // Re-schedule reminders + enqueue summary on a background dispatcher.
         // Phase 7.2v2: both calls are now suspend (they hit Room for personalized
         // timing), so they must run inside a coroutine.
+        // Phase 10.2: also enqueue the periodic + on-network-available SyncWorker.
         lifecycleScope.launch(Dispatchers.IO) {
             DailySummaryWorker.enqueue(applicationContext)
+            // Periodic sync fires every hour while connected; on-network sync fires
+            // immediately the moment the device comes back online (Pattern: Command).
+            SyncWorker.enqueuePeriodicSync(applicationContext)
+            SyncWorker.enqueueOnNetworkSync(applicationContext)
             val dao = AppDatabase.getDatabase(applicationContext).habitDao()
             val scheduler = ScheduleReminderUseCase(applicationContext)
             dao.getAllHabitsOnce()

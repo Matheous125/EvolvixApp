@@ -115,6 +115,32 @@ abstract class HabitDao {
     abstract suspend fun getAllHabitsOnce(): List<HabitEntity>
 
     /**
+     * Returns all completion records across every habit as a one-shot snapshot.
+     * Used by [SyncController] to collect the local side before the union merge
+     * with Firestore. A suspend function (not Flow) so the sync operation can
+     * read all rows once and process them without emitting a stream.
+     */
+    @Query("SELECT * FROM habit_completions")
+    abstract suspend fun getAllCompletionsOnce(): List<HabitCompletionEntity>
+
+    /**
+     * Stamps [syncedAt] on every habit whose ID is in [ids].
+     * Called by [SyncController] after a successful Firestore batch push so the
+     * next sync can skip unchanged rows (`lastModified <= syncedAt` → already in sync).
+     * Phase 10.2.
+     */
+    @Query("UPDATE habits SET syncedAt = :syncedAt WHERE id IN (:ids)")
+    abstract suspend fun markHabitsSynced(ids: List<Int>, syncedAt: Long)
+
+    /**
+     * Stamps [syncedAt] on every completion whose ID is in [ids].
+     * Called by [SyncController] after a successful Firestore batch push.
+     * Phase 10.2.
+     */
+    @Query("UPDATE habit_completions SET syncedAt = :syncedAt WHERE id IN (:ids)")
+    abstract suspend fun markCompletionsSynced(ids: List<Int>, syncedAt: Long)
+
+    /**
      * Renames a manual group in one atomic SQL UPDATE.
      * All habits whose [manualGroup] equals [oldName] are updated to [newName].
      */

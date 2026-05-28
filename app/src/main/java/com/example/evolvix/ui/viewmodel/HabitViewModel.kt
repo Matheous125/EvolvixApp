@@ -461,7 +461,10 @@ class HabitViewModel(
                     iconKey = iconKey,
                     reminderEnabled = reminderEnabled,
                     reminderTime = reminderTime,
-                    targetVersion = newTargetVersion
+                    targetVersion = newTargetVersion,
+                    // Phase 10.2: refresh lastModified so SyncController can detect
+                    // that the local version is newer than the remote copy.
+                    lastModified = System.currentTimeMillis()
                 )
                 habitDao.updateHabit(updatedHabit)
                 if (targetChanged) {

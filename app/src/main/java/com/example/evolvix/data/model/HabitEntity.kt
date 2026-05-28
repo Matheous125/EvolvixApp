@@ -63,5 +63,20 @@ data class HabitEntity(
      * [HabitViewModel.updateHabit] whenever [target] changes, and written onto every
      * new [HabitCompletionEntity] so per-version completion rates can be derived.
      */
-    val targetVersion: Int = 1
+    val targetVersion: Int = 1,
+    /**
+     * Phase 10.2 — Unix epoch milliseconds of the last local write to this row.
+     * Set to [System.currentTimeMillis] on every insert; refreshed by [HabitViewModel]
+     * whenever the user edits the habit. Used by [SyncController] to detect which
+     * device's version is newer and resolve conflicts (remote wins when
+     * `remote.lastModified > local.lastModified`).
+     */
+    val lastModified: Long = System.currentTimeMillis(),
+    /**
+     * Phase 10.2 — Unix epoch milliseconds of the last successful Firestore push for
+     * this row. Null means the row has never been uploaded. [SyncController] uses
+     * this to skip unchanged habits: if `lastModified <= syncedAt` the row is already
+     * in sync and does not need to be pushed again.
+     */
+    val syncedAt: Long? = null
 )

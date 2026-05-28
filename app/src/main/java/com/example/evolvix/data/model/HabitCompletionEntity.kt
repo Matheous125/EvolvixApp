@@ -40,9 +40,13 @@ data class HabitCompletionEntity(
     val targetVersion: Int = 1,          // Phase 9.3: snapshot of HabitEntity.targetVersion at the time
                                          // of this completion. Allows TargetAdjustmentUseCase to compute
                                          // per-version completion rates without re-joining history rows.
-    val perceivedDifficulty: Int? = null  // Phase 9.4: user-reported difficulty rating (1–5) captured via
+    val perceivedDifficulty: Int? = null, // Phase 9.4: user-reported difficulty rating (1–5) captured via
                                           // in-app star chips shown for ~5 seconds after a completion tap.
                                           // null when the user dismisses without rating. Used by
                                           // DifficultyEstimateUseCase to build recentAvgRated and by
                                           // HabitDao.getCompletionsWithDifficulty for analytics queries.
+    /** Phase 10.2 — epoch millis of last local write; used by [SyncController] for conflict resolution. */
+    val lastModified: Long = System.currentTimeMillis(),
+    /** Phase 10.2 — epoch millis of last successful Firestore push; null = never synced. */
+    val syncedAt: Long? = null
 )
