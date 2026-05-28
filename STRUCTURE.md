@@ -54,6 +54,9 @@ app/src/main/java/com/example/evolvix
 │   ├── auth/               # Authentication contracts (Dependency Inversion; swappable impl)
 │   │   ├── AuthRepository.kt      # Interface defining all auth operations (login, register, resetPassword, changePassword, changeEmail, currentEmail, logout); returns Result<Unit>
 │   │   └── FakeAuthRepository.kt  # In-memory stub implementation of AuthRepository used during development (Phase 9); Polish-Pass E2 adds changeEmail (password verify + EMAIL_REGEX + uniqueness check + atomic account map re-keying) and currentEmail() getter; replaced by FirebaseAuthRepository in Phase 10
+│   ├── sync/               # Cloud synchronisation abstractions (Phase 10)
+│   │   ├── SyncController.kt      # Mediator between Room and Firestore (Pattern: Mediator); bidirectional upsert of habits and timestamp-union merge of completions; exposes syncState: StateFlow<SyncState>; pushAchievement(entity) pushes a single achievement to Firestore immediately after unlock
+│   │   └── SyncState.kt           # Sealed class representing the current sync lifecycle: Idle / Syncing / Success / Error; observed by MainScreen top bar via StateFlow + collectAsState (Observer pattern)
 │   ├── model/              # Domain models and state classes
 │   │   ├── AbandonmentRisk.kt        # Output of AbandonmentRiskUseCase (Phase 8.1); wraps raw probability into a Rating tier (LOW/MEDIUM/HIGH/CRITICAL) + data-sufficiency flag
 │   │   ├── AchievementDefinition.kt  # Sealed class hierarchy of all 50 achievement definitions (key, points, threshold, group)
@@ -137,7 +140,8 @@ app/src/main/java/com/example/evolvix
 │   ├── SkipReasonPickerActivity.kt # ComponentActivity (Phase 9.5 / 9.6.3): transparent Activity (Theme.Evolvix.Dialog, excludeFromRecents, launchMode=singleTop, taskAffinity="") hosting a ModalBottomSheet launched via PendingIntent.getActivity() from HabitReminderWorker and from MainScreen context menu; shows 6 FilterChips (SkipReason.displayLabel); on selection → enqueues RecordHabitActionWorker(ACTION_SKIP, reason.name); on dismiss → enqueues NO_REASON
 │   ├── SnoozePreferences.kt       # SharedPreferences wrapper (singleton object) for per-habit snooze counter lifecycle (Phase 9.2); file = evolvix_snooze_prefs; key = snooze_count_<habitId>; reset on Done/Skip, increment on Snooze
 │   ├── SummaryDismissReceiver.kt  # BroadcastReceiver tracking swipe-dismissals of the summary notification; auto-disables after 7 consecutive dismissals
-│   └── SummaryPreferences.kt      # SharedPreferences wrapper for daily-summary state: dismissStreak counter + disabled flag
+│   ├── SummaryPreferences.kt      # SharedPreferences wrapper for daily-summary state: dismissStreak counter + disabled flag
+│   └── SyncWorker.kt              # CoroutineWorker (Phase 10.2): drives Room ↔ Firestore bidirectional sync; two scheduling modes: periodic (every 12 h, network-constrained) via enqueuePeriodicSync + one-shot on-network-reconnect via enqueueOnNetworkSync; silently succeeds when no user is signed in; delegates all logic to SyncController
 │
 ├── ui/                     # The "View" Layer (Jetpack Compose)
 │   ├── components/         # Reusable Compose widgets
@@ -223,5 +227,6 @@ ml-training/
 ├── train_difficulty_model.py       # Trains + exports perceived_difficulty_regressor.tflite + perceived_difficulty_scaler.json (Phase 9.4); Dense(64,relu)→Dropout(0.2)→Dense(32,relu)→Dense(1,linear); MAE loss, output coerced to [1.0,5.0]; threshold MAE ≤ 0.5
 ├── train_engagement_window_model.py # Trains + exports engagement_window_regressor.tflite + engagement_window_scaler.json (Phase 9.6); 8-feature MLP: Dense(32,relu)→Dropout(0.2)→Dense(16,relu)→Dense(1,sigmoid)→Lambda(x*24); MAE loss; threshold MAE ≤ 1.5 h; achieved MAE 1.0487 h
 ├── train_skip_reason_model.py      # Trains + exports skip_reason_classifier.tflite + skip_reason_scaler.json (Phase 9.5); 6-class softmax MLP: Dense(64,relu)→Dropout(0.2)→Dense(32,relu)→Dense(6,softmax); class_weight=balanced; threshold Macro F1 ≥ 0.35; achieved accuracy=49.3%, Macro F1=0.377
-└── evaluate_models.py              # Thesis-grade evaluation report: loads .tflite artifacts + habit_clusters.json, reproduces test splits, computes metrics + silhouette + PCA scatter, saves plots to data/plots/; Phase 9.4 adds PerceivedDifficultyRegressor block; Phase 9.5 adds SkipReasonClassifier block (confusion matrix + per-class report, Macro F1 gate ≥ 0.35); Phase 9.6 adds EngagementWindowRegressor block (MAE/RMSE vs naive baseline, scatter_engagement_window.png, MAE gate ≤ 1.5 h)
+├── evaluate_models.py              # Thesis-grade evaluation report: loads .tflite artifacts + habit_clusters.json, reproduces test splits, computes metrics + silhouette + PCA scatter, saves plots to data/plots/; Phase 9.4 adds PerceivedDifficultyRegressor block; Phase 9.5 adds SkipReasonClassifier block (confusion matrix + per-class report, Macro F1 gate ≥ 0.35); Phase 9.6 adds EngagementWindowRegressor block (MAE/RMSE vs naive baseline, scatter_engagement_window.png, MAE gate ≤ 1.5 h)
+└── evaluate_models_pl.py           # Polish-language version of evaluate_models.py for the engineering thesis; covers all 14 models with Polish metric labels and chart titles; saves plots to data/plots_pl/ and a summary Markdown report to data/plots_pl/podsumowanie_metryk.md
 ```

@@ -406,8 +406,8 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 - [x] **Model:** Each entity gains `lastModified: Long` and `syncedAt: Long?` (bump DB version).
 
 ### 10.3 Settings integration
-- [ ] Wire real Login/Logout/Change Password/Change Email buttons in `SettingsScreen.kt` to `FirebaseAuthRepository`. To avoid data leak for a single-user offline-firs app as this is, please remember to apply these (simple, thesis-defensible) features:
-- [ ] Show sync status indicator in `MainScreen.kt` top bar (Pattern: **Observer** of `SyncState` Flow).
+- [x] Wire real Login/Logout/Change Password/Change Email buttons in `SettingsScreen.kt` to `FirebaseAuthRepository`.
+- [x] Show sync status indicator in `MainScreen.kt` top bar (Pattern: **Observer** of `SyncState` Flow).
 
 ---
 
