@@ -47,8 +47,11 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.example.evolvix.domain.sync.SyncController
+import com.example.evolvix.domain.sync.SyncState
 
 /**
  * Represents one visual "row" in the MANUAL mode list.
@@ -152,6 +155,20 @@ fun MainScreen(
     val activeFilters   by habitViewModel.activeFilters.collectAsState()
     val availableCategories by habitViewModel.availableCategories.collectAsState()
     val searchQuery     by habitViewModel.searchQuery.collectAsState()
+
+    // Observe the process-wide sync state (Pattern: Observer via StateFlow).
+    // The companion-object StateFlow is updated by both the activity-scoped SyncController
+    // and the WorkManager SyncWorker, so this indicator reflects all sync activity.
+    val syncState by SyncController.syncState.collectAsState()
+
+    // Auto-reset the Success indicator back to Idle after 3 seconds so the checkmark
+    // does not persist on the top bar indefinitely.
+    LaunchedEffect(syncState) {
+        if (syncState == SyncState.Success) {
+            delay(3_000L)
+            SyncController.resetToIdle()
+        }
+    }
 
     // Phase 7.2v2 — observe daily-summary unread count for the bell-icon badge.
     // Scoped to MainScreen so the badge re-composes only when this screen is visible.
@@ -316,6 +333,33 @@ fun MainScreen(
                             }
                         }
                     } else {
+                    // Sync status indicator — visible only during/after a sync operation.
+                    // No click action — purely informational (Pattern: Observer via StateFlow).
+                    when (syncState) {
+                        SyncState.Syncing -> Box(
+                            modifier = Modifier.size(48.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        SyncState.Success -> Icon(
+                            Icons.Filled.CloudDone,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                        SyncState.Error -> Icon(
+                            Icons.Filled.CloudOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                        SyncState.Idle -> {} // nothing rendered while idle
+                    }
                     // Sort-order picker — opens a DropdownMenu with 3 sort options
                     Box {
                         IconButton(onClick = { sortMenuExpanded = true }) {
@@ -436,6 +480,16 @@ fun MainScreen(
                                         debugMenuExpanded = false
                                         com.example.evolvix.notifications.DebugTriggers
                                             .resetSummaryDisable(appCtx)
+                                    }
+                                )
+                                // Force an immediate bidirectional sync — useful for testing
+                                // the offline→online scenario without waiting for the hourly worker.
+                                DropdownMenuItem(
+                                    text = { Text("Force sync now") },
+                                    onClick = {
+                                        debugMenuExpanded = false
+                                        com.example.evolvix.notifications.SyncWorker
+                                            .enqueueOnNetworkSync(appCtx)
                                     }
                                 )
                             }

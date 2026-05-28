@@ -9,6 +9,9 @@ import com.example.evolvix.data.model.HabitFrequency
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -54,6 +57,28 @@ class SyncController(
     private val achievementDao: AchievementDao
 ) {
 
+    companion object {
+        /**
+         * Process-wide sync state observable (Pattern: **Observer via StateFlow**).
+         *
+         * Stored at the class level so both the activity-scoped [SyncController] instance
+         * (created in [com.example.evolvix.MainActivity]) and the ephemeral instance inside
+         * [com.example.evolvix.notifications.SyncWorker.doWork] write to the same signal.
+         * MainScreen collects [syncState] to render the top-bar indicator.
+         */
+        private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
+        val syncState: StateFlow<SyncState> = _syncState.asStateFlow()
+
+        /**
+         * Resets the sync state back to [SyncState.Idle].
+         * Called by MainScreen after displaying the [SyncState.Success] indicator
+         * for a short period so the checkmark does not persist indefinitely.
+         */
+        fun resetToIdle() {
+            _syncState.value = SyncState.Idle
+        }
+    }
+
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
 
@@ -88,14 +113,21 @@ class SyncController(
      * @throws IllegalStateException if no user is signed in.
      */
     suspend fun sync() {
-        // Achievement sync MUST run before habits/completions.
-        // Pre-populating the achievements table with correct unlockedAt timestamps
-        // ensures the reactive evaluator in AchievementsViewModel sees
-        // existing.unlockedAt != null for already-earned achievements,
-        // preventing spurious banner emissions on every post-logout re-login.
-        syncAchievements()
-        syncHabits()
-        syncCompletions()
+        _syncState.value = SyncState.Syncing
+        try {
+            // Achievement sync MUST run before habits/completions.
+            // Pre-populating the achievements table with correct unlockedAt timestamps
+            // ensures the reactive evaluator in AchievementsViewModel sees
+            // existing.unlockedAt != null for already-earned achievements,
+            // preventing spurious banner emissions on every post-logout re-login.
+            syncAchievements()
+            syncHabits()
+            syncCompletions()
+            _syncState.value = SyncState.Success
+        } catch (e: Exception) {
+            _syncState.value = SyncState.Error
+            throw e  // re-throw so SyncWorker can return Result.failure() and trigger backoff
+        }
     }
 
     /**
