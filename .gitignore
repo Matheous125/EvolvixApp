@@ -67,6 +67,7 @@ desktop.ini
 *.jks
 *.keystore
 keystore.properties
+app/google-services.json
 
 # ============================================================
 # ml-training/ (Python ML pipeline — Phase 6.5)

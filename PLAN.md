@@ -338,24 +338,24 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
 > `google-services.json` file that the Gradle plugin requires. Without it the app will
 > not compile once the Firebase deps are added.
 
-- [ ] **1. Create a Firebase project:**
+- [x] **1. Create a Firebase project:**
   - Open [console.firebase.google.com](https://console.firebase.google.com) → "Add project".
   - Name it `Evolvix`; disable Google Analytics (not needed for thesis).
-- [ ] **2. Register the Android app:**
+- [x] **2. Register the Android app:**
   - In the project overview click the Android icon → "Add app".
   - Package name: `com.example.evolvix` (must match `applicationId` in `app/build.gradle.kts`).
   - Leave SHA-1 blank for now (only needed for Phone Auth / Google Sign-In).
   - Download `google-services.json` → place it in `app/` (same folder as `app/build.gradle.kts`).
   - **Do not commit `google-services.json` to git.** Add `app/google-services.json` to `.gitignore`.
-- [ ] **3. Enable Firebase Authentication:**
+- [x] **3. Enable Firebase Authentication:**
   - Console → Build → Authentication → "Get started".
   - Sign-in method tab → enable **Email/Password** provider.
   - Leave all other providers disabled.
-- [ ] **4. Enable Firestore Database:**
+- [x] **4. Enable Firestore Database:**
   - Console → Build → Firestore Database → "Create database".
   - Choose **production mode** (rules deny all by default — you will set rules in 10.2).
   - Region: `europe-central2` (Warsaw) — closest to your thesis server, lowest latency.
-- [ ] **5. Add the Google Services Gradle plugin:**
+- [x] **5. Add the Google Services Gradle plugin:**
   - In root `build.gradle.kts` (project-level), inside `plugins {}` block, add:
     `id("com.google.gms.google-services") version "4.4.2" apply false`
   - In `app/build.gradle.kts`, inside `plugins {}` block, add:
@@ -363,13 +363,13 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
   - Sync Gradle — the plugin reads `google-services.json` and generates Firebase resources.
 
 ### 10.1 Firebase wiring
-- [ ] Add Firebase Auth + Firestore Gradle deps in `app/build.gradle.kts`:
+- [x] Add Firebase Auth + Firestore Gradle deps in `app/build.gradle.kts`:
   ```kotlin
   implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
   implementation("com.google.firebase:firebase-auth-ktx")
   implementation("com.google.firebase:firebase-firestore-ktx")
   ```
-- [ ] Create `data/auth/FirebaseAuthRepository.kt` implementing `AuthRepository`:
+- [x] Create `data/auth/FirebaseAuthRepository.kt` implementing `AuthRepository`:
   - `login` → `FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password).await()`
   - `register` → `createUserWithEmailAndPassword(email, password).await()`
   - `resetPassword` → `sendPasswordResetEmail(email).await()`
@@ -395,7 +395,7 @@ This plan reorders the 7 thematic modules from `IDEAS.MD` into **dependency-driv
     request will be silently rejected. Disable it for the thesis demo.
   - `currentEmail` → `FirebaseAuth.getInstance().currentUser?.email`
   - `logout` → `FirebaseAuth.getInstance().signOut()`
-- [ ] Replace `FakeAuthRepository` with `FirebaseAuthRepository` at the injection site
+- [x] Replace `FakeAuthRepository` with `FirebaseAuthRepository` at the injection site
   in `MainActivity` (or wherever `AuthViewModelFactory` is constructed). **No ViewModel
   or screen code changes** — this is the Liskov-substitution payoff from Phase 9.
 

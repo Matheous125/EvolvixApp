@@ -64,7 +64,7 @@ import com.example.evolvix.ui.viewmodel.HabitViewModelFactory
 import com.example.evolvix.ui.viewmodel.SettingsViewModel
 import com.example.evolvix.ui.viewmodel.SettingsViewModelFactory
 import com.example.evolvix.ui.viewmodel.ThemeMode
-import com.example.evolvix.domain.auth.FakeAuthRepository
+import com.example.evolvix.data.auth.FirebaseAuthRepository
 
 /**
  * Main entry point for the application.
@@ -162,12 +162,11 @@ fun AppContent() {
         )
     )
 
-    // Activity-scoped ViewModel for all authentication screens (Phase 9).
-    // Phase 9 uses FakeAuthRepository (in-memory). Phase 10 swaps the factory
-    // argument to FirebaseAuthRepository — no ViewModel code changes needed
-    // (Pattern: Strategy + Dependency Inversion).
+    // Activity-scoped ViewModel for all authentication screens (Phase 10).
+    // FirebaseAuthRepository is the production implementation — wired here via
+    // Liskov substitution; no ViewModel or screen code changed (Pattern: Strategy + DI).
     val authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModelFactory(FakeAuthRepository())
+        factory = AuthViewModelFactory(FirebaseAuthRepository())
     )
     val reorderMode by habitViewModel.reorderMode.collectAsState()
 
@@ -221,15 +220,13 @@ fun AppContent() {
     // Priority: Onboarding (first launch) → Login (not authenticated) → Habits.
     // SharedPreferences + StateFlow.value are both synchronous reads safe in remember{}.
     // (Pattern: Preferences as Repository — storage concern stays out of the View)
-    // TODO: re-enable auth guard before release — temporarily bypassed for ML smoke testing
-    val startDestination = remember { Screen.Habits.route }
-//    val startDestination = remember {
-//        when {
-//            !OnboardingPreferences.isCompleted(context) -> Screen.Onboarding.route
-//            !authViewModel.uiState.value.isAuthenticated -> Screen.Login.route
-//            else -> Screen.Habits.route
-//        }
-//    }
+    val startDestination = remember {
+        when {
+            !OnboardingPreferences.isCompleted(context) -> Screen.Onboarding.route
+            !authViewModel.uiState.value.isAuthenticated -> Screen.Login.route
+            else -> Screen.Habits.route
+        }
+    }
 
     // Phase 7.2v2 — handle notification deep-link from DailySummaryWorker. When the
     // user taps the summary notification, MainActivity is (re)launched with an extra

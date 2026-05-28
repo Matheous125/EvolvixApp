@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp") version "2.3.2"
     kotlin("plugin.serialization") version "2.2.10"
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -120,6 +121,10 @@ dependencies {
     // notifications and the periodic daily-summary job. We rely on the Coroutine
     // worker variant so [HabitReminderWorker] can suspend on DAO calls.
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
 }
 
 // Prevent AGP from compressing .tflite assets — tflite loaders mmap the raw bytes
