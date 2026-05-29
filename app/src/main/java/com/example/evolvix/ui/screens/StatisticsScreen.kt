@@ -436,33 +436,34 @@ private fun CollapsibleBlock(
     var expanded by rememberSaveable(titleRes) { mutableStateOf(defaultExpanded) }
     val title = stringResource(titleRes)
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { expanded = !expanded }
-                .padding(horizontal = 4.dp, vertical = 8.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
-            )
-            Icon(
-                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = stringResource(
-                    if (expanded) R.string.cd_collapse_section else R.string.cd_expand_section,
-                    title
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { expanded = !expanded }
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
                 )
-            )
-        }
-        if (expanded) {
-            Spacer(Modifier.height(4.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                content()
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = stringResource(
+                        if (expanded) R.string.cd_collapse_section else R.string.cd_expand_section,
+                        title
+                    )
+                )
+            }
+            if (expanded) {
+                Spacer(Modifier.height(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    content()
+                }
             }
         }
     }
@@ -1155,14 +1156,14 @@ private fun BehavioralPatternsCard(
  */
 @Composable
 private fun AtRiskCard(entries: List<Pair<String, AbandonmentRisk>>) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.card_at_risk_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(8.dp))
+    Column {
+        Text(
+            text = stringResource(R.string.card_at_risk_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.padding(start = 8.dp)) {
             entries.forEach { (name, risk) ->
                 AtRiskRow(habitName = name, risk = risk)
             }
@@ -1304,20 +1305,20 @@ private fun SmartRemindersCard(
  */
 @Composable
 private fun SnoozeDriftCard(entries: List<Pair<String, SnoozeDisengagementRisk>>) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.snooze_drift_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.snooze_drift_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
+    Column {
+        Text(
+            text = stringResource(R.string.snooze_drift_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.snooze_drift_subtitle),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.padding(start = 8.dp)) {
             entries.forEach { (name, risk) ->
                 SnoozeDriftRow(habitName = name, risk = risk)
             }
@@ -1489,19 +1490,18 @@ private fun BehavioralTiersCard(
         .sorted()
     val hasAnyData = byTier.values.any { it.isNotEmpty() }
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.card_cluster_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = stringResource(R.string.card_cluster_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(12.dp))
+    Column {
+        Text(
+            text = stringResource(R.string.card_cluster_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = stringResource(R.string.card_cluster_subtitle),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(12.dp))
 
             if (!hasAnyData && insufficientNames.isEmpty()) {
                 Text(
@@ -1588,12 +1588,11 @@ private fun BehavioralTiersCard(
                                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                    }
                 }
             }
-            // D1 (PLAN-POLISH-PASS): the embedded Spillover section moved out of this
-            // card and is now rendered by SpilloverCard inside the Habit Interactions block.
         }
+        // D1 (PLAN-POLISH-PASS): the embedded Spillover section moved out of this
+        // card and is now rendered by SpilloverCard inside the Habit Interactions block.
     }
 }
 
@@ -1610,38 +1609,36 @@ private fun BehavioralTiersCard(
  */
 @Composable
 private fun SpilloverCard(insights: List<SpilloverPair>) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.spillover_card_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.spillover_section_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-            insights.forEach { pair ->
-                val pct = (kotlin.math.abs(pair.liftDelta) * 100).roundToInt()
-                val (color, text) = when (pair.direction) {
-                    SpilloverPair.Direction.BOOST -> MaterialTheme.colorScheme.primary to
-                        stringResource(R.string.spillover_boost, pair.habitAName, pair.habitBName, pct)
-                    SpilloverPair.Direction.DRAG -> MaterialTheme.colorScheme.error to
-                        stringResource(R.string.spillover_drag, pair.habitAName, pair.habitBName, pct)
-                    // NEUTRAL pairs are filtered by SpilloverUseCase; defensive fallback only.
-                    SpilloverPair.Direction.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant to ""
-                }
-                if (text.isNotEmpty()) {
-                    Text(
-                        text = text,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = color,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
+    Column {
+        Text(
+            text = stringResource(R.string.spillover_card_title),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.spillover_section_subtitle),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        insights.forEach { pair ->
+            val pct = (kotlin.math.abs(pair.liftDelta) * 100).roundToInt()
+            val (color, text) = when (pair.direction) {
+                SpilloverPair.Direction.BOOST -> MaterialTheme.colorScheme.primary to
+                    stringResource(R.string.spillover_boost, pair.habitAName, pair.habitBName, pct)
+                SpilloverPair.Direction.DRAG -> MaterialTheme.colorScheme.error to
+                    stringResource(R.string.spillover_drag, pair.habitAName, pair.habitBName, pct)
+                // NEUTRAL pairs are filtered by SpilloverUseCase; defensive fallback only.
+                SpilloverPair.Direction.NEUTRAL -> MaterialTheme.colorScheme.onSurfaceVariant to ""
+            }
+            if (text.isNotEmpty()) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = color,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
             }
         }
     }
@@ -1945,11 +1942,10 @@ private fun SkipReasonForecastRow(
  */
 @Composable
 private fun EngagementWindowCard(window: EngagementWindow) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
+    Column {
+        Text(
                 text = "Your Active Hour",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(4.dp))
@@ -1991,7 +1987,6 @@ private fun EngagementWindowCard(window: EngagementWindow) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
         }
     }
 }

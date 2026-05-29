@@ -1169,7 +1169,7 @@ def evaluate_reminder_lift_model() -> dict:
     # ----- Macierz pomyłek -----
     cm = confusion_matrix(y_test, y_pred)
     out_path = PLOTS_DIR_PL / "macierz_pomylek_lift_przypomnienia.png"
-    fig, ax = plt.subplots(figsize=(4, 4))
+    fig, ax = plt.subplots(figsize=(5, 4))
     im = ax.imshow(cm, cmap="Blues")
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["Nie", "Tak"])
@@ -1182,7 +1182,7 @@ def evaluate_reminder_lift_model() -> dict:
         for j in range(2):
             ax.text(j, i, str(cm[i, j]), ha="center", va="center",
                     color="white" if cm[i, j] > cm.max() / 2 else "black")
-    fig.colorbar(im, ax=ax)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
@@ -1270,7 +1270,7 @@ def evaluate_snooze_disengagement_model() -> dict:
     # ----- Macierz pomyłek -----
     cm = confusion_matrix(y_test, y_pred)
     out_path = PLOTS_DIR_PL / "macierz_pomylek_snooze.png"
-    fig, ax = plt.subplots(figsize=(4, 4))
+    fig, ax = plt.subplots(figsize=(5, 4))
     im = ax.imshow(cm, cmap="Blues")
     ax.set_xticks([0, 1])
     ax.set_xticklabels(["Zaangażowany", "Niezaangażowany"])
@@ -1283,7 +1283,7 @@ def evaluate_snooze_disengagement_model() -> dict:
         for j in range(2):
             ax.text(j, i, str(cm[i, j]), ha="center", va="center",
                     color="white" if cm[i, j] > cm.max() / 2 else "black")
-    fig.colorbar(im, ax=ax)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
