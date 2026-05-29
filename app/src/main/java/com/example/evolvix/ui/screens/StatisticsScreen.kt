@@ -334,8 +334,13 @@ private fun AnalyticsRetentionHeadline(engagement: AnalyticsEngagement) {
     val tint = if (diffDays > 0) MaterialTheme.colorScheme.primary
                else MaterialTheme.colorScheme.onSurfaceVariant
 
+    // Build signed strings explicitly so negative values display as "-6" not "+-6".
+    // String.format("%+d", n) correctly outputs "+6" for positives and "-6" for negatives.
+    val diffDaysStr = String.format("%+d", diffDays)
+    val liftPctStr = String.format("%+d", liftPct)
+
     Text(
-        text = stringResource(R.string.analytics_retention_headline, diffDays, liftPct),
+        text = stringResource(R.string.analytics_retention_headline, diffDaysStr, liftPctStr),
         style = MaterialTheme.typography.bodyMedium,
         color = tint,
         modifier = Modifier
@@ -2025,21 +2030,49 @@ private fun MlPredictionsSection(
     AiDataCard(title = stringResource(R.string.per_habit_predictions_title)) {
         var first = true
         if (showTarget) {
+            Text(
+                text = "Target Calibration",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
             TargetCalibrationRow(habitName = habitName, adjustment = targetAdjustment!!)
             first = false
         }
         if (showReminder) {
             if (!first) HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            Text(
+                text = "Smart Reminders",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
             ReminderLiftRow(habitName = habitName, lift = reminderLift!!)
             first = false
         }
         if (showDifficulty) {
             if (!first) HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            Text(
+                text = "Perceived Difficulty",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
             DifficultyRow(habitName = habitName, estimate = difficultyEstimate!!)
             first = false
         }
         if (showSkip) {
             if (!first) HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+            Text(
+                text = "Skip Reason Forecast",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
             SkipReasonForecastRow(habitName = habitName, prediction = skipReasonPrediction!!)
         }
     }

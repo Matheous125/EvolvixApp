@@ -171,7 +171,7 @@
     <string name="label_rating_critical">CRITICAL</string>
     <string name="label_risk_pct">%1$d%%</string>
     <!-- B4-ext: verbose per-habit sentence rows -->
-    <string name="at_risk_row_critical">🚨 %1$s — CRITICAL abandonment risk (%2$d%%): the model predicts this habit is very likely to be dropped. Act now — set a reminder or lower the target.</string>
+    <string name="at_risk_row_critical">🚨 %1$s — CRITICAL abandonment risk (%2$d%%): AI predicts this habit is very likely to be dropped. Act now — set a reminder or lower the target.</string>
     <string name="at_risk_row_high">⚠️ %1$s — HIGH abandonment risk (%2$d%%): engagement is declining. A reminder or a small streak goal may help reverse the trend.</string>
 
     <!-- ── Phase 8.4 — Behavioral Cluster card ── -->
@@ -217,9 +217,9 @@
     <string name="target_adjustment_arrow_down">↓ %d</string>
     <string name="target_adjustment_current_to_suggested">%d → %d</string>
     <!-- B4: verbose per-habit sentence rows -->
-    <string name="target_adj_row_high">🎯 %1$s — Suggest target %2$d → %3$d (HIGH confidence — model is decisive).</string>
+    <string name="target_adj_row_high">🎯 %1$s — Suggest target %2$d → %3$d (HIGH confidence — AI is decisive).</string>
     <string name="target_adj_row_medium">🎯 %1$s — Suggest target %2$d → %3$d (MEDIUM confidence — moderate certainty).</string>
-    <string name="target_adj_row_low">🎯 %1$s — Suggest target %2$d → %3$d (LOW confidence — model is uncertain, treat as a hint).</string>
+    <string name="target_adj_row_low">🎯 %1$s — Suggest target %2$d → %3$d (LOW confidence — AI is uncertain, treat as a hint).</string>
 
     <!-- ── Phase 9.4 — Perceived Difficulty card ── -->
     <string name="difficulty_card_title">🧠 Perceived Difficulty</string>
@@ -232,10 +232,10 @@
     <string name="block_attention_needed">⚠️ Attention Needed</string>
     <string name="block_habit_interactions">🔗 Habit Interactions</string>
     <string name="spillover_card_title">🔁 Habit Spillover</string>
-    <string name="per_habit_predictions_title">🧠 ML Predictions for this habit</string>
+    <string name="per_habit_predictions_title">🧠 AI Predictions</string>
 
     <!-- ── B3 (PLAN-POLISH-PASS) — Analytics retention lift headline ── -->
-    <string name="analytics_retention_headline">📊 Analytics viewers stay active +%1$d days/month longer (lift %2$d%%).</string>
+    <string name="analytics_retention_headline">📊 Analytics viewers stay active %1$s days per month longer (lift %2$s%%).</string>
 
     <string name="empty_no_habits_title">Nothing to analyze yet! 📊</string>
     <string name="empty_no_habits_subtitle">Complete a few habits, and your AI coach will start finding patterns.</string>
@@ -566,7 +566,7 @@
     <string name="label_new_password">New Password</string>
     <string name="label_old_password">Current Password</string>
     <string name="label_confirm_password">Confirm Password</string>
-    <string name="btn_sign_in">Sign In</string>
+    <string name="btn_sign_in">Sign in</string>
     <string name="btn_create_account">Create Account</string>
     <string name="btn_send_reset_link">Send Reset Link</string>
     <string name="btn_set_password">Set Password</string>

@@ -41,9 +41,10 @@ import java.time.LocalDate
  *
  * Additionally inserts 20 [AppSessionEntity] records (evening cluster ~20:00) so
  * [EngagementWindowUseCase] passes its MIN_SESSIONS=14 guard and predicts
- * hour ~20 with high confidence. 8 sessions carry `StatisticsScreen` in their
- * [AppSessionEntity.screensVisited] list (viewer sessions) and 12 do not
- * (non-viewer sessions) — preparation for the B3 Analytics Retention metric.
+ * hour ~20 with high confidence. 12 sessions carry `StatisticsScreen` in their
+ * [AppSessionEntity.screensVisited] list (viewer sessions) and 8 do not
+ * (non-viewer sessions). This yields lift = (12 − 8) / 30 ≈ +13% for the B3
+ * Analytics Retention headline ("Analytics viewers stay active +4 days/month longer").
  *
  * Using explicit IDs 901–909 avoids conflicts with user-created habits.
  * Re-seeding is safe: [HabitDao.insertHabit] uses REPLACE, which triggers the
@@ -618,22 +619,22 @@ object DatabaseSeeder {
     // ── App Sessions — Engagement Window (Phase 9.6) + Analytics Retention (B3) ──
     //
     // Inserts 20 completed app sessions (≥ MIN_SESSIONS=14) with a consistent
-    // evening start cluster (~20:00 ± 30 min) over the past 30 days.
+    // evening start cluster (~20:00) over the past 30 days.
     //
     // EngagementWindowUseCase derives:
     //  • recentAvgStartHour14d ≈ 20.0 (tight evening cluster)
-    //  • recentStddevStartHour14d ≈ 0.25 (low → high confidence)
-    //  • sessionCountLast7d ≈ 3 (3 sessions within past 7 days)
-    //  • avgSessionLengthMinutes ≈ 15 min
+    //  • recentStddevStartHour14d = 0.0 (perfect consistency → HIGH confidence)
+    //  • sessionCountLast7d = 7 (days 1–7 all present)
+    //  • avgSessionLengthMinutes = 15 min
     //  • daysSinceFirstSession = 30
     //  • prevSessionStartHour = 20
     //
-    // B3 Analytics Retention prep:
-    //  • 8 of the 20 sessions are "viewer" sessions (StatisticsScreen is in
-    //    screensVisited) and 12 are "non-viewer" sessions (StatisticsScreen absent).
-    //  • Both buckets are spread across the 30-day window so the upcoming
-    //    AnalyticsEngagementUseCase has enough rows on each side to compute lift
-    //    without crossing its sufficiency threshold.
+    // B3 Analytics Retention:
+    //  • 12 viewer sessions (StatisticsScreen in screensVisited) on unique days
+    //  • 8 non-viewer sessions on distinct unique days
+    //  → lift = (12 − 8) / 30 ≈ +13%  (positive — analytics viewers are more active)
+    //  → diffDays = +4, headline shows "+4 days/month longer (lift +13%)"
+    //  Both buckets satisfy MIN_SESSIONS_PER_BUCKET=5.
     //
     // Expected model output: predicted engagement hour ≈ 20 (8:00 PM) with HIGH confidence.
     // AppSession rows accumulate on repeated seeds — the use case reads only the 100
@@ -641,29 +642,30 @@ object DatabaseSeeder {
     //
     private suspend fun insertAppSessions(sessionDao: AppSessionDao, today: LocalDate) {
         // Triple<daysAgo, startHour, isViewerSession>.
-        // Viewer sessions (StatisticsScreen visited) are interleaved with non-viewer
-        // sessions to avoid temporal confounding when B3 lift is computed later.
+        // 12 viewer days (odd days + selected even days) spread evenly across the window;
+        // 8 non-viewer days fill the remaining slots.
+        // All at hour 20 so avgStartHour14d = 20.0 and stddev = 0 → confidence = 1.0.
         val sessionSchedule: List<Triple<Int, Int, Boolean>> = listOf(
-            Triple(1,  20, true),   // past 7 days — 3 sessions (2 viewer, 1 non-viewer)
-            Triple(2,  20, false),
-            Triple(5,  20, true),
-            Triple(7,  20, false),  // days 8–14
-            Triple(9,  20, true),
-            Triple(11, 20, false),
-            Triple(13, 20, false),
-            Triple(15, 20, true),   // days 15–19
-            Triple(17, 20, false),
-            Triple(19, 20, true),
-            Triple(21, 20, false),  // days 21–25
-            Triple(23, 20, false),
-            Triple(25, 20, true),
-            Triple(26, 20, false),
-            Triple(27, 20, true),   // days 27–30
-            Triple(28, 20, false),
-            Triple(29, 20, false),
-            Triple(30, 20, true),   // earliest — sets daysSinceFirstSession = 30
-            Triple(4,  20, false),  // extra fillers to reach 20 total
-            Triple(8,  20, false)
+            Triple(1,  20, true),   // viewer  — within 7-day window
+            Triple(2,  20, false),  // non-viewer
+            Triple(3,  20, true),   // viewer
+            Triple(4,  20, false),  // non-viewer
+            Triple(5,  20, true),   // viewer
+            Triple(6,  20, false),  // non-viewer
+            Triple(7,  20, true),   // viewer
+            Triple(9,  20, true),   // viewer
+            Triple(10, 20, false),  // non-viewer
+            Triple(11, 20, true),   // viewer
+            Triple(13, 20, true),   // viewer  — day 13 is last within 14-day filter
+            Triple(14, 20, false),  // non-viewer
+            Triple(15, 20, true),   // viewer
+            Triple(19, 20, true),   // viewer
+            Triple(20, 20, false),  // non-viewer
+            Triple(23, 20, true),   // viewer
+            Triple(25, 20, false),  // non-viewer
+            Triple(27, 20, true),   // viewer
+            Triple(28, 20, false),  // non-viewer — earliest non-viewer day
+            Triple(30, 20, true)    // viewer   — earliest day, sets daysSinceFirstSession=30
         )
         sessionSchedule.forEach { (daysAgo, startHour, isViewer) ->
             val startedAt = today.minusDays(daysAgo.toLong()).atTime(startHour, 0)

@@ -100,7 +100,7 @@
     <string name="label_smart_reminders">Inteligentne przypomnienia</string>
     <string name="subtitle_smart_reminders">AI powiadomi Cię, gdy będzie właściwy moment</string>
     <!-- B4-ext: At Risk verbose rows -->
-    <string name="at_risk_row_critical">🚨 %1$s — KRYTYCZNE ryzyko porzucenia (%2$d%%): model przewiduje, że ten nawyk zostanie bardzo prawdopodobnie porzucony. Działaj teraz — ustaw przypomnienie lub zmniejsz cel.</string>
+    <string name="at_risk_row_critical">🚨 %1$s — KRYTYCZNE ryzyko porzucenia (%2$d%%): SI przewiduje, że ten nawyk zostanie bardzo prawdopodobnie porzucony. Działaj teraz — ustaw przypomnienie lub zmniejsz cel.</string>
     <string name="at_risk_row_high">⚠️ %1$s — WYSOKIE ryzyko porzucenia (%2$d%%): zaangażowanie spada. Przypomnienie lub mniejszy cel mogą pomóc odwrócić tendencję.</string>
     <!-- B4: verbose per-habit sentence rows -->
     <string name="smart_reminders_row_on">🔔 Wysyłanie przypomnień do %1$s zwiększa realizację o ~%2$d%% vs. ciche dni — zalecenie: WŁĄCZ.</string>
@@ -108,17 +108,17 @@
     <!-- B4: Snooze Drift verbose row -->
     <string name="snooze_drift_row">⚠️ %1$s — %2$s dryf drzemek: %3$d%% przewidywana szansa na zero realizacji w następnych 7 dniach.</string>
     <!-- B4: Target Calibration verbose rows -->
-    <string name="target_adj_row_high">🎯 %1$s — Sugeruj cel %2$d → %3$d (WYSOKA pewność — model jest zdecydowany).</string>
+    <string name="target_adj_row_high">🎯 %1$s — Sugeruj cel %2$d → %3$d (WYSOKA pewność — SI jest zdecydowana).</string>
     <string name="target_adj_row_medium">🎯 %1$s — Sugeruj cel %2$d → %3$d (ŚREDNIA pewność — umiarkowana pewność).</string>
-    <string name="target_adj_row_low">🎯 %1$s — Sugeruj cel %2$d → %3$d (NISKA pewność — model jest niepewny, traktuj jako wskazówkę).</string>
+    <string name="target_adj_row_low">🎯 %1$s — Sugeruj cel %2$d → %3$d (NISKA pewność — SI jest niepewna, traktuj jako wskazówkę).</string>
     <!-- D1 (PLAN-POLISH-PASS) — Statistics screen collapsible blocks -->
     <string name="block_your_week">📅 Twój tydzień</string>
     <string name="block_attention_needed">⚠️ Wymaga uwagi</string>
     <string name="block_habit_interactions">🔗 Interakcje nawyków</string>
     <string name="spillover_card_title">🔁 Wpływ między nawykami</string>
-    <string name="per_habit_predictions_title">🧠 Przewidywania ML dla tego nawyku</string>
+    <string name="per_habit_predictions_title">🧠 Przewidywania SI</string>
     <!-- B3 (PLAN-POLISH-PASS) — Analytics retention lift headline -->
-    <string name="analytics_retention_headline">📊 Użytkownicy oglądający statystyki są aktywni o +%1$d dni/miesiąc dłużej (lift %2$d%%).</string>
+    <string name="analytics_retention_headline">📊 Użytkownicy oglądający statystyki są aktywni o %1$s dni w miesiącu dłużej (wzrost %2$s%%).</string>
     <string name="section_emoji">Emoji</string>
     <string name="hint_emoji">Dotknij, aby wybrać emoji</string>
     <string name="menu_reset_progress">Resetuj postęp</string>

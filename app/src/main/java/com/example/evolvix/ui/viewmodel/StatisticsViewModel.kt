@@ -43,8 +43,10 @@ import com.example.evolvix.domain.usecase.SuccessProbabilityUseCase
 import com.example.evolvix.domain.usecase.WeeklyForecastUseCase
 import com.example.evolvix.domain.usecase.WeeklyOverviewUseCase
 import java.time.LocalDateTime
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
@@ -118,44 +120,43 @@ class StatisticsViewModel(
     /**
      * Predicted hour at which the user is most likely to open the app next (Phase 9.6).
      *
-     * Executes [EngagementWindowUseCase] once when the Statistics screen subscribes.
-     * Returns [EngagementWindow.insufficient] immediately when fewer than
-     * [EngagementWindow.MIN_SESSIONS] sessions have been recorded (cold-start guard).
+     * Backed by a [MutableStateFlow] so [seedDatabase] can push a fresh result
+     * immediately after seeding completes — avoiding the stale `insufficient` value
+     * that a one-shot upstream flow would cache if sessions hadn't been recorded yet
+     * when the Statistics screen first opened.
      *
      * ⚠ **Thesis note — observational caveat:** The predicted hour reflects *when the
      * user typically opens the app*, not *when they would respond optimally to a
      * notification*. The View must use hedged language (e.g. "usually active around").
-     *
-     * (Pattern: one-shot suspend flow → StateFlow; re-executes on each WhileSubscribed
-     *  subscription, which is sufficient because session data changes only between
-     *  app open/close events, not within a single Statistics-screen visit)
      */
-    val engagementWindow: StateFlow<EngagementWindow> = flow {
-        emit(engagementWindowUseCase.execute())
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = EngagementWindow.insufficient
-    )
+    private val _engagementWindow = MutableStateFlow(EngagementWindow.insufficient)
+    val engagementWindow: StateFlow<EngagementWindow> = _engagementWindow.asStateFlow()
 
     /**
      * Retention-lift correlation between StatisticsScreen visits and active days
      * over the last 30 days (B3, PLAN-POLISH-PASS).
      *
-     * Drives the one-line headline at the top of `SummaryGroupCard`. When
-     * [AnalyticsEngagement.hasSufficientData] is false the View hides the row.
+     * Backed by a [MutableStateFlow] so [seedDatabase] can push a fresh result
+     * immediately after seeding — same reasoning as [engagementWindow].
      *
-     * (Pattern: one-shot suspend flow → StateFlow; re-executes on each
-     *  WhileSubscribed subscription, which is sufficient because session data
-     *  only changes between foreground/background transitions.)
+     * When [AnalyticsEngagement.hasSufficientData] is false the View hides the row.
      */
-    val analyticsEngagement: StateFlow<AnalyticsEngagement> = flow {
-        emit(analyticsEngagementUseCase.execute())
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = AnalyticsEngagement.insufficient
-    )
+    private val _analyticsEngagement = MutableStateFlow(AnalyticsEngagement.insufficient)
+    val analyticsEngagement: StateFlow<AnalyticsEngagement> = _analyticsEngagement.asStateFlow()
+
+    init {
+        // Pre-load session-derived state so the Statistics screen has real data
+        // immediately on first open, without depending on WhileSubscribed timing.
+        refreshSessionData()
+    }
+
+    /** Re-executes both session use cases and pushes fresh values to their StateFlows. */
+    private fun refreshSessionData() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            _engagementWindow.value = engagementWindowUseCase.execute()
+            _analyticsEngagement.value = analyticsEngagementUseCase.execute()
+        }
+    }
 
     /**
      * 7-day rolling overview: daily completion counts, today's completed habits count,
@@ -791,6 +792,9 @@ class StatisticsViewModel(
                 sessionDao = appSessionDao,
                 targetHistoryDao = targetHistoryDao
             )
+            // Refresh session-derived state so "Your Active Hour" and the analytics
+            // retention headline update immediately without requiring a screen re-visit.
+            refreshSessionData()
         }
     }
 
