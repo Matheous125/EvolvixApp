@@ -84,7 +84,7 @@ fun SetNewPasswordScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val emptyPassword = stringResource(R.string.error_password_empty)
-    val tooShort = stringResource(R.string.error_password_too_short)
+    val tooShort = stringResource(R.string.error_password_not_complex)
     val noMatch = stringResource(R.string.error_passwords_no_match)
     val passwordChangedMsg = stringResource(R.string.auth_password_changed)
     val labelOldPassword = stringResource(R.string.label_old_password)

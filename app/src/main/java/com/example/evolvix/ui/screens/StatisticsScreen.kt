@@ -1950,7 +1950,7 @@ private fun EngagementWindowCard(window: EngagementWindow) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "When you’re most likely to open the app, based on your session history (Phase 9.6).",
+                text = "When you’re most likely to open the app, based on your session history.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

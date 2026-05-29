@@ -10,6 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -296,17 +298,10 @@ fun SettingsScreen(
                 //   tapping navigates directly to the Login screen.
                 if (currentEmail != null) {
                     SettingsListItem(
-                        icon     = Icons.Filled.Logout,
+                        icon     = Icons.AutoMirrored.Filled.Logout,
                         title    = stringResource(R.string.menu_logout),
                         subtitle = currentEmail,
                         onClick  = { showLogoutDialog = true }
-                    )
-                } else {
-                    SettingsListItem(
-                        icon     = Icons.Filled.Login,
-                        title    = stringResource(R.string.menu_login),
-                        subtitle = stringResource(R.string.label_not_signed_in),
-                        onClick  = onNavigateToLogin
                     )
                 }
             }

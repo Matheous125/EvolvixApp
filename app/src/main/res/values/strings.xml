@@ -280,7 +280,7 @@
     <string name="menu_feedback">Feedback</string>
     <string name="subtitle_feedback">Send us your thoughts</string>
     <string name="dialog_help_title">Help</string>
-    <string name="dialog_help_body">Track your daily habits, earn achievements, and use AI-powered insights to improve consistency.\n\nLong-press any habit on the main screen for quick actions. Tap a habit name in Statistics to see its full history.</string>
+    <string name="dialog_help_body">Track your daily habits, earn achievements, and use AI-powered insights to improve consistency.\n\nTap a habit to mark progress. Select one of five-star ratings to highlight difficulty.\n\nLong-press any habit on the main screen for quick actions. Tap a habit name in Statistics to see its full history.</string>
     <string name="dialog_edit_name_title">Display Name</string>
     <string name="hint_display_name">Name</string>
     <string name="label_name_char_count">%1$d/30</string>
@@ -587,6 +587,7 @@
     <string name="error_password_empty">Password cannot be empty</string>
     <string name="error_passwords_no_match">Passwords do not match</string>
     <string name="error_password_too_short">Password must be at least 6 characters</string>
+    <string name="error_password_not_complex">Password does not meet complexity requirements</string>
     <string name="cd_toggle_password">Toggle password visibility</string>
     <string name="label_your_name">Your name</string>
     <string name="error_display_name_empty">Name cannot be empty</string>

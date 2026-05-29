@@ -220,7 +220,7 @@
     <string name="menu_feedback">Opinia</string>
     <string name="subtitle_feedback">Podziel się swoją opinią</string>
     <string name="dialog_help_title">Pomoc</string>
-    <string name="dialog_help_body">Śledź swoje nawyki, zdobywaj osiągnięcia i korzystaj z analizy AI, aby poprawić konsekwencję.\n\nPrzytrzymaj nawyk na ekranie głównym, aby uzyskać szybkie akcje. Dotknij nazwy nawyku w Statystykach, aby zobaczyć jego pełną historię.</string>
+    <string name="dialog_help_body">Śledź swoje nawyki, zdobywaj osiągnięcia i korzystaj z analizy AI, aby poprawić konsekwencję.\n\nDotknij nawyku aby zaznaczyć postęp. Skorzystaj z pieciągwiazdkowego systemu, aby określić trudność.\n\nPrzytrzymaj nawyk na ekranie głównym, aby uzyskać szybkie akcje. Dotknij nazwy nawyku w Statystykach, aby zobaczyć jego pełną historię.</string>
     <string name="dialog_edit_name_title">Nazwa wyświetlana</string>
     <string name="hint_display_name">Nazwa</string>
     <string name="label_name_char_count">%1$d/30</string>
@@ -537,6 +537,7 @@
     <string name="error_password_empty">Hasło nie może być puste</string>
     <string name="error_passwords_no_match">Hasła nie są zgodne</string>
     <string name="error_password_too_short">Hasło musi mieć co najmniej 6 znaków</string>
+    <string name="error_password_not_complex">Hasło nie spełnia wymogów złożoności</string>
     <string name="cd_toggle_password">Pokaż/ukryj hasło</string>
     <string name="label_your_name">Twoje imię</string>
     <string name="error_display_name_empty">Imię nie może być puste</string>
