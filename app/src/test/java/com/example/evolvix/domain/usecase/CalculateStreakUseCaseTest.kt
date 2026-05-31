@@ -238,4 +238,92 @@ class CalculateStreakUseCaseTest {
         assertEquals(1, result.current)
         assertEquals(5, result.best)
     }
+
+    // ── Boundary Value Tests ──────────────────────────────────────────────────
+
+    @Test
+    fun `leap year Feb 29 is a valid consecutive daily period between Feb 28 and Mar 1`() {
+        // 2024 is a leap year — Feb 29 must not be skipped or collapsed.
+        // toEpochDay() for Feb 28, Feb 29, Mar 1 must differ by exactly 1 each.
+        val leapToday = LocalDate.of(2024, 3, 1)
+        val completions = listOf(
+            hit(LocalDate.of(2024, 2, 28)),
+            hit(LocalDate.of(2024, 2, 29)),
+            hit(leapToday)
+        )
+        val result = useCase(completions, HabitFrequency.Daily, leapToday)
+        assertEquals(3, result.current)
+        assertEquals(3, result.best)
+    }
+
+    @Test
+    fun `non-leap year Feb 28 and Mar 1 are consecutive daily periods`() {
+        // 2023 is not a leap year — Feb 28 epoch day + 1 == Mar 1 epoch day, no gap.
+        val nonLeapToday = LocalDate.of(2023, 3, 1)
+        val completions = listOf(
+            hit(LocalDate.of(2023, 2, 27)),
+            hit(LocalDate.of(2023, 2, 28)),
+            hit(nonLeapToday)
+        )
+        val result = useCase(completions, HabitFrequency.Daily, nonLeapToday)
+        assertEquals(3, result.current)
+        assertEquals(3, result.best)
+    }
+
+    @Test
+    fun `weekly frequency Sunday and the following Monday belong to different ISO weeks`() {
+        // 2024-03-10 is Sunday (ISO week 10, snaps to Mon 2024-03-04).
+        // 2024-03-11 is Monday (ISO week 11, snaps to itself).
+        // Period key difference = (11_epoch - 4_epoch) / 7 = 7/7 = 1 → consecutive.
+        val weekBoundaryToday = LocalDate.of(2024, 3, 11) // Monday, week 11
+        val completions = listOf(
+            hit(weekBoundaryToday),
+            hit(LocalDate.of(2024, 3, 10))  // Sunday → week 10
+        )
+        val result = useCase(completions, HabitFrequency.Weekly, weekBoundaryToday)
+        assertEquals(2, result.current)
+        assertEquals(2, result.best)
+    }
+
+    @Test
+    fun `weekly frequency Dec 31 and Jan 1 in the same ISO week do not create two periods`() {
+        // ISO week of Mon 2024-12-30 spans Mon Dec 30 – Sun Jan 5, 2025.
+        // Dec 31 (Tue) and Jan 1 (Wed) both snap to Mon Dec 30 → same period key.
+        val weekToday = LocalDate.of(2025, 1, 5)  // Sunday, same ISO week as Dec 30
+        val completions = listOf(
+            hit(LocalDate.of(2024, 12, 31)),  // Tue → snaps to Dec 30
+            hit(LocalDate.of(2025, 1, 1))     // Wed → snaps to Dec 30
+        )
+        val result = useCase(completions, HabitFrequency.Weekly, weekToday)
+        // Only one distinct period (week of Dec 30), which is also today's week.
+        assertEquals(1, result.current)
+        assertEquals(1, result.best)
+    }
+
+    @Test
+    fun `weekly frequency consecutive weeks across year boundary are adjacent period keys`() {
+        // Mon 2024-12-30 and Mon 2025-01-06 are 7 epoch days apart → key diff = 1.
+        val newYearToday = LocalDate.of(2025, 1, 6)  // Monday, ISO week 2 of 2025
+        val completions = listOf(
+            hit(newYearToday),
+            hit(LocalDate.of(2024, 12, 30))  // Monday, ISO week 1 of 2025
+        )
+        val result = useCase(completions, HabitFrequency.Weekly, newYearToday)
+        assertEquals(2, result.current)
+        assertEquals(2, result.best)
+    }
+
+    @Test
+    fun `monthly frequency December to January year boundary treated as consecutive periods`() {
+        // Key formula: year * 12 + monthValue.
+        // Jan 2024 → 2024*12+1 = 24289; Dec 2023 → 2023*12+12 = 24288 → diff = 1.
+        val januaryToday = LocalDate.of(2024, 1, 15)
+        val completions = listOf(
+            hit(januaryToday),
+            hit(LocalDate.of(2023, 12, 20))
+        )
+        val result = useCase(completions, HabitFrequency.Monthly, januaryToday)
+        assertEquals(2, result.current)
+        assertEquals(2, result.best)
+    }
 }

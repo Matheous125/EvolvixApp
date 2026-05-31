@@ -7,25 +7,25 @@ Wykresy zapisywane są do oddzielnego katalogu ml-training/data/plots_pl/, co za
 nadpisaniu wersji anglojęzycznej.
 
 Skrypt obejmuje pełną ewaluację wszystkich 14 modeli uczenia maszynowego:
-  Model 1  — HabitSuccessClassifier          (klasyfikacja binarna)
-  Model 2  — HabitIconClassifier             (klasyfikacja wieloklasowa, 17 klas)
-  Model 3  — ReminderTemplateClassifier      (klasyfikacja wieloklasowa, 15 klas)
-  Model 4  — HabitAbandonmentClassifier      (klasyfikacja binarna)
-  Model 5  — StreakBreakClassifier           (klasyfikacja binarna)
-  Model 6  — WeeklyForecastRegressor         (regresja)
-  Faza 8.4 — KMeansBehavioralClustering      (grupowanie)
-  Faza 8.5 — SpilloverRegressor              (regresja)
-  Faza 9.1 — ReminderLiftClassifier          (klasyfikacja binarna)
-  Faza 9.2 — SnoozeDisengagementClassifier   (klasyfikacja binarna)
-  Faza 9.3 — TargetChangeRegressor           (regresja)
-  Faza 9.4 — PerceivedDifficultyRegressor    (regresja)
-  Faza 9.5 — SkipReasonClassifier            (klasyfikacja wieloklasowa, 6 klas)
-  Faza 9.6 — EngagementWindowRegressor       (regresja)
+  Model 1  — HabitSuccessClassifier          (klasyfikacja binarna / binary classification)
+  Model 2  — HabitIconClassifier             (klasyfikacja wieloklasowa / multiclass classification, 17 klas)
+  Model 3  — ReminderTemplateClassifier      (klasyfikacja wieloklasowa / multiclass classification, 15 klas)
+  Model 4  — HabitAbandonmentClassifier      (klasyfikacja binarna / binary classification)
+  Model 5  — StreakBreakClassifier           (klasyfikacja binarna / binary classification)
+  Model 6  — WeeklyForecastRegressor         (regresja / regression)
+  Faza 8.4 — KMeansBehavioralClustering      (grupowanie / clustering)
+  Faza 8.5 — SpilloverRegressor              (regresja / regression)
+  Faza 9.1 — ReminderLiftClassifier          (klasyfikacja binarna / binary classification)
+  Faza 9.2 — SnoozeDisengagementClassifier   (klasyfikacja binarna / binary classification)
+  Faza 9.3 — TargetChangeRegressor           (regresja / regression)
+  Faza 9.4 — PerceivedDifficultyRegressor    (regresja / regression)
+  Faza 9.5 — SkipReasonClassifier            (klasyfikacja wieloklasowa / multiclass classification, 6 klas)
+  Faza 9.6 — EngagementWindowRegressor       (regresja / regression)
 
 Dla każdego modelu klasyfikacyjnego generowany jest pełny raport klasyfikacji
-(precyzja / czułość / miara F1 / wsparcie) w układzie tabelarycznym.
+(precyzja (precision) / czułość (recall) / miara F1 (F1-score) / wsparcie (support)) w układzie tabelarycznym.
 Dla każdego modelu regresyjnego generowany jest szczegółowy raport regresji
-(MAE / RMSE / R² / statystyki rozkładu błędu).
+(MAE / RMSE / R² / statystyki rozkładu błędu (error distribution statistics)).
 
 Wyniki zbiorcze zapisywane są do:
     ml-training/data/plots_pl/podsumowanie_metryk.md
@@ -154,8 +154,8 @@ def _plot_macierz_pomylek(
     )
     im = ax.imshow(cm, cmap="Blues")
     ax.set_title(tytul)
-    ax.set_xlabel("Klasa predykowana")
-    ax.set_ylabel("Klasa rzeczywista")
+    ax.set_xlabel("Klasa predykowana (predicted class)")
+    ax.set_ylabel("Klasa rzeczywista (true class)")
     ax.set_xticks(range(len(nazwy_klas)))
     ax.set_yticks(range(len(nazwy_klas)))
     ax.set_xticklabels(nazwy_klas, rotation=45, ha="right", fontsize=8)
@@ -205,12 +205,12 @@ def _raport_klasyfikacji_pl(
     klasy = nazwy_klas if nazwy_klas else [
         k for k in rep if k not in ("accuracy", "macro avg", "weighted avg")
     ]
-    wszystkie_etykiety = list(klasy) + ["dokładność", "makro śr.", "ważona śr."]
+    wszystkie_etykiety = list(klasy) + ["dokładność (accuracy)", "makro śr. (macro avg)", "ważona śr. (weighted avg)"]
     szer = max(len(e) for e in wszystkie_etykiety) + 2
 
     naglowek = (
-        f"{'':>{szer}}  {'precyzja':>10}  {'czułość':>10}"
-        f"  {'miara F1':>10}  {'wsparcie':>10}"
+        f"{'':>{szer}}  {'precyzja (precision)':>20}  {'czułość (recall)':>16}"
+        f"  {'miara F1 (F1-score)':>19}  {'wsparcie (support)':>18}"
     )
     separator = "  " + "-" * (len(naglowek) - 2)
     wiersze = [naglowek, separator]
@@ -219,10 +219,10 @@ def _raport_klasyfikacji_pl(
         if cls in rep:
             m = rep[cls]
             wiersze.append(
-                f"{cls:>{szer}}  {m['precision']:>10.{digits}f}"
-                f"  {m['recall']:>10.{digits}f}"
-                f"  {m['f1-score']:>10.{digits}f}"
-                f"  {int(m['support']):>10}"
+                f"{cls:>{szer}}  {m['precision']:>20.{digits}f}"
+                f"  {m['recall']:>16.{digits}f}"
+                f"  {m['f1-score']:>19.{digits}f}"
+                f"  {int(m['support']):>18}"
             )
 
     wiersze.append("")
@@ -230,24 +230,24 @@ def _raport_klasyfikacji_pl(
     if "accuracy" in rep:
         n_total = int(rep["macro avg"]["support"])
         wiersze.append(
-            f"{'dokładność':>{szer}}  {'':>10}  {'':>10}"
-            f"  {rep['accuracy']:>10.{digits}f}  {n_total:>10}"
+            f"{'dokładność (accuracy)':>{szer}}  {'':>20}  {'':>16}"
+            f"  {rep['accuracy']:>19.{digits}f}  {n_total:>18}"
         )
     if "macro avg" in rep:
         m = rep["macro avg"]
         wiersze.append(
-            f"{'makro śr.':>{szer}}  {m['precision']:>10.{digits}f}"
-            f"  {m['recall']:>10.{digits}f}"
-            f"  {m['f1-score']:>10.{digits}f}"
-            f"  {int(m['support']):>10}"
+            f"{'makro śr. (macro avg)':>{szer}}  {m['precision']:>20.{digits}f}"
+            f"  {m['recall']:>16.{digits}f}"
+            f"  {m['f1-score']:>19.{digits}f}"
+            f"  {int(m['support']):>18}"
         )
     if "weighted avg" in rep:
         m = rep["weighted avg"]
         wiersze.append(
-            f"{'ważona śr.':>{szer}}  {m['precision']:>10.{digits}f}"
-            f"  {m['recall']:>10.{digits}f}"
-            f"  {m['f1-score']:>10.{digits}f}"
-            f"  {int(m['support']):>10}"
+            f"{'ważona śr. (weighted avg)':>{szer}}  {m['precision']:>20.{digits}f}"
+            f"  {m['recall']:>16.{digits}f}"
+            f"  {m['f1-score']:>19.{digits}f}"
+            f"  {int(m['support']):>18}"
         )
 
     return "\n".join(wiersze)
@@ -288,22 +288,22 @@ def _raport_regresji_pl(
     w = 42  # szerokość pierwszej kolumny
     sep = "  " + "-" * 57
     wiersze = [
-        f"  Raport ewaluacji regresji — {nazwa_zmiennej}",
+        f"  Raport ewaluacji regresji (regression evaluation) \u2014 {nazwa_zmiennej}",
         sep,
-        f"  {'Miara':<{w}} {'Wartość':>12}",
+        f"  {'Miara (metric)':<{w}} {'Wartość (value)':>12}",
         sep,
-        f"  {'Średni bezwzględny błąd (MAE)':<{w}} {mae:>12.{digits}f}",
+        f"  {'Sredni bezwzględny błąd (MAE / mean abs. error)':<{w}} {mae:>12.{digits}f}",
         f"  {'Pierwiastek błędu kwadr. (RMSE)':<{w}} {rmse:>12.{digits}f}",
-        f"  {'Współczynnik determinacji R²':<{w}} {r2:>12.{digits}f}",
-        f"  {'Obciążenie (średni błąd ze znakiem)':<{w}} {bias:>12.{digits}f}",
-        f"  {'Odchylenie standardowe błędu':<{w}} {std_err:>12.{digits}f}",
+        f"  {'Współczynnik determinacji R² (R-squared)':<{w}} {r2:>12.{digits}f}",
+        f"  {'Obciążenie / bias (mean signed error)':<{w}} {bias:>12.{digits}f}",
+        f"  {'Odchylenie std. błędu (std dev of error)':<{w}} {std_err:>12.{digits}f}",
         sep,
-        f"  {'Kwantyle bezwzględnego błędu predykcji':<{w}}",
-        f"  {'  Kwartyl dolny Q25':<{w}} {p25:>12.{digits}f}",
-        f"  {'  Mediana Q50':<{w}} {p50:>12.{digits}f}",
-        f"  {'  Kwartyl górny Q75':<{w}} {p75:>12.{digits}f}",
-        f"  {'  Percentyl 90.':<{w}} {p90:>12.{digits}f}",
-        f"  {'  Maksymalny błąd bezwzględny':<{w}} {max_err:>12.{digits}f}",
+        f"  {'Kwantyle błędu (absolute error quantiles)':<{w}}",
+        f"  {'  Kwartyl dolny (lower quartile) Q25':<{w}} {p25:>12.{digits}f}",
+        f"  {'  Mediana (median) Q50':<{w}} {p50:>12.{digits}f}",
+        f"  {'  Kwartyl górny (upper quartile) Q75':<{w}} {p75:>12.{digits}f}",
+        f"  {'  Percentyl 90. (90th percentile)':<{w}} {p90:>12.{digits}f}",
+        f"  {'  Maks. błąd bezwzględny (max abs. error)':<{w}} {max_err:>12.{digits}f}",
         sep,
     ]
     return "\n".join(wiersze)
@@ -369,13 +369,13 @@ def evaluate_success_model() -> dict:
     auc = float(roc_auc_score(y_test, probs))
     macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
 
-    print(f"Dokładność na zbiorze testowym : {accuracy:.4f}")
-    print(f"Pole pod krzywą ROC (AUC)      : {auc:.4f}")
-    print(f"Makro miara F1                 : {macro_f1:.4f}")
+    print(f"Dokładność (accuracy) na zbiorze testowym (test set) : {accuracy:.4f}")
+    print(f"Pole pod krzywą ROC (AUC)                             : {auc:.4f}")
+    print(f"Makro miara F1 (macro F1-score)                      : {macro_f1:.4f}")
 
     nazwy_klas_pl = ["porażka (0)", "sukces (1)"]
     raport_pl = _raport_klasyfikacji_pl(y_test, y_pred, nazwy_klas=nazwy_klas_pl)
-    print("\nRaport klasyfikacji (precyzja / czułość / miara F1 na klasę):")
+    print("\nRaport klasyfikacji (classification report):")
     print(raport_pl)
 
     # ----- Macierz pomyłek -----
@@ -391,9 +391,9 @@ def evaluate_success_model() -> dict:
     fpr, tpr, _ = roc_curve(y_test, probs)
     fig, ax = plt.subplots(figsize=(6, 5))
     ax.plot(fpr, tpr, label=f"Krzywa ROC (AUC = {auc:.3f})")
-    ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Model losowy")
-    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR)")
-    ax.set_ylabel("Czułość — wskaźnik prawdziwych pozytywów (TPR)")
+    ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Model losowy (random classifier)")
+    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR / False Positive Rate)")
+    ax.set_ylabel("Czułość (TPR / True Positive Rate)")
     ax.set_title("Model 1 — Krzywa ROC (HabitSuccessClassifier)")
     ax.legend(loc="lower right")
     fig.tight_layout()
@@ -491,8 +491,8 @@ def evaluate_icon_model() -> dict:
         y_test, probs, k=3, labels=list(range(len(label_names))),
     ))
 
-    print(f"Dokładność Top-1 : {top1:.4f}")
-    print(f"Dokładność Top-3 : {top3:.4f}")
+    print(f"Dokładność Top-1 (top-1 accuracy) : {top1:.4f}")
+    print(f"Dokładność Top-3 (top-3 accuracy) : {top3:.4f}")
 
     raport_pl = _raport_klasyfikacji_pl(
         y_test, y_pred,
@@ -500,7 +500,7 @@ def evaluate_icon_model() -> dict:
         digits=3,
         zero_division=0,
     )
-    print("\nRaport klasyfikacji (precyzja / czułość / miara F1 na klasę):")
+    print("\nRaport klasyfikacji (classification report):")
     print(raport_pl)
 
     cm = confusion_matrix(y_test, y_pred, labels=list(range(len(label_names))))
@@ -559,7 +559,7 @@ def evaluate_reminder_model() -> dict:
     y_pred = probs.argmax(axis=1)
     top1 = float((y_pred == y_test).mean())
 
-    print(f"Dokładność Top-1 : {top1:.4f}")
+    print(f"Dokładność Top-1 (top-1 accuracy) : {top1:.4f}")
 
     raport_pl = _raport_klasyfikacji_pl(
         y_test, y_pred,
@@ -567,7 +567,7 @@ def evaluate_reminder_model() -> dict:
         digits=3,
         zero_division=0,
     )
-    print("\nRaport klasyfikacji (precyzja / czułość / miara F1 na klasę):")
+    print("\nRaport klasyfikacji / Classification report (precyzja (precision) / czułość (recall) / miara F1 (F1-score) na klasę (per class)):")
     print(raport_pl)
 
     cm = confusion_matrix(y_test, y_pred, labels=list(range(len(label_names))))
@@ -628,13 +628,13 @@ def evaluate_abandonment_model() -> dict:
     macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
     passed = "ZALICZONO" if macro_f1 >= 0.75 else "NIEZALICZONO"
 
-    print(f"Dokładność na zbiorze testowym : {accuracy:.4f}")
-    print(f"Pole pod krzywą ROC (AUC)      : {auc:.4f}")
-    print(f"Makro miara F1                 : {macro_f1:.4f}  (próg >= 0,75 — {passed})")
+    print(f"Dokładność (accuracy) na zbiorze testowym (test set) : {accuracy:.4f}")
+    print(f"Pole pod krzywą ROC (AUC)                             : {auc:.4f}")
+    print(f"Makro miara F1 (macro F1-score)                      : {macro_f1:.4f}  (próg >= 0,75 — {passed})")
 
     nazwy_klas_pl = ["aktywne (0)", "porzucone (1)"]
     raport_pl = _raport_klasyfikacji_pl(y_test, y_pred, nazwy_klas=nazwy_klas_pl)
-    print("\nRaport klasyfikacji (precyzja / czułość / miara F1 na klasę):")
+    print("\nRaport klasyfikacji (classification report):")
     print(raport_pl)
 
     # ----- Macierz pomyłek -----
@@ -651,8 +651,8 @@ def evaluate_abandonment_model() -> dict:
     fig, ax = plt.subplots(figsize=(6, 5))
     ax.plot(fpr, tpr, label=f"Krzywa ROC (AUC = {auc:.3f})")
     ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Model losowy")
-    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR)")
-    ax.set_ylabel("Czułość — wskaźnik prawdziwych pozytywów (TPR)")
+    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR / False Positive Rate)")
+    ax.set_ylabel("Czułość (TPR / True Positive Rate)")
     ax.set_title("Model 4 — Krzywa ROC (HabitAbandonmentClassifier)")
     ax.legend(loc="lower right")
     fig.tight_layout()
@@ -713,13 +713,13 @@ def evaluate_streak_break_model() -> dict:
     macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
     passed = "ZALICZONO" if macro_f1 >= 0.75 else "NIEZALICZONO"
 
-    print(f"Dokładność na zbiorze testowym : {accuracy:.4f}")
-    print(f"Pole pod krzywą ROC (AUC)      : {auc:.4f}")
-    print(f"Makro miara F1                 : {macro_f1:.4f}  (próg >= 0,75 — {passed})")
+    print(f"Dokładność (accuracy) na zbiorze testowym (test set) : {accuracy:.4f}")
+    print(f"Pole pod krzywą ROC (AUC)                             : {auc:.4f}")
+    print(f"Makro miara F1 (macro F1-score)                      : {macro_f1:.4f}  (próg >= 0,75 — {passed})")
 
     nazwy_klas_pl = ["kontynuacja (0)", "przerwanie (1)"]
     raport_pl = _raport_klasyfikacji_pl(y_test, y_pred, nazwy_klas=nazwy_klas_pl)
-    print("\nRaport klasyfikacji (precyzja / czułość / miara F1 na klasę):")
+    print("\nRaport klasyfikacji (classification report):")
     print(raport_pl)
 
     # ----- Macierz pomyłek -----
@@ -736,8 +736,8 @@ def evaluate_streak_break_model() -> dict:
     fig, ax = plt.subplots(figsize=(6, 5))
     ax.plot(fpr, tpr, label=f"Krzywa ROC (AUC = {auc:.3f})")
     ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Model losowy")
-    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR)")
-    ax.set_ylabel("Czułość — wskaźnik prawdziwych pozytywów (TPR)")
+    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR / False Positive Rate)")
+    ax.set_ylabel("Czułość (TPR / True Positive Rate)")
     ax.set_title("Model 5 — Krzywa ROC (StreakBreakClassifier)")
     ax.legend(loc="lower right")
     fig.tight_layout()
@@ -748,10 +748,10 @@ def evaluate_streak_break_model() -> dict:
     precision_vals, recall_vals, _ = precision_recall_curve(y_test, probs)
     ap = float(average_precision_score(y_test, probs))
     fig, ax = plt.subplots(figsize=(6, 5))
-    ax.plot(recall_vals, precision_vals, label=f"Krzywa PK (AP = {ap:.3f})")
-    ax.set_xlabel("Czułość")
-    ax.set_ylabel("Precyzja")
-    ax.set_title("Model 5 — Krzywa precyzja-czułość (StreakBreakClassifier)")
+    ax.plot(recall_vals, precision_vals, label=f"Krzywa PK / Precision-Recall curve (AP = {ap:.3f})")
+    ax.set_xlabel("Czułość (recall)")
+    ax.set_ylabel("Precyzja (precision)")
+    ax.set_title("Model 5 — Krzywa precyzja-czułość / Precision-Recall (StreakBreakClassifier)")
     ax.legend(loc="upper right")
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "krzywa_pk_seria.png", dpi=150)
@@ -817,18 +817,18 @@ def evaluate_weekly_forecast_model() -> dict:
     raport_reg_pl = _raport_regresji_pl(
         y_test, y_pred, nazwa_zmiennej="wskaźnik ukończenia tygodniowego"
     )
-    print("\nRaport ewaluacji regresji:")
+    print("\nRaport ewaluacji regresji (regression evaluation report):")
     print(raport_reg_pl)
 
     # ----- Wykres rozrzutu: wartości rzeczywiste vs. predykowane -----
     fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(y_test, y_pred, alpha=0.3, s=8, label="Próbki testowe")
+    ax.scatter(y_test, y_pred, alpha=0.3, s=8, label="Próbki testowe (test samples)")
     lo = min(float(y_test.min()), float(y_pred.min()))
     hi = max(float(y_test.max()), float(y_pred.max()))
-    ax.plot([lo, hi], [lo, hi], linestyle="--", color="gray", label="Idealne dopasowanie")
-    ax.set_xlabel("Rzeczywisty wskaźnik ukończenia")
-    ax.set_ylabel("Predykowany wskaźnik ukończenia")
-    ax.set_title("Model 6 — WeeklyForecastRegressor — Wartości rzeczywiste vs. predykowane")
+    ax.plot([lo, hi], [lo, hi], linestyle="--", color="gray", label="Idealne dopasowanie (perfect fit)")
+    ax.set_xlabel("Rzeczywisty wskaźnik ukończenia (actual completion rate)")
+    ax.set_ylabel("Predykowany wskaźnik ukończenia (predicted completion rate)")
+    ax.set_title("Model 6 — WeeklyForecastRegressor — Wartości rzeczywiste (actual) vs. predykowane (predicted)")
     ax.legend(loc="upper left")
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "rozrzut_prognoza_tygodniowa.png", dpi=150)
@@ -838,12 +838,12 @@ def evaluate_weekly_forecast_model() -> dict:
     errors = y_pred - y_test
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.hist(errors, bins=40, color="steelblue", edgecolor="white", alpha=0.85)
-    ax.axvline(0, color="red", linestyle="--", linewidth=1.5, label="Zero (idealna predykcja)")
+    ax.axvline(0, color="red", linestyle="--", linewidth=1.5, label="Zero (idealna predykcja / perfect prediction)")
     ax.axvline(float(errors.mean()), color="orange", linestyle="--", linewidth=1.5,
-               label=f"Obciążenie ({errors.mean():.4f})")
-    ax.set_xlabel("Błąd predykcji (predykcja − wartość rzeczywista)")
-    ax.set_ylabel("Liczba próbek")
-    ax.set_title("Model 6 — WeeklyForecastRegressor — Rozkład błędów predykcji")
+               label=f"Obciążenie / bias ({errors.mean():.4f})")
+    ax.set_xlabel("Błąd predykcji (prediction error): predykcja − wartość rzeczywista")
+    ax.set_ylabel("Liczba próbek (count)")
+    ax.set_title("Model 6 — WeeklyForecastRegressor — Rozkład błędów predykcji (error distribution)")
     ax.legend()
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "histogram_bledow_prognoza_tygodniowa.png", dpi=150)
@@ -904,11 +904,11 @@ def evaluate_clustering_model() -> dict:
 
     sil = silhouette_score(x_scaled, assigned, sample_size=5_000, random_state=SEED)
     gate_ok = sil >= 0.35
-    print(f"  Współczynnik sylwetkowy (obliczony ponownie) : {sil:.4f}")
-    print(f"  Współczynnik sylwetkowy (z pliku JSON)       : {saved_silhouette:.4f}")
-    print(f"  Kryterium jakości (>= 0,35)                  : {'ZALICZONO' if gate_ok else 'NIEZALICZONO'}")
+    print(f"  Współczynnik sylwetkowy (silhouette score, obliczony ponownie) : {sil:.4f}")
+    print(f"  Współczynnik sylwetkowy (silhouette score, z pliku JSON)       : {saved_silhouette:.4f}")
+    print(f"  Kryterium jakości (quality gate, >= 0,35)                       : {'ZALICZONO' if gate_ok else 'NIEZALICZONO'}")
 
-    print("\n  Rozmiary klastrów:")
+    print("\n  Rozmiary klastrów (cluster sizes):")
     size_map: dict[str, int] = {}
     for label in labels:
         count = int((cluster_names == label).sum())
@@ -917,7 +917,7 @@ def evaluate_clustering_model() -> dict:
         pl_name = NAZWY_KLASTROW_PL.get(label, label)
         print(f"    {pl_name:<28} {count:>6}  ({pct:.1f}%)")
 
-    print("\n  Tabela centroidów (przestrzeń zestandaryzowana):")
+    print("\n  Tabela centroidów (centroids table, przestrzeń zestandaryzowana / standardized space):")
     nagl = f"  {'Klaster':<28} " + "  ".join(f"{c:>18}" for c in feature_cols)
     print(nagl)
     for i, label in enumerate(labels):
@@ -956,13 +956,13 @@ def evaluate_clustering_model() -> dict:
         )
 
     ax.set_title(
-        f"Grupowanie behawioralne K-Means — projekcja PCA\n"
+        f"Grupowanie behawioralne (behavioral clustering) K-Means — projekcja PCA\n"
         f"(PC1 {explained[0]*100:.1f}%  +  PC2 {explained[1]*100:.1f}%  = "
-        f"{sum(explained)*100:.1f}% wyjaśnionej wariancji)"
+        f"{sum(explained)*100:.1f}% wyjaśnionej wariancji / explained variance)"
     )
     ax.set_xlabel(f"PC1 ({explained[0]*100:.1f}%)")
     ax.set_ylabel(f"PC2 ({explained[1]*100:.1f}%)")
-    ax.legend(title="Klaster", fontsize=8)
+    ax.legend(title="Klaster (cluster)", fontsize=8)
     fig.tight_layout()
     plot_path = PLOTS_DIR_PL / "klastry_pca.png"
     fig.savefig(plot_path, dpi=150)
@@ -1051,22 +1051,22 @@ def evaluate_spillover_model() -> dict:
     passed = "ZALICZONO" if mae <= 0.08 else "NIEZALICZONO"
 
     print(f"Średni bezwzględny błąd (MAE) : {mae:.4f}  (próg <= 0,08 — {passed})")
-    print(f"Współczynnik determinacji R²  : {r2:.4f}")
+    print(f"Współczynnik determinacji R² (R-squared)  : {r2:.4f}")
 
     raport_reg_pl = _raport_regresji_pl(
-        y_test, y_pred, nazwa_zmiennej="lift_delta (efekt przenoszenia)"
+        y_test, y_pred, nazwa_zmiennej="lift_delta (efekt przenoszenia / spillover effect)"
     )
-    print("\nRaport ewaluacji regresji:")
+    print("\nRaport ewaluacji regresji (regression evaluation report):")
     print(raport_reg_pl)
 
     # ----- Wykres rozrzutu -----
     fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(y_test, y_pred, alpha=0.25, s=6, label="Próbki testowe")
+    ax.scatter(y_test, y_pred, alpha=0.25, s=6, label="Próbki testowe (test samples)")
     lo = min(float(y_test.min()), float(y_pred.min()))
     hi = max(float(y_test.max()), float(y_pred.max()))
-    ax.plot([lo, hi], [lo, hi], linestyle="--", color="gray", label="Idealne dopasowanie")
-    ax.set_xlabel("Rzeczywisty lift_delta")
-    ax.set_ylabel("Predykowany lift_delta")
+    ax.plot([lo, hi], [lo, hi], linestyle="--", color="gray", label="Idealne dopasowanie (perfect fit)")
+    ax.set_xlabel("Rzeczywisty lift_delta (actual)")
+    ax.set_ylabel("Predykowany lift_delta (predicted)")
     ax.set_title("Faza 8.5 — SpilloverRegressor — Wartości rzeczywiste vs. predykowane")
     ax.legend(loc="upper left")
     fig.tight_layout()
@@ -1155,15 +1155,15 @@ def evaluate_reminder_lift_model() -> dict:
     passed_lift = lift_mae <= 0.12
     passed = "ZALICZONO" if (passed_f1 and passed_lift) else "NIEZALICZONO"
 
-    print(f"Dokładność na zbiorze testowym : {acc:.4f}")
-    print(f"Pole pod krzywą ROC (AUC)      : {roc_auc:.4f}")
-    print(f"Makro miara F1                 : {macro_f1:.4f}  (próg >= 0,75 — {'ZALICZONO' if passed_f1 else 'NIEZALICZONO'})")
-    print(f"MAE efektu przypomnienia       : {lift_mae:.4f}  (próg <= 0,12 — {'ZALICZONO' if passed_lift else 'NIEZALICZONO'})")
-    print(f"Kryterium akceptacji           : {passed}")
+    print(f"Dokładność (accuracy) na zbiorze testowym (test set) : {acc:.4f}")
+    print(f"Pole pod krzywą ROC (AUC)                             : {roc_auc:.4f}")
+    print(f"Makro miara F1 (macro F1-score)                      : {macro_f1:.4f}  (próg >= 0,75 — {'ZALICZONO' if passed_f1 else 'NIEZALICZONO'})")
+    print(f"MAE efektu przypomnienia (reminder lift MAE)         : {lift_mae:.4f}  (próg <= 0,12 — {'ZALICZONO' if passed_lift else 'NIEZALICZONO'})")
+    print(f"Kryterium akceptacji (acceptance criterion)          : {passed}")
 
     nazwy_klas_pl = ["Nieukończone (0)", "Ukończone (1)"]
     raport_pl = _raport_klasyfikacji_pl(y_test, y_pred, nazwy_klas=nazwy_klas_pl)
-    print("\nRaport klasyfikacji (precyzja / czułość / miara F1 na klasę):")
+    print("\nRaport klasyfikacji (classification report):")
     print(raport_pl)
 
     # ----- Macierz pomyłek -----
@@ -1175,9 +1175,9 @@ def evaluate_reminder_lift_model() -> dict:
     ax.set_xticklabels(["Nie", "Tak"])
     ax.set_yticks([0, 1])
     ax.set_yticklabels(["Nie", "Tak"])
-    ax.set_xlabel("Klasa predykowana")
-    ax.set_ylabel("Klasa rzeczywista")
-    ax.set_title("Faza 9.1 — ReminderLiftClassifier — Macierz pomyłek")
+    ax.set_xlabel("Klasa predykowana (predicted)")
+    ax.set_ylabel("Klasa rzeczywista (actual)")
+    ax.set_title("Faza 9.1 — ReminderLiftClassifier — Macierz pomyłek (confusion matrix)")
     for i in range(2):
         for j in range(2):
             ax.text(j, i, str(cm[i, j]), ha="center", va="center",
@@ -1192,8 +1192,8 @@ def evaluate_reminder_lift_model() -> dict:
     fig, ax = plt.subplots(figsize=(6, 5))
     ax.plot(fpr, tpr, label=f"Krzywa ROC (AUC = {roc_auc:.3f})")
     ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Model losowy")
-    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR)")
-    ax.set_ylabel("Czułość — wskaźnik prawdziwych pozytywów (TPR)")
+    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR / False Positive Rate)")
+    ax.set_ylabel("Czułość (TPR / True Positive Rate)")
     ax.set_title("Faza 9.1 — Krzywa ROC (ReminderLiftClassifier)")
     ax.legend(loc="lower right")
     fig.tight_layout()
@@ -1258,13 +1258,13 @@ def evaluate_snooze_disengagement_model() -> dict:
     macro_f1 = float(f1_score(y_test, y_pred, average="macro"))
     passed = "ZALICZONO" if macro_f1 >= 0.75 else "NIEZALICZONO"
 
-    print(f"Dokładność na zbiorze testowym : {acc:.4f}")
-    print(f"Pole pod krzywą ROC (AUC)      : {roc_auc:.4f}")
-    print(f"Makro miara F1                 : {macro_f1:.4f}  (próg >= 0,75 — {passed})")
+    print(f"Dokładność (accuracy) na zbiorze testowym (test set) : {acc:.4f}")
+    print(f"Pole pod krzywą ROC (AUC)                             : {roc_auc:.4f}")
+    print(f"Makro miara F1 (macro F1-score)                      : {macro_f1:.4f}  (próg >= 0,75 — {passed})")
 
     nazwy_klas_pl = ["Zaangażowany (0)", "Niezaangażowany (1)"]
     raport_pl = _raport_klasyfikacji_pl(y_test, y_pred, nazwy_klas=nazwy_klas_pl)
-    print("\nRaport klasyfikacji (precyzja / czułość / miara F1 na klasę):")
+    print("\nRaport klasyfikacji (classification report):")
     print(raport_pl)
 
     # ----- Macierz pomyłek -----
@@ -1276,9 +1276,9 @@ def evaluate_snooze_disengagement_model() -> dict:
     ax.set_xticklabels(["Zaangażowany", "Niezaangażowany"])
     ax.set_yticks([0, 1])
     ax.set_yticklabels(["Zaangażowany", "Niezaangażowany"])
-    ax.set_xlabel("Klasa predykowana")
-    ax.set_ylabel("Klasa rzeczywista")
-    ax.set_title("Faza 9.2 — SnoozeDisengagementClassifier — Macierz pomyłek")
+    ax.set_xlabel("Klasa predykowana (predicted)")
+    ax.set_ylabel("Klasa rzeczywista (actual)")
+    ax.set_title("Faza 9.2 — SnoozeDisengagementClassifier — Macierz pomyłek (confusion matrix)")
     for i in range(2):
         for j in range(2):
             ax.text(j, i, str(cm[i, j]), ha="center", va="center",
@@ -1293,8 +1293,8 @@ def evaluate_snooze_disengagement_model() -> dict:
     fig, ax = plt.subplots(figsize=(6, 5))
     ax.plot(fpr, tpr, label=f"Krzywa ROC (AUC = {roc_auc:.3f})")
     ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Model losowy")
-    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR)")
-    ax.set_ylabel("Czułość — wskaźnik prawdziwych pozytywów (TPR)")
+    ax.set_xlabel("Wskaźnik fałszywych alarmów (FPR / False Positive Rate)")
+    ax.set_ylabel("Czułość (TPR / True Positive Rate)")
     ax.set_title("Faza 9.2 — Krzywa ROC (SnoozeDisengagementClassifier)")
     ax.legend(loc="lower right")
     fig.tight_layout()
@@ -1360,14 +1360,14 @@ def evaluate_target_change_model() -> dict:
     mae_rounded = float(np.mean(np.abs(y_pred_rounded - y_true_rounded)))
     passed = "ZALICZONO" if mae_rounded <= 0.50 else "NIEZALICZONO"
 
-    print(f"MAE  (ciągła predykcja)       : {mae_raw:.4f}")
-    print(f"RMSE (ciągła predykcja)       : {rmse_raw:.4f}")
-    print(f"MAE  (zaokrąglona delta)       : {mae_rounded:.4f}  (próg <= 0,50 — {passed})")
+    print(f"MAE  (ciągła predykcja / continuous prediction)    : {mae_raw:.4f}")
+    print(f"RMSE (ciągła predykcja / continuous prediction)    : {rmse_raw:.4f}")
+    print(f"MAE  (zaokrąglona delta / rounded delta)           : {mae_rounded:.4f}  (próg <= 0,50 — {passed})")
 
     raport_reg_pl = _raport_regresji_pl(
-        y_test, raw_preds, nazwa_zmiennej="delta docelowa (zakres [-2, +2])"
+        y_test, raw_preds, nazwa_zmiennej="delta docelowa (target delta, zakres / range [-2, +2])"
     )
-    print("\nRaport ewaluacji regresji:")
+    print("\nRaport ewaluacji regresji (regression evaluation report):")
     print(raport_reg_pl)
 
     # Raport klasyfikacji dla zaokrąglonych klas delta (-2 … +2).
@@ -1378,7 +1378,7 @@ def evaluate_target_change_model() -> dict:
         digits=3,
         zero_division=0,
     )
-    print("\nRaport klasyfikacji zaokrąglonych klas delta (-2 … +2):")
+    print("\nRaport klasyfikacji (classification report) zaokrąglonych klas delta (-2 … +2):")
     print(raport_klas_pl)
 
     # ----- Macierz pomyłek (zaokrąglone klasy delta) -----
@@ -1393,14 +1393,14 @@ def evaluate_target_change_model() -> dict:
 
     # ----- Wykres rozrzutu -----
     fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(y_test, raw_preds, alpha=0.3, s=8, label="Próbki testowe")
+    ax.scatter(y_test, raw_preds, alpha=0.3, s=8, label="Próbki testowe (test samples)")
     lims = [-2.2, 2.2]
-    ax.plot(lims, lims, linestyle="--", color="gray", label="Idealna predykcja")
+    ax.plot(lims, lims, linestyle="--", color="gray", label="Idealna predykcja (perfect prediction)")
     ax.set_xlim(lims)
     ax.set_ylim(lims)
-    ax.set_xlabel("Rzeczywista delta docelowa")
-    ax.set_ylabel("Predykowana delta (ciągła)")
-    ax.set_title("Faza 9.3 — TargetChangeRegressor — Wartości rzeczywiste vs. predykowane")
+    ax.set_xlabel("Rzeczywista delta docelowa (actual target delta)")
+    ax.set_ylabel("Predykowana delta (predicted delta, ciągła)")
+    ax.set_title("Faza 9.3 — TargetChangeRegressor — Wartości rzeczywiste (actual) vs. predykowane (predicted)")
     ax.legend(loc="upper left")
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "rozrzut_zmiana_celu.png", dpi=150)
@@ -1410,12 +1410,12 @@ def evaluate_target_change_model() -> dict:
     errors = raw_preds - y_test
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.hist(errors, bins=40, color="steelblue", edgecolor="white", alpha=0.85)
-    ax.axvline(0, color="red", linestyle="--", linewidth=1.5, label="Zero (idealna predykcja)")
+    ax.axvline(0, color="red", linestyle="--", linewidth=1.5, label="Zero (idealna predykcja / perfect prediction)")
     ax.axvline(float(errors.mean()), color="orange", linestyle="--", linewidth=1.5,
-               label=f"Obciążenie ({errors.mean():.4f})")
-    ax.set_xlabel("Błąd predykcji (predykcja − wartość rzeczywista)")
-    ax.set_ylabel("Liczba próbek")
-    ax.set_title("Faza 9.3 — TargetChangeRegressor — Rozkład błędów predykcji")
+               label=f"Obciążenie / bias ({errors.mean():.4f})")
+    ax.set_xlabel("Błąd predykcji (prediction error): predykcja − wartość rzeczywista")
+    ax.set_ylabel("Liczba próbek (count)")
+    ax.set_title("Faza 9.3 — TargetChangeRegressor — Rozkład błędów predykcji (error distribution)")
     ax.legend()
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "histogram_bledow_zmiana_celu.png", dpi=150)
@@ -1487,13 +1487,13 @@ def evaluate_difficulty_model() -> dict:
     print(f"Pierwiastek błędu kwadr. (RMSE)   : {rmse:.4f}")
     print(f"MAE prognozy bazowej (zawsze 3,0) : {naive_mae:.4f}")
     print(f"Poprawa MAE względem prognozy baz.: {naive_mae - mae:.4f}")
-    print(f"Dokładność co do klasy (zaokr.)   : {exact_match:.1%}")
-    print(f"Dokładność ± 1 klasa              : {within_one:.1%}")
+    print(f"Dokładność (accuracy) co do klasy (zaokr.) : {exact_match:.1%}")
+    print(f"Dokładność (±1 klasa / within 1 class)    : {within_one:.1%}")
 
     raport_reg_pl = _raport_regresji_pl(
-        y_test, raw_preds, nazwa_zmiennej="postrzegana trudność (skala 1–5)"
+        y_test, raw_preds, nazwa_zmiennej="postrzegana trudność (perceived difficulty, skala/scale 1–5)"
     )
-    print("\nRaport ewaluacji regresji:")
+    print("\nRaport ewaluacji regresji (regression evaluation report):")
     print(raport_reg_pl)
 
     # Raport klasyfikacji zaokrąglonych kubełków trudności (1…5).
@@ -1505,7 +1505,7 @@ def evaluate_difficulty_model() -> dict:
         digits=3,
         zero_division=0,
     )
-    print("\nRaport klasyfikacji zaokrąglonych kubełków trudności (1…5):")
+    print("\nRaport klasyfikacji (classification report) zaokrąglonych kubełków trudności / difficulty bins (1…5):")
     print(raport_klas_pl)
 
     # ----- Macierz pomyłek (zaokrąglone kubełki) -----
@@ -1519,13 +1519,13 @@ def evaluate_difficulty_model() -> dict:
 
     # ----- Wykres rozrzutu -----
     fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(y_test, raw_preds, alpha=0.25, s=6, label="Próbki testowe")
-    ax.plot([1, 5], [1, 5], linestyle="--", color="gray", label="Idealna predykcja")
+    ax.scatter(y_test, raw_preds, alpha=0.25, s=6, label="Próbki testowe (test samples)")
+    ax.plot([1, 5], [1, 5], linestyle="--", color="gray", label="Idealna predykcja (perfect prediction)")
     ax.set_xlim(0.8, 5.2)
     ax.set_ylim(0.8, 5.2)
-    ax.set_xlabel("Rzeczywista postrzegana trudność")
-    ax.set_ylabel("Predykowana postrzegana trudność (ciągła)")
-    ax.set_title("Faza 9.4 — PerceivedDifficultyRegressor — Wartości rzeczywiste vs. predykowane")
+    ax.set_xlabel("Rzeczywista postrzegana trudność (actual perceived difficulty)")
+    ax.set_ylabel("Predykowana postrzegana trudność (predicted, ciągła)")
+    ax.set_title("Faza 9.4 — PerceivedDifficultyRegressor — Wartości rzeczywiste (actual) vs. predykowane (predicted)")
     ax.legend(loc="upper left")
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "rozrzut_trudnosc.png", dpi=150)
@@ -1535,12 +1535,12 @@ def evaluate_difficulty_model() -> dict:
     errors = raw_preds - y_test
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.hist(errors, bins=40, color="steelblue", edgecolor="white", alpha=0.85)
-    ax.axvline(0, color="red", linestyle="--", linewidth=1.5, label="Zero (idealna predykcja)")
+    ax.axvline(0, color="red", linestyle="--", linewidth=1.5, label="Zero (idealna predykcja / perfect prediction)")
     ax.axvline(float(errors.mean()), color="orange", linestyle="--", linewidth=1.5,
-               label=f"Obciążenie ({errors.mean():.4f})")
-    ax.set_xlabel("Błąd predykcji (predykcja − wartość rzeczywista)")
-    ax.set_ylabel("Liczba próbek")
-    ax.set_title("Faza 9.4 — PerceivedDifficultyRegressor — Rozkład błędów predykcji")
+               label=f"Obciążenie / bias ({errors.mean():.4f})")
+    ax.set_xlabel("Błąd predykcji (prediction error): predykcja − wartość rzeczywista")
+    ax.set_ylabel("Liczba próbek (count)")
+    ax.set_title("Faza 9.4 — PerceivedDifficultyRegressor — Rozkład błędów predykcji (error distribution)")
     ax.legend()
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "histogram_bledow_trudnosc.png", dpi=150)
@@ -1607,8 +1607,8 @@ def evaluate_skip_reason_model() -> dict:
     macro_f1 = float(f1_score(y_test, y_pred, average="macro", zero_division=0))
     passed = "ZALICZONO" if macro_f1 >= 0.35 else "NIEZALICZONO"
 
-    print(f"Dokładność na zbiorze testowym : {accuracy:.4f}")
-    print(f"Makro miara F1                 : {macro_f1:.4f}  (próg >= 0,35 — {passed})")
+    print(f"Dokładność (accuracy) na zbiorze testowym (test set) : {accuracy:.4f}")
+    print(f"Makro miara F1 (macro F1-score)                      : {macro_f1:.4f}  (próg >= 0,35 — {passed})")
 
     class_names = gen_skip_reason.CLASS_LABELS
     raport_pl = _raport_klasyfikacji_pl(
@@ -1617,7 +1617,7 @@ def evaluate_skip_reason_model() -> dict:
         digits=3,
         zero_division=0,
     )
-    print("\nRaport klasyfikacji na klasę:")
+    print("\nRaport klasyfikacji (classification report) na klasę (per class):")
     print(raport_pl)
 
     # ----- Macierz pomyłek -----
@@ -1693,18 +1693,18 @@ def evaluate_engagement_window_model() -> dict:
         y_test, raw_preds,
         nazwa_zmiennej="godzina następnej sesji [h]"
     )
-    print("\nRaport ewaluacji regresji:")
+    print("\nRaport ewaluacji regresji (regression evaluation report):")
     print(raport_reg_pl)
 
     # ----- Wykres rozrzutu -----
     fig, ax = plt.subplots(figsize=(6, 5))
-    ax.scatter(y_test, raw_preds, alpha=0.15, s=5, label="Próbki testowe")
-    ax.plot([0, 24], [0, 24], linestyle="--", color="gray", label="Idealna predykcja")
+    ax.scatter(y_test, raw_preds, alpha=0.15, s=5, label="Próbki testowe (test samples)")
+    ax.plot([0, 24], [0, 24], linestyle="--", color="gray", label="Idealna predykcja (perfect prediction)")
     ax.set_xlim(-0.5, 24.5)
     ax.set_ylim(-0.5, 24.5)
-    ax.set_xlabel("Rzeczywista godzina kolejnej sesji [h]")
-    ax.set_ylabel("Predykowana godzina kolejnej sesji [h]")
-    ax.set_title("Faza 9.6 — EngagementWindowRegressor — Wartości rzeczywiste vs. predykowane")
+    ax.set_xlabel("Rzeczywista godzina kolejnej sesji (actual next session hour) [h]")
+    ax.set_ylabel("Predykowana godzina kolejnej sesji (predicted) [h]")
+    ax.set_title("Faza 9.6 — EngagementWindowRegressor — Wartości rzeczywiste (actual) vs. predykowane (predicted)")
     ax.legend(loc="upper left")
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "rozrzut_okno_zaangazowania.png", dpi=150)
@@ -1714,12 +1714,12 @@ def evaluate_engagement_window_model() -> dict:
     errors = raw_preds - y_test
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.hist(errors, bins=40, color="steelblue", edgecolor="white", alpha=0.85)
-    ax.axvline(0, color="red", linestyle="--", linewidth=1.5, label="Zero (idealna predykcja)")
+    ax.axvline(0, color="red", linestyle="--", linewidth=1.5, label="Zero (idealna predykcja / perfect prediction)")
     ax.axvline(float(errors.mean()), color="orange", linestyle="--", linewidth=1.5,
-               label=f"Obciążenie ({errors.mean():.4f} h)")
-    ax.set_xlabel("Błąd predykcji [h] (predykcja − wartość rzeczywista)")
-    ax.set_ylabel("Liczba próbek")
-    ax.set_title("Faza 9.6 — EngagementWindowRegressor — Rozkład błędów predykcji")
+               label=f"Obciążenie / bias ({errors.mean():.4f} h)")
+    ax.set_xlabel("Błąd predykcji (prediction error) [h]: predykcja − wartość rzeczywista")
+    ax.set_ylabel("Liczba próbek (count)")
+    ax.set_title("Faza 9.6 — EngagementWindowRegressor — Rozkład błędów predykcji (error distribution)")
     ax.legend()
     fig.tight_layout()
     fig.savefig(PLOTS_DIR_PL / "histogram_bledow_okno_zaangazowania.png", dpi=150)
